@@ -56,6 +56,21 @@ export class StaffController {
         }
     }
 
+    static async undoCancellation(req: AuthRequest, res: Response) {
+        try {
+            const { id } = req.params;
+            const staffId = req.user?.id;
+
+            const order = await OrderService.undoCancellation(id as string, staffId);
+
+            res.json(order);
+        } catch (error) {
+            res.status(400).json({
+                error: error instanceof Error ? error.message : 'Failed to undo cancellation',
+            });
+        }
+    }
+
     static async generateKOT(req: AuthRequest, res: Response) {
         try {
             const { id } = req.params;

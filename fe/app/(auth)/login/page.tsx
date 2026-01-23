@@ -47,9 +47,9 @@ export default function LoginPage() {
             if (response.user.role === 'ADMIN') {
                 console.log('🔀 [Login] Redirecting to /admin');
                 router.push('/admin');
-            } else if (response.user.role === 'STAFF') {
-                console.log('🔀 [Login] Redirecting to /staff');
-                router.push('/staff');
+            } else if (response.user.role === 'MANAGER' || response.user.role === 'EMPLOYEE') {
+                console.log('🔀 [Login] Redirecting to /admin/reports');
+                router.push('/admin/reports');
             } else {
                 console.log('🔀 [Login] Redirecting to /');
                 router.push('/');

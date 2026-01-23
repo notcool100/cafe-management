@@ -54,7 +54,7 @@ async function main() {
             name: 'Staff Member 1',
             email: 'staff1@cafe.com',
             password: staffPassword,
-            role: 'STAFF',
+            role: 'MANAGER',
             branchId: mainBranch.id,
         },
     });
@@ -64,15 +64,15 @@ async function main() {
             name: 'Staff Member 2',
             email: 'staff2@cafe.com',
             password: staffPassword,
-            role: 'STAFF',
+            role: 'MANAGER',
             branchId: suburbanBranch.id,
         },
     });
 
-    console.log(`✅ Created admin and 2 staff members`);
+    console.log(`✅ Created admin and 2 managers`);
     console.log(`   📧 Admin: admin@cafe.com / admin123`);
-    console.log(`   📧 Staff 1: staff1@cafe.com / staff123`);
-    console.log(`   📧 Staff 2: staff2@cafe.com / staff123`);
+    console.log(`   📧 Manager 1: staff1@cafe.com / staff123`);
+    console.log(`   📧 Manager 2: staff2@cafe.com / staff123`);
 
     // Create menu items
     console.log('🍽️  Creating menu items...');

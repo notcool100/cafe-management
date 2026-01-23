@@ -7,13 +7,14 @@ import { LoadingPage } from '@/components/ui/Spinner';
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
-    requiredRole?: 'ADMIN' | 'STAFF' | 'EMPLOYEE';
+    requiredRole?: 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | Array<'ADMIN' | 'MANAGER' | 'EMPLOYEE'>;
 }
 
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
     const router = useRouter();
     const { isAuthenticated, user, accessToken, refreshToken, hasHydrated, setHasHydrated } = useAuthStore();
     const [isLoading, setIsLoading] = useState(true);
+    const allowedRoles = Array.isArray(requiredRole) ? requiredRole : requiredRole ? [requiredRole] : null;
 
     console.log('🔒 [ProtectedRoute] Render:', {
         hasHydrated,
@@ -21,7 +22,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         user: user ? { id: user.id, email: user.email, role: user.role } : null,
         hasAccessToken: !!accessToken,
         hasRefreshToken: !!refreshToken,
-        requiredRole,
+        requiredRole: allowedRoles,
         isLoading
     });
 
@@ -99,9 +100,9 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
 
         console.log('✅ [ProtectedRoute] Authenticated!');
 
-        if (requiredRole && user?.role !== requiredRole) {
+        if (allowedRoles && (!user?.role || !allowedRoles.includes(user.role))) {
             console.log('⚠️ [ProtectedRoute] Role mismatch:', {
-                required: requiredRole,
+                required: allowedRoles,
                 actual: user?.role
             });
 
@@ -109,7 +110,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
             if (user?.role === 'ADMIN') {
                 console.log('🔀 [ProtectedRoute] Redirecting to /admin');
                 router.push('/admin');
-            } else if (user?.role === 'STAFF') {
+            } else if (user?.role === 'MANAGER' || user?.role === 'EMPLOYEE') {
                 console.log('🔀 [ProtectedRoute] Redirecting to /staff');
                 router.push('/staff');
             } else {
@@ -121,7 +122,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
 
         console.log('🎉 [ProtectedRoute] All checks passed, rendering protected content');
         setIsLoading(false);
-    }, [isAuthenticated, user, requiredRole, router, hasHydrated]);
+    }, [isAuthenticated, user, router, hasHydrated, allowedRoles ? allowedRoles.join(',') : '']);
 
     if (!hasHydrated || isLoading) {
         console.log('⌛ [ProtectedRoute] Showing loading page');

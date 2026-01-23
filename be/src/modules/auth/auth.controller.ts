@@ -15,7 +15,7 @@ export class AuthController {
             .withMessage('Password must be at least 6 characters'),
         body('name').notEmpty().withMessage('Name is required'),
         body('role')
-            .isIn(['ADMIN', 'STAFF', 'EMPLOYEE'])
+            .isIn(['ADMIN', 'MANAGER', 'EMPLOYEE'])
             .withMessage('Invalid role'),
     ];
 

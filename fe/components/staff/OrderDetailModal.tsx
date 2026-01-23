@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Order, OrderStatus, OrderItem } from '@/lib/types';
+import { Order, OrderStatus } from '@/lib/types';
 import { orderService } from '@/lib/api/order-service';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
@@ -39,7 +39,13 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
         setIsLoading(true);
         try {
             const data = await orderService.getOrder(id);
-            setOrder(data);
+            setOrder({
+                ...data,
+                items: data.items.map((item) => ({
+                    ...item,
+                    price: typeof item.price === 'number' ? item.price : Number(item.price ?? 0),
+                })),
+            });
             setNewStatus(data.status);
         } catch (error) {
             console.error('Failed to load order:', error);
@@ -69,6 +75,29 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
         } catch (error) {
             setToast({
                 message: 'Failed to update order status',
+                type: 'error',
+                isVisible: true,
+            });
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handleUndoCancellation = async () => {
+        if (!order || order.status !== OrderStatus.CANCELLATION_PENDING) return;
+        setIsUpdating(true);
+        try {
+            await orderService.undoCancellation(order.id);
+            setToast({
+                message: 'Cancellation undone',
+                type: 'success',
+                isVisible: true,
+            });
+            await loadOrder(order.id);
+            if (onUpdate) onUpdate();
+        } catch (error) {
+            setToast({
+                message: 'Unable to undo cancellation (window may have expired)',
                 type: 'error',
                 isVisible: true,
             });
@@ -151,8 +180,9 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                             <Badge variant={
                                 order.status === OrderStatus.READY ? 'success' :
                                     order.status === OrderStatus.COMPLETED ? 'default' :
-                                        order.status === OrderStatus.CANCELLED ? 'danger' :
-                                            'warning'
+                                        order.status === OrderStatus.CANCELLATION_PENDING ? 'warning' :
+                                            order.status === OrderStatus.CANCELLED ? 'danger' :
+                                                'warning'
                             }>
                                 {order.status}
                             </Badge>
@@ -188,9 +218,9 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                                             {item.menuItem?.name || 'Unknown Item'}
                                         </td>
                                         <td className="px-3 py-3 text-center">{item.quantity}</td>
-                                        <td className="px-3 py-3 text-right">${item.price.toFixed(2)}</td>
+                                        <td className="px-3 py-3 text-right">${Number(item.price ?? 0).toFixed(2)}</td>
                                         <td className="px-3 py-3 text-right font-medium text-purple-400">
-                                            ${(item.price * item.quantity).toFixed(2)}
+                                            ${(Number(item.price ?? 0) * item.quantity).toFixed(2)}
                                         </td>
                                     </tr>
                                 ))}
@@ -200,6 +230,12 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
 
                     {/* Footer Actions */}
                     <div className="p-4 bg-gray-800/50 border-t border-gray-700">
+                        {order.status === OrderStatus.CANCELLATION_PENDING && (
+                            <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                                Cancellation is pending for 1 minute. You can undo before it finalizes.
+                            </div>
+                        )}
+
                         <div className="flex justify-between items-center mb-6">
                             <span className="text-gray-400">Total Amount</span>
                             <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
@@ -212,10 +248,12 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                                 <Select
                                     value={newStatus}
                                     onChange={(e) => setNewStatus(e.target.value as OrderStatus)}
-                                    options={Object.values(OrderStatus).map(status => ({
-                                        value: status,
-                                        label: status
-                                    }))}
+                                    options={Object.values(OrderStatus)
+                                        .filter(status => status !== OrderStatus.CANCELLATION_PENDING || status === order.status)
+                                        .map(status => ({
+                                            value: status,
+                                            label: status
+                                        }))}
                                     className="flex-1"
                                 />
                                 <Button
@@ -226,6 +264,18 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                                     Update Status
                                 </Button>
                             </div>
+
+                            {order.status === OrderStatus.CANCELLATION_PENDING && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleUndoCancellation}
+                                    disabled={isUpdating}
+                                    fullWidth
+                                >
+                                    Undo Cancellation
+                                </Button>
+                            )}
 
                             <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-700">
                                 <Button variant="outline" size="sm" onClick={handleGenerateKOT}>

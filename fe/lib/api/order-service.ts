@@ -1,13 +1,21 @@
 import apiClient from './api-client';
 import { Order, CreateOrderData, OrderStatus, OrderFilters } from '../types';
 
-const normalizeOrder = (order: Order): Order => ({
-    ...order,
-    items: order.items ?? [],
-    totalAmount: typeof order.totalAmount === 'number'
+const normalizeOrder = (order: Order): Order => {
+    const items = ((order as any).items ?? (order as any).orderItems ?? []).map((item: any) => ({
+        ...item,
+        price: typeof item.price === 'number' ? item.price : Number(item.price ?? 0),
+    }));
+    const totalAmount = typeof order.totalAmount === 'number'
         ? order.totalAmount
-        : Number(order.totalAmount ?? 0),
-});
+        : Number(order.totalAmount ?? 0);
+
+    return {
+        ...order,
+        items,
+        totalAmount,
+    };
+};
 
 const normalizeOrders = (orders: Order[]): Order[] => orders.map(normalizeOrder);
 
@@ -28,6 +36,8 @@ export const orderService = {
         if (filters?.status) params.append('status', filters.status);
         if (filters?.branchId) params.append('branchId', filters.branchId);
         if (filters?.search) params.append('search', filters.search);
+        if (filters?.startDate) params.append('startDate', filters.startDate);
+        if (filters?.endDate) params.append('endDate', filters.endDate);
 
         const response = await apiClient.get<Order[]>(`/orders?${params.toString()}`);
         return normalizeOrders(response.data);
@@ -51,6 +61,11 @@ export const orderService = {
 
     async completeOrder(id: string): Promise<Order> {
         const response = await apiClient.put<Order>(`/staff/orders/${id}/complete`);
+        return normalizeOrder(response.data);
+    },
+
+    async undoCancellation(id: string): Promise<Order> {
+        const response = await apiClient.put<Order>(`/staff/orders/${id}/undo-cancel`);
         return normalizeOrder(response.data);
     },
 

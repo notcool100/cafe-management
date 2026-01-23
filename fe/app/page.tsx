@@ -14,8 +14,8 @@ export default function HomePage() {
       router.push('/login');
     } else if (user?.role === 'ADMIN') {
       router.push('/admin');
-    } else if (user?.role === 'STAFF') {
-      router.push('/staff');
+    } else if (user?.role === 'MANAGER' || user?.role === 'EMPLOYEE') {
+      router.push('/admin/reports');
     }
   }, [isAuthenticated, user, router]);
 

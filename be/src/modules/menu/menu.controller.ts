@@ -4,6 +4,10 @@ import { MenuService } from './menu.service';
 import { body, validationResult } from 'express-validator';
 import { getBranchUploadDirName } from '../../middleware/upload';
 
+const isManager = (req: AuthRequest) =>
+    req.user?.role === 'MANAGER' || req.user?.role === 'EMPLOYEE';
+const managerBranchId = (req: AuthRequest) => req.user?.branchId;
+
 export class MenuController {
     static createMenuItemValidation = [
         body('name').notEmpty().withMessage('Name is required'),
@@ -19,6 +23,14 @@ export class MenuController {
             }
 
             const { name, description, price, category, branchId } = req.body;
+            if (isManager(req)) {
+                if (!managerBranchId(req)) {
+                    return res.status(400).json({ error: 'Manager is not assigned to a branch' });
+                }
+                if (branchId !== managerBranchId(req)) {
+                    return res.status(403).json({ error: 'Managers can only add items for their branch' });
+                }
+            }
             const file = (req as AuthRequest & { file?: Express.Multer.File }).file;
             const branchDirName = getBranchUploadDirName(branchId);
             const imageUrl = file ? `/uploads/${branchDirName}/${file.filename}` : undefined;
@@ -42,8 +54,12 @@ export class MenuController {
     static async listMenuItems(req: AuthRequest, res: Response) {
         try {
             const { branchId, category } = req.query;
+            if (isManager(req) && managerBranchId(req) && branchId && branchId !== managerBranchId(req)) {
+                return res.status(403).json({ error: 'Forbidden: Not your branch' });
+            }
+            const effectiveBranchId = isManager(req) ? managerBranchId(req) : (branchId as string | undefined);
             const menuItems = await MenuService.listMenuItems(
-                branchId as string,
+                effectiveBranchId,
                 category as string
             );
 
@@ -73,6 +89,18 @@ export class MenuController {
             const { id } = req.params;
             const { name, description, price, category, branchId } = req.body;
             const file = (req as AuthRequest & { file?: Express.Multer.File }).file;
+            if (isManager(req)) {
+                if (!managerBranchId(req)) {
+                    return res.status(400).json({ error: 'Manager is not assigned to a branch' });
+                }
+                if (branchId && branchId !== managerBranchId(req)) {
+                    return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                }
+                const existing = await MenuService.getMenuItem(id as string);
+                if (existing.branchId !== managerBranchId(req)) {
+                    return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                }
+            }
             const branchDirName = getBranchUploadDirName(branchId);
             const imageUrl = file ? `/uploads/${branchDirName}/${file.filename}` : undefined;
             const isAvailableRaw = req.body.isAvailable ?? req.body.available;
@@ -99,6 +127,15 @@ export class MenuController {
     static async deleteMenuItem(req: AuthRequest, res: Response) {
         try {
             const { id } = req.params;
+            if (isManager(req)) {
+                if (!managerBranchId(req)) {
+                    return res.status(400).json({ error: 'Manager is not assigned to a branch' });
+                }
+                const existing = await MenuService.getMenuItem(id as string);
+                if (existing.branchId !== managerBranchId(req)) {
+                    return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                }
+            }
             const result = await MenuService.deleteMenuItem(id as string);
 
             res.json(result);

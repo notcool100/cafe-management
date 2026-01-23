@@ -1,12 +1,14 @@
 import prisma from '../../config/database';
+import { OrderService } from '../order/order.service';
 
 export class StaffService {
     static async getActiveOrders(branchId?: string) {
+        await OrderService.finalizeExpiredCancellations();
         const orders = await prisma.order.findMany({
             where: {
                 ...(branchId && { branchId }),
                 status: {
-                    in: ['PENDING', 'PREPARING', 'READY'],
+                    in: ['PENDING', 'PREPARING', 'READY', 'CANCELLATION_PENDING'],
                 },
             },
             include: {
@@ -24,6 +26,7 @@ export class StaffService {
     }
 
     static async getOrdersByStatus(branchId: string, status: string) {
+        await OrderService.finalizeExpiredCancellations();
         const orders = await prisma.order.findMany({
             where: {
                 branchId,

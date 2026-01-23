@@ -1,15 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth-store';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { cn } from '@/lib/utils/cn';
+import { UserRole } from '@/lib/types';
 
 const navigation = [
     { name: 'Dashboard', href: '/admin', icon: HomeIcon },
+    { name: 'Reports', href: '/admin/reports', icon: ChartIcon },
+    { name: 'Orders', href: '/admin/orders', icon: ClipboardIcon },
     { name: 'Employees', href: '/admin/employees', icon: UsersIcon },
     { name: 'Branches', href: '/admin/branches', icon: BuildingIcon },
     { name: 'Menu Items', href: '/admin/menu', icon: MenuIcon },
@@ -20,14 +23,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const router = useRouter();
     const { user, logout } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const isStaffManager = user?.role === UserRole.MANAGER || user?.role === UserRole.EMPLOYEE;
+    const staffAllowed = ['/admin/reports', '/admin/orders', '/admin/employees', '/admin/menu'];
+    const visibleNavigation = isStaffManager
+        ? navigation.filter((item) => staffAllowed.includes(item.href))
+        : navigation;
 
     const handleLogout = () => {
         logout();
         router.push('/login');
     };
 
+    useEffect(() => {
+        if (isStaffManager) {
+            const allowedPrefixes = staffAllowed;
+            const isAllowed = allowedPrefixes.some((prefix) => pathname.startsWith(prefix));
+            if (!isAllowed) {
+                router.replace('/admin/reports');
+            }
+        }
+    }, [isStaffManager, pathname, router]);
+
     return (
-        <ProtectedRoute requiredRole="ADMIN">
+        <ProtectedRoute requiredRole={['ADMIN', 'MANAGER']}>
             <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
                 {/* Sidebar for desktop - Fixed position */}
                 <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:flex lg:flex-col lg:z-50">
@@ -43,7 +61,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                         {/* Navigation */}
                         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
-                            {navigation.map((item) => {
+                            {visibleNavigation.map((item) => {
                                 const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
                                 const Icon = item.icon;
 
@@ -155,6 +173,22 @@ function MenuIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+    );
+}
+
+function ChartIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6m4 6V7m4 10V9m-9 8H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v12a2 2 0 01-2 2h-1" />
+        </svg>
+    );
+}
+
+function ClipboardIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5h6m-4 4h4m-7 4h7m-9 4h9a2 2 0 002-2V7a2 2 0 00-2-2h-1.5a1.5 1.5 0 01-3 0H9a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
     );
 }

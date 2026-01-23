@@ -2,6 +2,22 @@ import prisma from '../../config/database';
 import { TokenManager } from '../../utils/token';
 
 export class OrderService {
+    private static CANCELLATION_GRACE_MS = 60_000; // 1 minute
+
+    static async finalizeExpiredCancellations() {
+        const now = new Date();
+        await prisma.order.updateMany({
+            where: {
+                status: 'CANCELLATION_PENDING',
+                cancellationExpiresAt: { lte: now },
+            },
+            data: {
+                status: 'CANCELLED',
+                cancellationFinalizedAt: now,
+            },
+        });
+    }
+
     static async createOrder(data: {
         branchId: string;
         items: Array<{ menuItemId: string; quantity: number }>;
@@ -69,6 +85,8 @@ export class OrderService {
     }
 
     static async getOrder(id: string) {
+        await this.finalizeExpiredCancellations();
+
         const order = await prisma.order.findUnique({
             where: { id },
             include: {
@@ -94,6 +112,8 @@ export class OrderService {
         startDate?: Date;
         endDate?: Date;
     }) {
+        await this.finalizeExpiredCancellations();
+
         const orders = await prisma.order.findMany({
             where: {
                 ...(filters.branchId && { branchId: filters.branchId }),
@@ -122,9 +142,13 @@ export class OrderService {
 
     static async updateOrderStatus(
         id: string,
-        status: 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED',
+        status: 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED' | 'CANCELLATION_PENDING',
         completedBy?: string
     ) {
+        if (status === 'CANCELLED') {
+            return this.requestCancellation(id, completedBy);
+        }
+
         const order = await prisma.order.update({
             where: { id },
             data: {
@@ -132,6 +156,13 @@ export class OrderService {
                 ...(status === 'COMPLETED' && {
                     completedAt: new Date(),
                     completedBy,
+                }),
+                ...(status !== 'CANCELLATION_PENDING' && {
+                    cancellationRequestedAt: null,
+                    cancellationRequestedBy: null,
+                    cancellationExpiresAt: null,
+                    cancellationPreviousStatus: null,
+                    cancellationFinalizedAt: null,
                 }),
             },
             include: {
@@ -145,5 +176,82 @@ export class OrderService {
         });
 
         return order;
+    }
+
+    static async requestCancellation(orderId: string, userId?: string) {
+        const existing = await prisma.order.findUnique({
+            where: { id: orderId },
+            select: { status: true },
+        });
+
+        if (!existing) {
+            throw new Error('Order not found');
+        }
+
+        if (existing.status === 'CANCELLED') {
+            throw new Error('Order already cancelled');
+        }
+
+        const expiresAt = new Date(Date.now() + this.CANCELLATION_GRACE_MS);
+
+        return prisma.order.update({
+            where: { id: orderId },
+            data: {
+                status: 'CANCELLATION_PENDING',
+                cancellationRequestedAt: new Date(),
+                cancellationRequestedBy: userId,
+                cancellationExpiresAt: expiresAt,
+                cancellationPreviousStatus: existing.status as any,
+            },
+            include: {
+                orderItems: { include: { menuItem: true } },
+                branch: true,
+            },
+        });
+    }
+
+    static async undoCancellation(orderId: string, userId?: string) {
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+        });
+
+        if (!order) {
+            throw new Error('Order not found');
+        }
+
+        if (order.status !== 'CANCELLATION_PENDING') {
+            throw new Error('No pending cancellation to undo');
+        }
+
+        const now = new Date();
+        if (order.cancellationExpiresAt && order.cancellationExpiresAt <= now) {
+            // finalize immediately
+            await prisma.order.update({
+                where: { id: orderId },
+                data: {
+                    status: 'CANCELLED',
+                    cancellationFinalizedAt: now,
+                },
+            });
+            throw new Error('Cancellation already finalized');
+        }
+
+        const previousStatus = order.cancellationPreviousStatus || 'PENDING';
+
+        return prisma.order.update({
+            where: { id: orderId },
+            data: {
+                status: previousStatus,
+                cancellationRequestedAt: null,
+                cancellationRequestedBy: null,
+                cancellationExpiresAt: null,
+                cancellationPreviousStatus: null,
+                cancellationFinalizedAt: null,
+            },
+            include: {
+                orderItems: { include: { menuItem: true } },
+                branch: true,
+            },
+        });
     }
 }

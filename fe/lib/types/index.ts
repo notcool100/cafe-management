@@ -1,7 +1,7 @@
 // User and Authentication Types
 export enum UserRole {
     ADMIN = 'ADMIN',
-    STAFF = 'STAFF',
+    MANAGER = 'MANAGER',
     EMPLOYEE = 'EMPLOYEE'
 }
 
@@ -11,6 +11,7 @@ export interface User {
     email: string;
     role: UserRole;
     branchId?: string;
+    branch?: Branch;
     createdAt: string;
     updatedAt: string;
 }
@@ -96,7 +97,8 @@ export enum OrderStatus {
     PREPARING = 'PREPARING',
     READY = 'READY',
     COMPLETED = 'COMPLETED',
-    CANCELLED = 'CANCELLED'
+    CANCELLED = 'CANCELLED',
+    CANCELLATION_PENDING = 'CANCELLATION_PENDING'
 }
 
 export interface OrderItem {
@@ -121,6 +123,10 @@ export interface Order {
     items: OrderItem[];
     createdAt: string;
     updatedAt: string;
+    cancellationRequestedAt?: string;
+    cancellationExpiresAt?: string;
+    cancellationRequestedBy?: string;
+    cancellationFinalizedAt?: string;
 }
 
 export interface CreateOrderData {
@@ -171,4 +177,59 @@ export interface OrderFilters {
     search?: string;
     startDate?: string;
     endDate?: string;
+}
+
+// Reporting Types
+export interface ReportTotals {
+    totalSales: number;
+    netSales: number;
+    cancellationLoss: number;
+    totalOrders: number;
+    completedOrders: number;
+    cancelledOrders: number;
+    averageOrderValue: number;
+}
+
+export interface BranchReport {
+    branchId: string;
+    branchName: string;
+    location: string;
+    totalOrders: number;
+    completedOrders: number;
+    totalSales: number;
+    cancellationLoss: number;
+    cancelledOrders: number;
+    netSales: number;
+    averageOrderValue: number;
+}
+
+export interface TopItemReport {
+    menuItemId: string;
+    name: string;
+    quantity: number;
+    revenue: number;
+}
+
+export interface TrendPoint {
+    date: string;
+    sales: number;
+    orders: number;
+}
+
+export interface ReportOverview {
+    filters: {
+        branchId: string | null;
+        startDate: string;
+        endDate: string;
+    };
+    totals: ReportTotals;
+    statusBreakdown: Record<OrderStatus, number>;
+    branchBreakdown: BranchReport[];
+    topItems: TopItemReport[];
+    branchTopItems: {
+        branchId: string;
+        branchName: string;
+        items: TopItemReport[];
+    }[];
+    dailyTrend: TrendPoint[];
 }

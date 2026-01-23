@@ -25,7 +25,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     };
 
     return (
-        <ProtectedRoute requiredRole="STAFF">
+        <ProtectedRoute requiredRole={['MANAGER', 'EMPLOYEE', 'ADMIN']}>
             <div className="min-h-screen bg-gray-950">
                 {/* Sidebar for desktop */}
                 <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
@@ -33,7 +33,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                         {/* Logo */}
                         <div className="flex items-center flex-shrink-0 px-6 mb-8">
                             <h1 className="text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
-                                Staff Portal
+                                Manager Portal
                             </h1>
                         </div>
 
@@ -99,7 +99,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                     <div className="sticky top-0 z-10 lg:hidden bg-gray-900 border-b border-gray-800 px-4 py-3">
                         <div className="flex items-center justify-between">
                             <h1 className="text-lg font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
-                                Staff Portal
+                                Manager Portal
                             </h1>
                             <button
                                 type="button"

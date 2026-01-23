@@ -9,7 +9,7 @@ export class AuthService {
             include: { branch: true },
         });
 
-        if (!user) {
+        if (!user || !user.isActive) {
             throw new Error('Invalid credentials');
         }
 
@@ -39,7 +39,7 @@ export class AuthService {
         email: string;
         password: string;
         name: string;
-        role: 'ADMIN' | 'STAFF' | 'EMPLOYEE';
+        role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
         branchId?: string;
     }) {
         const existingUser = await prisma.user.findUnique({

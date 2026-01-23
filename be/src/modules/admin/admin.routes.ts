@@ -5,19 +5,30 @@ import { requireRole } from '../../middleware/rbac';
 
 const router = Router();
 
-// All admin routes require authentication and ADMIN role
+// All admin routes require authentication
 router.use(authenticate);
-router.use(requireRole('ADMIN'));
+
+// Reports (accessible to admins and managers/staff)
+router.get(
+    '/reports/overview',
+    requireRole('ADMIN', 'MANAGER'),
+    AdminController.getReportOverview
+);
 
 // Employee Management
 router.post(
     '/employees',
+    requireRole('ADMIN', 'MANAGER'),
     AdminController.createEmployeeValidation,
     AdminController.createEmployee
 );
-router.get('/employees', AdminController.listEmployees);
-router.put('/employees/:id', AdminController.updateEmployee);
-router.delete('/employees/:id', AdminController.deleteEmployee);
+router.get('/employees', requireRole('ADMIN', 'MANAGER'), AdminController.listEmployees);
+router.get('/employees/:id', requireRole('ADMIN', 'MANAGER'), AdminController.getEmployee);
+router.put('/employees/:id', requireRole('ADMIN', 'MANAGER'), AdminController.updateEmployee);
+router.delete('/employees/:id', requireRole('ADMIN', 'MANAGER'), AdminController.deleteEmployee);
+
+// Everything below requires admin-only permissions
+router.use(requireRole('ADMIN'));
 
 // Branch Management
 router.post(
