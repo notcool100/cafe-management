@@ -1,0 +1,110 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      UserRole
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  refreshToken String?
+
+  @@index([email])
+  @@index([branchId])
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+  EMPLOYEE
+}
+
+model Branch {
+  id              String     @id @default(uuid())
+  name            String
+  location        String
+  hasTokenSystem  Boolean    @default(false)
+  maxTokenNumber  Int?
+  currentToken    Int        @default(0)
+  lastTokenReset  DateTime   @default(now())
+  qrCode          String?    @db.Text
+  users           User[]
+  menuItems       MenuItem[]
+  orders          Order[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model MenuItem {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  price       Decimal     @db.Decimal(10, 2)
+  category    String?
+  imageUrl    String?
+  isAvailable Boolean     @default(true)
+  branchId    String
+  branch      Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  orderItems  OrderItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([branchId])
+  @@index([category])
+}
+
+model Order {
+  id            String      @id @default(uuid())
+  tokenNumber   Int?
+  branchId      String
+  branch        Branch      @relation(fields: [branchId], references: [id])
+  status        OrderStatus @default(PENDING)
+  orderItems    OrderItem[]
+  totalAmount   Decimal     @db.Decimal(10, 2)
+  customerName  String?
+  customerPhone String?
+  completedBy   String?
+  createdAt     DateTime    @default(now())
+  completedAt   DateTime?
+  updatedAt     DateTime    @updatedAt
+
+  @@index([branchId])
+  @@index([status])
+  @@index([tokenNumber])
+  @@index([createdAt])
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  quantity   Int
+  price      Decimal  @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
+
+  @@index([orderId])
+  @@index([menuItemId])
+}
