@@ -19,7 +19,7 @@ interface AuthState {
 
     // Computed values
     isAdmin: () => boolean;
-    isStaff: () => boolean;
+    isManager: () => boolean;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -103,9 +103,9 @@ export const useAuthStore = create<AuthState>()(
                 return user?.role === UserRole.ADMIN;
             },
 
-            isStaff: () => {
+            isManager: () => {
                 const { user } = get();
-                return user?.role === UserRole.STAFF;
+                return user?.role === UserRole.MANAGER;
             },
         }),
         {

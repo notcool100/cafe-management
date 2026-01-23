@@ -25,7 +25,7 @@ export default function RegisterPage() {
     } = useForm<RegisterFormData>({
         resolver: zodResolver(registerSchema),
         defaultValues: {
-            role: UserRole.STAFF,
+            role: UserRole.MANAGER,
         },
     });
 
@@ -40,8 +40,8 @@ export default function RegisterPage() {
             // Redirect based on role
             if (response.user.role === 'ADMIN') {
                 router.push('/admin');
-            } else if (response.user.role === 'STAFF') {
-                router.push('/staff');
+            } else if (response.user.role === 'MANAGER' || response.user.role === 'EMPLOYEE') {
+                router.push('/admin/reports');
             } else {
                 router.push('/');
             }
@@ -111,7 +111,7 @@ export default function RegisterPage() {
                                 className="w-full rounded-lg border border-gray-700 bg-gray-900/50 px-4 py-3 text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:border-purple-500 focus:ring-purple-500/30"
                             >
                                 <option value={UserRole.ADMIN}>Admin</option>
-                                <option value={UserRole.STAFF}>Staff</option>
+                                <option value={UserRole.MANAGER}>Manager</option>
                                 <option value={UserRole.EMPLOYEE}>Employee</option>
                             </select>
                             {errors.role && (

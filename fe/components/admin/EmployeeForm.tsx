@@ -107,7 +107,7 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
                     error={errors.role?.message}
                     options={[
                         { value: UserRole.EMPLOYEE, label: 'Employee' },
-                        { value: UserRole.STAFF, label: 'Staff' },
+                        { value: UserRole.MANAGER, label: 'Manager' },
                         { value: UserRole.ADMIN, label: 'Admin' },
                     ]}
                 />
