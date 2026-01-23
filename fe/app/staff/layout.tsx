@@ -25,7 +25,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     };
 
     return (
-        <ProtectedRoute requiredRole={['MANAGER', 'EMPLOYEE', 'ADMIN']}>
+        <ProtectedRoute requiredRole={['MANAGER', 'EMPLOYEE', 'ADMIN', 'SUPER_ADMIN']}>
             <div className="min-h-screen bg-gray-950">
                 {/* Sidebar for desktop */}
                 <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">

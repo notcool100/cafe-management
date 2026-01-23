@@ -1,14 +1,29 @@
 import prisma from '../../config/database';
+import { assertMenuItemEntitlement } from '../../utils/entitlements';
 
 export class MenuService {
-    static async createMenuItem(data: {
-        name: string;
-        description?: string;
-        price: number;
-        category?: string;
-        imageUrl?: string;
-        branchId: string;
-    }) {
+    static async createMenuItem(
+        data: {
+            name: string;
+            description?: string;
+            price: number;
+            category?: string;
+            imageUrl?: string;
+            branchId: string;
+        },
+        tenantId?: string
+    ) {
+        const branch = await prisma.branch.findFirst({
+            where: { id: data.branchId, ...(tenantId ? { tenantId } : {}) },
+            select: { tenantId: true, isActive: true },
+        });
+
+        if (!branch || !branch.isActive) {
+            throw new Error('Branch not found for this tenant');
+        }
+
+        await assertMenuItemEntitlement(branch.tenantId);
+
         const menuItem = await prisma.menuItem.create({
             data: {
                 name: data.name,
@@ -17,6 +32,7 @@ export class MenuService {
                 category: data.category,
                 imageUrl: data.imageUrl,
                 branchId: data.branchId,
+                tenantId: branch.tenantId,
             },
             include: { branch: true },
         });
@@ -24,9 +40,10 @@ export class MenuService {
         return normalizeMenuItem(menuItem);
     }
 
-    static async listMenuItems(branchId?: string, category?: string) {
+    static async listMenuItems(branchId?: string, category?: string, tenantId?: string) {
         const menuItems = await prisma.menuItem.findMany({
             where: {
+                ...(tenantId ? { tenantId } : {}),
                 ...(branchId && { branchId }),
                 ...(category && { category }),
             },
@@ -37,9 +54,9 @@ export class MenuService {
         return menuItems.map(normalizeMenuItem);
     }
 
-    static async getMenuItem(id: string) {
-        const menuItem = await prisma.menuItem.findUnique({
-            where: { id },
+    static async getMenuItem(id: string, tenantId?: string) {
+        const menuItem = await prisma.menuItem.findFirst({
+            where: { id, ...(tenantId ? { tenantId } : {}) },
             include: { branch: true },
         });
 
@@ -59,8 +76,18 @@ export class MenuService {
             category?: string;
             imageUrl?: string;
             isAvailable?: boolean;
-        }
+        },
+        tenantId?: string
     ) {
+        const existing = await prisma.menuItem.findFirst({
+            where: { id, ...(tenantId ? { tenantId } : {}) },
+            select: { tenantId: true },
+        });
+
+        if (!existing) {
+            throw new Error('Menu item not found');
+        }
+
         const menuItem = await prisma.menuItem.update({
             where: { id },
             data,
@@ -70,7 +97,16 @@ export class MenuService {
         return normalizeMenuItem(menuItem);
     }
 
-    static async deleteMenuItem(id: string) {
+    static async deleteMenuItem(id: string, tenantId?: string) {
+        const existing = await prisma.menuItem.findFirst({
+            where: { id, ...(tenantId ? { tenantId } : {}) },
+            select: { id: true },
+        });
+
+        if (!existing) {
+            throw new Error('Menu item not found');
+        }
+
         await prisma.menuItem.delete({
             where: { id },
         });

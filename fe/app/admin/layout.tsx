@@ -45,7 +45,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }, [isStaffManager, pathname, router]);
 
     return (
-        <ProtectedRoute requiredRole={['ADMIN', 'MANAGER']}>
+        <ProtectedRoute requiredRole={['ADMIN', 'MANAGER', 'SUPER_ADMIN']}>
             <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
                 {/* Sidebar for desktop - Fixed position */}
                 <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:flex lg:flex-col lg:z-50">

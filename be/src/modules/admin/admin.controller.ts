@@ -40,12 +40,16 @@ export class AdminController {
                     return res.status(403).json({ error: 'Managers can only create users in their branch' });
                 }
             }
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
             const employee = await AdminService.createEmployee({
                 email,
                 password,
                 name,
                 role,
                 branchId: isManager(req) ? managerBranchId(req) : branchId,
+                tenantId: req.user.tenantId,
             });
 
             res.status(201).json(employee);
@@ -59,10 +63,13 @@ export class AdminController {
     static async listEmployees(req: AuthRequest, res: Response) {
         try {
             const { branchId } = req.query;
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
             const effectiveBranchId = isManager(req)
                 ? managerBranchId(req)
                 : (branchId as string | undefined);
-            const employees = await AdminService.listEmployees(effectiveBranchId);
+            const employees = await AdminService.listEmployees(req.user.tenantId, effectiveBranchId);
 
             res.json(employees);
         } catch (error) {
@@ -75,7 +82,10 @@ export class AdminController {
     static async getEmployee(req: AuthRequest, res: Response) {
         try {
             const { id } = req.params;
-            const employee = await AdminService.getEmployee(id as string);
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
+            const employee = await AdminService.getEmployee(id as string, req.user.tenantId);
             if (isManager(req) && managerBranchId(req) && employee.branchId !== managerBranchId(req)) {
                 return res.status(403).json({ error: 'Forbidden: Not your branch' });
             }
@@ -91,6 +101,9 @@ export class AdminController {
         try {
             const { id } = req.params;
             const { name, role, branchId } = req.body;
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
 
             if (isManager(req)) {
                 if (role === 'ADMIN') {
@@ -99,17 +112,21 @@ export class AdminController {
                 if (branchId && branchId !== managerBranchId(req)) {
                     return res.status(403).json({ error: 'Managers can only reassign within their branch' });
                 }
-                const employee = await AdminService.getEmployee(id as string);
+                const employee = await AdminService.getEmployee(id as string, req.user.tenantId);
                 if (employee.branchId && employee.branchId !== managerBranchId(req)) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
             }
 
-            const employee = await AdminService.updateEmployee(id as string, {
+            const employee = await AdminService.updateEmployee(
+                id as string,
+                req.user.tenantId,
+                {
                 name,
                 role,
                 branchId: isManager(req) ? managerBranchId(req) : branchId,
-            });
+                }
+            );
 
             res.json(employee);
         } catch (error) {
@@ -122,8 +139,11 @@ export class AdminController {
     static async deleteEmployee(req: AuthRequest, res: Response) {
         try {
             const { id } = req.params;
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
             if (isManager(req)) {
-                const employee = await AdminService.getEmployee(id as string);
+                const employee = await AdminService.getEmployee(id as string, req.user.tenantId);
                 if (employee.branchId && employee.branchId !== managerBranchId(req)) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
@@ -131,7 +151,7 @@ export class AdminController {
                     return res.status(403).json({ error: 'Managers cannot remove admins' });
                 }
             }
-            const result = await AdminService.deleteEmployee(id as string);
+            const result = await AdminService.deleteEmployee(id as string, req.user.tenantId);
 
             res.json(result);
         } catch (error) {
@@ -187,6 +207,9 @@ export class AdminController {
                 tokenSystemEnabled,
                 tokenRangeEnd,
             } = req.body;
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
 
             const resolvedHasTokenSystem =
                 typeof hasTokenSystem === 'boolean' ? hasTokenSystem : tokenSystemEnabled;
@@ -199,6 +222,7 @@ export class AdminController {
                 location,
                 hasTokenSystem: resolvedHasTokenSystem,
                 maxTokenNumber: parsedMaxTokenNumber,
+                tenantId: req.user.tenantId,
             });
 
             res.status(201).json(branch);
@@ -211,7 +235,10 @@ export class AdminController {
 
     static async listBranches(req: AuthRequest, res: Response) {
         try {
-            const branches = await AdminService.listBranches();
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
+            const branches = await AdminService.listBranches(req.user.tenantId);
             res.json(branches);
         } catch (error) {
             res.status(500).json({
@@ -223,7 +250,10 @@ export class AdminController {
     static async getBranch(req: AuthRequest, res: Response) {
         try {
             const { id } = req.params;
-            const branch = await AdminService.getBranch(id as string);
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
+            const branch = await AdminService.getBranch(id as string, req.user.tenantId);
             res.json(branch);
         } catch (error) {
             res.status(404).json({
@@ -243,6 +273,9 @@ export class AdminController {
                 tokenSystemEnabled,
                 tokenRangeEnd,
             } = req.body;
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
 
             const resolvedHasTokenSystem =
                 typeof hasTokenSystem === 'boolean' ? hasTokenSystem : tokenSystemEnabled;
@@ -250,12 +283,16 @@ export class AdminController {
             const parsedMaxTokenNumber =
                 resolvedMaxTokenNumber === undefined ? undefined : Number(resolvedMaxTokenNumber);
 
-            const branch = await AdminService.updateBranch(id as string, {
-                name,
-                location,
-                hasTokenSystem: resolvedHasTokenSystem,
-                maxTokenNumber: parsedMaxTokenNumber,
-            });
+            const branch = await AdminService.updateBranch(
+                id as string,
+                req.user.tenantId,
+                {
+                    name,
+                    location,
+                    hasTokenSystem: resolvedHasTokenSystem,
+                    maxTokenNumber: parsedMaxTokenNumber,
+                }
+            );
 
             res.json(branch);
         } catch (error) {
@@ -268,7 +305,10 @@ export class AdminController {
     static async deleteBranch(req: AuthRequest, res: Response) {
         try {
             const { id } = req.params;
-            const result = await AdminService.deleteBranch(id as string);
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
+            const result = await AdminService.deleteBranch(id as string, req.user.tenantId);
             res.json(result);
         } catch (error) {
             res.status(400).json({
@@ -280,6 +320,9 @@ export class AdminController {
     static async getReportOverview(req: AuthRequest, res: Response) {
         try {
             const { branchId, startDate, endDate } = req.query;
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
 
             const parsedEndDate = endDate ? new Date(endDate as string) : new Date();
             const parsedStartDate = startDate
@@ -317,6 +360,7 @@ export class AdminController {
                 branchId: isStaffManager ? req.user?.branchId : resolvedBranchId,
                 startDate: parsedStartDate,
                 endDate: parsedEndDate,
+                tenantId: req.user.tenantId,
             });
 
             res.json(report);

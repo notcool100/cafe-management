@@ -15,8 +15,9 @@ export class AuthController {
             .withMessage('Password must be at least 6 characters'),
         body('name').notEmpty().withMessage('Name is required'),
         body('role')
-            .isIn(['ADMIN', 'MANAGER', 'EMPLOYEE'])
+            .isIn(['ADMIN', 'MANAGER', 'EMPLOYEE', 'SUPER_ADMIN'])
             .withMessage('Invalid role'),
+        body('tenantId').optional().isUUID().withMessage('Invalid tenant'),
     ];
 
     static async login(req: Request, res: Response) {
@@ -44,13 +45,14 @@ export class AuthController {
                 return res.status(400).json({ errors: errors.array() });
             }
 
-            const { email, password, name, role, branchId } = req.body;
+            const { email, password, name, role, branchId, tenantId } = req.body;
             const result = await AuthService.register({
                 email,
                 password,
                 name,
                 role,
                 branchId,
+                tenantId,
             });
 
             res.status(201).json(result);

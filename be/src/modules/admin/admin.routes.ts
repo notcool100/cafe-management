@@ -11,24 +11,24 @@ router.use(authenticate);
 // Reports (accessible to admins and managers/staff)
 router.get(
     '/reports/overview',
-    requireRole('ADMIN', 'MANAGER'),
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
     AdminController.getReportOverview
 );
 
 // Employee Management
 router.post(
     '/employees',
-    requireRole('ADMIN', 'MANAGER'),
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
     AdminController.createEmployeeValidation,
     AdminController.createEmployee
 );
-router.get('/employees', requireRole('ADMIN', 'MANAGER'), AdminController.listEmployees);
-router.get('/employees/:id', requireRole('ADMIN', 'MANAGER'), AdminController.getEmployee);
-router.put('/employees/:id', requireRole('ADMIN', 'MANAGER'), AdminController.updateEmployee);
-router.delete('/employees/:id', requireRole('ADMIN', 'MANAGER'), AdminController.deleteEmployee);
+router.get('/employees', requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'), AdminController.listEmployees);
+router.get('/employees/:id', requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'), AdminController.getEmployee);
+router.put('/employees/:id', requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'), AdminController.updateEmployee);
+router.delete('/employees/:id', requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'), AdminController.deleteEmployee);
 
 // Everything below requires admin-only permissions
-router.use(requireRole('ADMIN'));
+router.use(requireRole('ADMIN', 'SUPER_ADMIN'));
 
 // Branch Management
 router.post(

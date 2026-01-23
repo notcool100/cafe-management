@@ -1,15 +1,34 @@
 import prisma from '../../config/database';
 import bcrypt from 'bcryptjs';
 import { generateBranchQR } from '../../utils/qrcode';
+import { assertBranchEntitlement, assertSeatEntitlement } from '../../utils/entitlements';
 
 export class AdminService {
     static async createEmployee(data: {
         email: string;
         password: string;
         name: string;
-        role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+        role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | 'SUPER_ADMIN';
         branchId?: string;
+        tenantId: string;
     }) {
+        if (!data.tenantId) {
+            throw new Error('Tenant is required to create an employee');
+        }
+
+        await assertSeatEntitlement(data.tenantId);
+
+        if (data.branchId) {
+            const branch = await prisma.branch.findUnique({
+                where: { id: data.branchId, tenantId: data.tenantId },
+                select: { id: true },
+            });
+
+            if (!branch) {
+                throw new Error('Branch not found for this tenant');
+            }
+        }
+
         const existingUser = await prisma.user.findUnique({
             where: { email: data.email },
         });
@@ -25,7 +44,7 @@ export class AdminService {
                 ...data,
                 password: hashedPassword,
             },
-            include: { branch: true },
+            include: { branch: true, tenant: true },
         });
 
         return {
@@ -35,17 +54,19 @@ export class AdminService {
             role: user.role,
             branchId: user.branchId,
             branch: user.branch,
+            tenantId: user.tenantId,
             createdAt: user.createdAt,
         };
     }
 
-    static async listEmployees(branchId?: string) {
+    static async listEmployees(tenantId: string, branchId?: string) {
         const users = await prisma.user.findMany({
             where: {
+                tenantId,
                 isActive: true,
                 ...(branchId ? { branchId } : {}),
             },
-            include: { branch: true },
+            include: { branch: true, tenant: true },
             orderBy: { createdAt: 'desc' },
         });
 
@@ -56,17 +77,19 @@ export class AdminService {
             role: user.role,
             branchId: user.branchId,
             branch: user.branch,
+            tenantId: user.tenantId,
             createdAt: user.createdAt,
         }));
     }
 
-    static async getEmployee(id: string) {
+    static async getEmployee(id: string, tenantId: string) {
         const user = await prisma.user.findFirst({
             where: {
                 id,
                 isActive: true,
+                tenantId,
             },
-            include: { branch: true },
+            include: { branch: true, tenant: true },
         });
 
         if (!user) {
@@ -80,18 +103,28 @@ export class AdminService {
             role: user.role,
             branchId: user.branchId,
             branch: user.branch,
+            tenantId: user.tenantId,
             createdAt: user.createdAt,
         };
     }
 
     static async updateEmployee(
         id: string,
+        tenantId: string,
         data: {
             name?: string;
             role?: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
             branchId?: string;
         }
     ) {
+        const existing = await prisma.user.findFirst({
+            where: { id, tenantId, isActive: true },
+        });
+
+        if (!existing) {
+            throw new Error('Employee not found');
+        }
+
         const user = await prisma.user.update({
             where: { id },
             data,
@@ -105,10 +138,20 @@ export class AdminService {
             role: user.role,
             branchId: user.branchId,
             branch: user.branch,
+            tenantId: user.tenantId,
         };
     }
 
-    static async deleteEmployee(id: string) {
+    static async deleteEmployee(id: string, tenantId: string) {
+        const existing = await prisma.user.findFirst({
+            where: { id, tenantId, isActive: true },
+            select: { id: true },
+        });
+
+        if (!existing) {
+            throw new Error('Employee not found');
+        }
+
         await prisma.user.update({
             where: { id },
             data: { isActive: false },
@@ -122,7 +165,9 @@ export class AdminService {
         location: string;
         hasTokenSystem: boolean;
         maxTokenNumber?: number;
+        tenantId: string;
     }) {
+        await assertBranchEntitlement(data.tenantId);
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
         const branch = await prisma.branch.create({
@@ -131,6 +176,7 @@ export class AdminService {
                 location: data.location,
                 hasTokenSystem: data.hasTokenSystem,
                 maxTokenNumber: data.maxTokenNumber,
+                tenantId: data.tenantId,
             },
         });
 
@@ -146,9 +192,9 @@ export class AdminService {
         return updatedBranch;
     }
 
-    static async listBranches() {
+    static async listBranches(tenantId: string) {
         const branches = await prisma.branch.findMany({
-            where: { isActive: true },
+            where: { isActive: true, tenantId },
             include: {
                 _count: {
                     select: {
@@ -164,9 +210,9 @@ export class AdminService {
         return branches;
     }
 
-    static async getBranch(id: string) {
-        const branch = await prisma.branch.findUnique({
-            where: { id, isActive: true },
+    static async getBranch(id: string, tenantId: string) {
+        const branch = await prisma.branch.findFirst({
+            where: { id, isActive: true, tenantId },
             include: {
                 users: true,
                 _count: {
@@ -187,6 +233,7 @@ export class AdminService {
 
     static async updateBranch(
         id: string,
+        tenantId: string,
         data: {
             name?: string;
             location?: string;
@@ -194,6 +241,15 @@ export class AdminService {
             maxTokenNumber?: number;
         }
     ) {
+        const existing = await prisma.branch.findFirst({
+            where: { id, tenantId, isActive: true },
+            select: { id: true },
+        });
+
+        if (!existing) {
+            throw new Error('Branch not found');
+        }
+
         const branch = await prisma.branch.update({
             where: { id },
             data,
@@ -202,7 +258,16 @@ export class AdminService {
         return branch;
     }
 
-    static async deleteBranch(id: string) {
+    static async deleteBranch(id: string, tenantId: string) {
+        const existing = await prisma.branch.findFirst({
+            where: { id, tenantId, isActive: true },
+            select: { id: true },
+        });
+
+        if (!existing) {
+            throw new Error('Branch not found');
+        }
+
         await prisma.branch.update({
             where: { id },
             data: { isActive: false },
@@ -212,17 +277,30 @@ export class AdminService {
     }
 
     static async getReportOverview(filters: {
+        tenantId: string;
         branchId?: string;
         startDate: Date;
         endDate: Date;
     }) {
         const baseWhere = {
+            tenantId: filters.tenantId,
             ...(filters.branchId && { branchId: filters.branchId }),
             createdAt: {
                 gte: filters.startDate,
                 lte: filters.endDate,
             },
         };
+
+        if (filters.branchId) {
+            const branchExists = await prisma.branch.findFirst({
+                where: { id: filters.branchId, tenantId: filters.tenantId, isActive: true },
+                select: { id: true },
+            });
+
+            if (!branchExists) {
+                throw new Error('Branch not found for this tenant');
+            }
+        }
 
         const [
             totalOrders,
@@ -310,7 +388,7 @@ export class AdminService {
 
         const branchDetails = branchIds.size
             ? await prisma.branch.findMany({
-                where: { id: { in: Array.from(branchIds) } },
+                where: { id: { in: Array.from(branchIds) }, tenantId: filters.tenantId },
                 select: { id: true, name: true, location: true },
             })
             : [];

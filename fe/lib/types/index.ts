@@ -2,7 +2,8 @@
 export enum UserRole {
     ADMIN = 'ADMIN',
     MANAGER = 'MANAGER',
-    EMPLOYEE = 'EMPLOYEE'
+    EMPLOYEE = 'EMPLOYEE',
+    SUPER_ADMIN = 'SUPER_ADMIN',
 }
 
 export interface User {
@@ -12,6 +13,7 @@ export interface User {
     role: UserRole;
     branchId?: string;
     branch?: Branch;
+    tenantId: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -33,6 +35,7 @@ export interface RegisterData {
     password: string;
     role: UserRole;
     branchId?: string;
+    tenantId?: string;
 }
 
 // Branch Types

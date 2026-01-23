@@ -12,7 +12,7 @@ export default function HomePage() {
   useEffect(() => {
     if (!isAuthenticated) {
       router.push('/login');
-    } else if (user?.role === 'ADMIN') {
+    } else if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') {
       router.push('/admin');
     } else if (user?.role === 'MANAGER' || user?.role === 'EMPLOYEE') {
       router.push('/admin/reports');

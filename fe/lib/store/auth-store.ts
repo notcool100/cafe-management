@@ -100,7 +100,7 @@ export const useAuthStore = create<AuthState>()(
 
             isAdmin: () => {
                 const { user } = get();
-                return user?.role === UserRole.ADMIN;
+                return user?.role === UserRole.ADMIN || user?.role === UserRole.SUPER_ADMIN;
             },
 
             isManager: () => {

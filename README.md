@@ -28,14 +28,18 @@ pnpm prisma:migrate
 pnpm prisma:seed
 ```
 
-This will create:
-- **2 Branches**: Main Branch (Kathmandu) and Suburban Branch (Thamel)
-- **3 Users**:
+This seed creates a SaaS-ready baseline:
+- **Plans**: `starter` (1 branch / 5 seats / 50 items), `growth` (5 branches / 30 seats / 500 items)
+- **Tenant**: Demo Cafe Group with an active subscription on `growth`
+- **Branches**: Main Branch (Kathmandu) and Suburban Branch (Thamel)
+- **Users**:
   - Admin: `admin@cafe.com` / `admin123`
-  - Staff 1: `staff1@cafe.com` / `staff123` (Main Branch)
-  - Staff 2: `staff2@cafe.com` / `staff123` (Suburban Branch)
-- **13 Menu Items** across both branches (food, beverages, desserts)
-- **2 Sample Orders** with tokens
+  - Manager (Main): `manager1@cafe.com` / `manager123`
+  - Manager (Suburban): `manager2@cafe.com` / `manager123`
+- **Menu Items**: 13 across both branches
+- **Orders**: 2 sample orders (one completed, one cancellation_pending)
+
+> Note: A SUPER_ADMIN account is **not** seeded by default. To add one, create a user with role `SUPER_ADMIN` (and a tenantId for now) via the database or an admin-only endpoint.
 
 ### 5. Start Backend Server
 ```bash
@@ -104,9 +108,10 @@ The application will still run correctly despite these warnings.
 - ✅ Foundation complete (40%)
 - ✅ Authentication working
 - ✅ Admin dashboard and employees list
-- ⏳ Remaining CRUD forms (branches, menu)
-- ⏳ Staff dashboard
-- Customer interface
+- ✅ Manager/employee portal for orders
+- ✅ Reporting dashboard
+- ⏳ Remaining CRUD polish (branches, menu)
+- ⏳ Customer interface
 
 See the `summary.md` artifact for complete details.
 

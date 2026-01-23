@@ -8,7 +8,16 @@ export class StaffController {
     static async getActiveOrders(req: AuthRequest, res: Response) {
         try {
             const branchId = req.user?.branchId;
-            const orders = await StaffService.getActiveOrders(branchId);
+            const tenantId = req.user?.tenantId;
+
+            if (!tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
+            if (!branchId) {
+                return res.status(400).json({ error: 'Staff member not assigned to a branch' });
+            }
+
+            const orders = await StaffService.getActiveOrders(branchId, tenantId);
 
             res.json(orders);
         } catch (error) {
@@ -22,12 +31,16 @@ export class StaffController {
         try {
             const { status } = req.params as { status: string };
             const branchId = req.user?.branchId;
+            const tenantId = req.user?.tenantId;
 
+            if (!tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
             if (!branchId) {
                 return res.status(400).json({ error: 'Staff member not assigned to a branch' });
             }
 
-            const orders = await StaffService.getOrdersByStatus(branchId, status);
+            const orders = await StaffService.getOrdersByStatus(branchId, status, tenantId);
 
             res.json(orders);
         } catch (error) {
@@ -41,12 +54,14 @@ export class StaffController {
         try {
             const { id } = req.params;
             const staffId = req.user?.id;
+            const tenantId = req.user?.tenantId;
+            const branchId = req.user?.branchId;
 
             if (!staffId) {
                 return res.status(401).json({ error: 'Unauthorized' });
             }
 
-            const order = await StaffService.completeOrder(id as string, staffId);
+            const order = await StaffService.completeOrder(id as string, staffId, tenantId, branchId);
 
             res.json(order);
         } catch (error) {
@@ -60,8 +75,10 @@ export class StaffController {
         try {
             const { id } = req.params;
             const staffId = req.user?.id;
+            const tenantId = req.user?.tenantId;
+            const branchId = req.user?.branchId;
 
-            const order = await OrderService.undoCancellation(id as string, staffId);
+            const order = await OrderService.undoCancellation(id as string, staffId, tenantId, branchId);
 
             res.json(order);
         } catch (error) {
@@ -74,7 +91,7 @@ export class StaffController {
     static async generateKOT(req: AuthRequest, res: Response) {
         try {
             const { id } = req.params;
-            const order = await OrderService.getOrder(id as string);
+            const order = await OrderService.getOrder(id as string, req.user?.tenantId);
 
             const pdfBuffer = await generateKOT(order);
 
@@ -94,7 +111,7 @@ export class StaffController {
     static async generateBill(req: AuthRequest, res: Response) {
         try {
             const { id } = req.params;
-            const order = await OrderService.getOrder(id as string);
+            const order = await OrderService.getOrder(id as string, req.user?.tenantId);
 
             const pdfBuffer = await generateBill(order);
 

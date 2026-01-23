@@ -7,7 +7,12 @@ import { LoadingPage } from '@/components/ui/Spinner';
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
-    requiredRole?: 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | Array<'ADMIN' | 'MANAGER' | 'EMPLOYEE'>;
+    requiredRole?:
+        | 'ADMIN'
+        | 'MANAGER'
+        | 'EMPLOYEE'
+        | 'SUPER_ADMIN'
+        | Array<'ADMIN' | 'MANAGER' | 'EMPLOYEE' | 'SUPER_ADMIN'>;
 }
 
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
@@ -107,7 +112,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
             });
 
             // Redirect to appropriate dashboard based on actual role
-            if (user?.role === 'ADMIN') {
+            if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') {
                 console.log('🔀 [ProtectedRoute] Redirecting to /admin');
                 router.push('/admin');
             } else if (user?.role === 'MANAGER' || user?.role === 'EMPLOYEE') {

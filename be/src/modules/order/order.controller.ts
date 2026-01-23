@@ -26,7 +26,7 @@ export class OrderController {
                 items,
                 customerName,
                 customerPhone,
-            });
+            }, (req as AuthRequest).user?.tenantId);
 
             res.status(201).json(order);
         } catch (error) {
@@ -39,7 +39,7 @@ export class OrderController {
     static async getOrder(req: Request, res: Response) {
         try {
             const { id } = req.params;
-            const order = await OrderService.getOrder(id as string);
+            const order = await OrderService.getOrder(id as string, (req as AuthRequest).user?.tenantId);
 
             res.json(order);
         } catch (error) {
@@ -53,8 +53,19 @@ export class OrderController {
         try {
             const { branchId, status, startDate, endDate } = req.query;
 
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
+
+            if (req.user.role === 'MANAGER' || req.user.role === 'EMPLOYEE') {
+                if (branchId && branchId !== req.user.branchId) {
+                    return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                }
+            }
+
             const filters = {
-                branchId: branchId as string,
+                tenantId: req.user.tenantId,
+                branchId: (branchId as string) || undefined,
                 status: status as string,
                 startDate: startDate ? new Date(startDate as string) : undefined,
                 endDate: endDate ? new Date(endDate as string) : undefined,
@@ -80,7 +91,22 @@ export class OrderController {
                 return res.status(400).json({ error: 'Invalid status' });
             }
 
-            const order = await OrderService.updateOrderStatus(id as string, status, completedBy);
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
+
+            const branchConstraint =
+                req.user.role === 'MANAGER' || req.user.role === 'EMPLOYEE'
+                    ? req.user.branchId
+                    : undefined;
+
+            const order = await OrderService.updateOrderStatus(
+                id as string,
+                status,
+                completedBy,
+                req.user.tenantId,
+                branchConstraint
+            );
 
             res.json(order);
         } catch (error) {

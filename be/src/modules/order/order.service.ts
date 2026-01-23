@@ -18,17 +18,34 @@ export class OrderService {
         });
     }
 
-    static async createOrder(data: {
-        branchId: string;
-        items: Array<{ menuItemId: string; quantity: number }>;
-        customerName?: string;
-        customerPhone?: string;
-    }) {
+    static async createOrder(
+        data: {
+            branchId: string;
+            items: Array<{ menuItemId: string; quantity: number }>;
+            customerName?: string;
+            customerPhone?: string;
+        },
+        tenantId?: string
+    ) {
+        const branch = await prisma.branch.findUnique({
+            where: { id: data.branchId },
+            select: { id: true, tenantId: true },
+        });
+
+        if (!branch) {
+            throw new Error('Branch not found');
+        }
+
+        if (tenantId && branch.tenantId !== tenantId) {
+            throw new Error('Forbidden: Cross-tenant order creation not allowed');
+        }
+
         // Validate all menu items exist and calculate total
         const menuItems = await prisma.menuItem.findMany({
             where: {
                 id: { in: data.items.map((item) => item.menuItemId) },
                 branchId: data.branchId,
+                tenantId: branch.tenantId,
                 isAvailable: true,
             },
         });
@@ -62,6 +79,7 @@ export class OrderService {
         const order = await prisma.order.create({
             data: {
                 branchId: data.branchId,
+                tenantId: branch.tenantId,
                 tokenNumber,
                 totalAmount,
                 customerName: data.customerName,
@@ -84,11 +102,11 @@ export class OrderService {
         return order;
     }
 
-    static async getOrder(id: string) {
+    static async getOrder(id: string, tenantId?: string) {
         await this.finalizeExpiredCancellations();
 
-        const order = await prisma.order.findUnique({
-            where: { id },
+        const order = await prisma.order.findFirst({
+            where: { id, ...(tenantId ? { tenantId } : {}) },
             include: {
                 orderItems: {
                     include: {
@@ -107,6 +125,7 @@ export class OrderService {
     }
 
     static async listOrders(filters: {
+        tenantId: string;
         branchId?: string;
         status?: string;
         startDate?: Date;
@@ -116,6 +135,7 @@ export class OrderService {
 
         const orders = await prisma.order.findMany({
             where: {
+                tenantId: filters.tenantId,
                 ...(filters.branchId && { branchId: filters.branchId }),
                 ...(filters.status && { status: filters.status as any }),
                 ...(filters.startDate &&
@@ -143,14 +163,29 @@ export class OrderService {
     static async updateOrderStatus(
         id: string,
         status: 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED' | 'CANCELLATION_PENDING',
-        completedBy?: string
+        completedBy?: string,
+        tenantId?: string,
+        branchConstraint?: string
     ) {
         if (status === 'CANCELLED') {
-            return this.requestCancellation(id, completedBy);
+            return this.requestCancellation(id, completedBy, tenantId, branchConstraint);
+        }
+
+        const existing = await prisma.order.findFirst({
+            where: {
+                id,
+                ...(tenantId ? { tenantId } : {}),
+                ...(branchConstraint ? { branchId: branchConstraint } : {}),
+            },
+            select: { id: true },
+        });
+
+        if (!existing) {
+            throw new Error('Order not found');
         }
 
         const order = await prisma.order.update({
-            where: { id },
+            where: { id: existing.id },
             data: {
                 status,
                 ...(status === 'COMPLETED' && {
@@ -178,9 +213,19 @@ export class OrderService {
         return order;
     }
 
-    static async requestCancellation(orderId: string, userId?: string) {
-        const existing = await prisma.order.findUnique({
-            where: { id: orderId },
+    static async requestCancellation(orderId: string, userId?: string, tenantId?: string) {
+    static async requestCancellation(
+        orderId: string,
+        userId?: string,
+        tenantId?: string,
+        branchConstraint?: string
+    ) {
+        const existing = await prisma.order.findFirst({
+            where: {
+                id: orderId,
+                ...(tenantId ? { tenantId } : {}),
+                ...(branchConstraint ? { branchId: branchConstraint } : {}),
+            },
             select: { status: true },
         });
 
@@ -210,9 +255,18 @@ export class OrderService {
         });
     }
 
-    static async undoCancellation(orderId: string, userId?: string) {
-        const order = await prisma.order.findUnique({
-            where: { id: orderId },
+    static async undoCancellation(
+        orderId: string,
+        userId?: string,
+        tenantId?: string,
+        branchConstraint?: string
+    ) {
+        const order = await prisma.order.findFirst({
+            where: {
+                id: orderId,
+                ...(tenantId ? { tenantId } : {}),
+                ...(branchConstraint ? { branchId: branchConstraint } : {}),
+            },
         });
 
         if (!order) {

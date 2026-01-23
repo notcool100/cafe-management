@@ -11,6 +11,48 @@ async function main() {
     await prisma.menuItem.deleteMany();
     await prisma.user.deleteMany();
     await prisma.branch.deleteMany();
+    await prisma.subscription.deleteMany();
+    await prisma.plan.deleteMany();
+    await prisma.tenant.deleteMany();
+
+    console.log('🧭 Creating plans...');
+    const starterPlan = await prisma.plan.create({
+        data: {
+            slug: 'starter',
+            name: 'Starter',
+            branchesLimit: 1,
+            seatsLimit: 5,
+            menuItemsLimit: 50,
+        },
+    });
+
+    const growthPlan = await prisma.plan.create({
+        data: {
+            slug: 'growth',
+            name: 'Growth',
+            branchesLimit: 5,
+            seatsLimit: 30,
+            menuItemsLimit: 500,
+        },
+    });
+
+    console.log('🏢 Creating tenant & subscription...');
+    const tenant = await prisma.tenant.create({
+        data: {
+            name: 'Demo Cafe Group',
+            slug: 'demo-cafe-group',
+            planId: growthPlan.id,
+        },
+    });
+
+    await prisma.subscription.create({
+        data: {
+            tenantId: tenant.id,
+            planId: growthPlan.id,
+            status: 'ACTIVE',
+            startedAt: new Date(),
+        },
+    });
 
     console.log('✨ Creating branches...');
     const mainBranch = await prisma.branch.create({
@@ -20,6 +62,7 @@ async function main() {
             hasTokenSystem: true,
             maxTokenNumber: 50,
             currentToken: 1,
+            tenantId: tenant.id,
         },
     });
 
@@ -30,6 +73,7 @@ async function main() {
             hasTokenSystem: true,
             maxTokenNumber: 30,
             currentToken: 1,
+            tenantId: tenant.id,
         },
     });
 
@@ -38,41 +82,44 @@ async function main() {
     // Create users
     console.log('👥 Creating users...');
     const adminPassword = await bcrypt.hash('admin123', 10);
-    const staffPassword = await bcrypt.hash('staff123', 10);
+    const managerPassword = await bcrypt.hash('manager123', 10);
 
-    const admin = await prisma.user.create({
+    await prisma.user.create({
         data: {
             name: 'Admin User',
             email: 'admin@cafe.com',
             password: adminPassword,
             role: 'ADMIN',
+            tenantId: tenant.id,
         },
     });
 
-    const staff1 = await prisma.user.create({
+    await prisma.user.create({
         data: {
-            name: 'Staff Member 1',
-            email: 'staff1@cafe.com',
-            password: staffPassword,
+            name: 'Manager - Main',
+            email: 'manager1@cafe.com',
+            password: managerPassword,
             role: 'MANAGER',
             branchId: mainBranch.id,
+            tenantId: tenant.id,
         },
     });
 
-    const staff2 = await prisma.user.create({
+    await prisma.user.create({
         data: {
-            name: 'Staff Member 2',
-            email: 'staff2@cafe.com',
-            password: staffPassword,
+            name: 'Manager - Suburban',
+            email: 'manager2@cafe.com',
+            password: managerPassword,
             role: 'MANAGER',
             branchId: suburbanBranch.id,
+            tenantId: tenant.id,
         },
     });
 
     console.log(`✅ Created admin and 2 managers`);
     console.log(`   📧 Admin: admin@cafe.com / admin123`);
-    console.log(`   📧 Manager 1: staff1@cafe.com / staff123`);
-    console.log(`   📧 Manager 2: staff2@cafe.com / staff123`);
+    console.log(`   📧 Manager 1: manager1@cafe.com / manager123`);
+    console.log(`   📧 Manager 2: manager2@cafe.com / manager123`);
 
     // Create menu items
     console.log('🍽️  Creating menu items...');
@@ -86,6 +133,7 @@ async function main() {
             category: 'FOOD',
             isAvailable: true,
             branchId: mainBranch.id,
+            tenantId: tenant.id,
         },
         {
             name: 'Vegetable Pizza',
@@ -94,6 +142,7 @@ async function main() {
             category: 'FOOD',
             isAvailable: true,
             branchId: mainBranch.id,
+            tenantId: tenant.id,
         },
         {
             name: 'Chicken Momo',
@@ -102,6 +151,7 @@ async function main() {
             category: 'FOOD',
             isAvailable: true,
             branchId: mainBranch.id,
+            tenantId: tenant.id,
         },
         {
             name: 'French Fries',
@@ -110,6 +160,7 @@ async function main() {
             category: 'FOOD',
             isAvailable: true,
             branchId: mainBranch.id,
+            tenantId: tenant.id,
         },
         {
             name: 'Chicken Sandwich',
@@ -118,6 +169,7 @@ async function main() {
             category: 'FOOD',
             isAvailable: true,
             branchId: suburbanBranch.id,
+            tenantId: tenant.id,
         },
         // Beverages
         {
@@ -127,6 +179,7 @@ async function main() {
             category: 'BEVERAGE',
             isAvailable: true,
             branchId: mainBranch.id,
+            tenantId: tenant.id,
         },
         {
             name: 'Latte',
@@ -135,6 +188,7 @@ async function main() {
             category: 'BEVERAGE',
             isAvailable: true,
             branchId: mainBranch.id,
+            tenantId: tenant.id,
         },
         {
             name: 'Fresh Orange Juice',
@@ -143,6 +197,7 @@ async function main() {
             category: 'BEVERAGE',
             isAvailable: true,
             branchId: mainBranch.id,
+            tenantId: tenant.id,
         },
         {
             name: 'Iced Coffee',
@@ -151,6 +206,7 @@ async function main() {
             category: 'BEVERAGE',
             isAvailable: true,
             branchId: suburbanBranch.id,
+            tenantId: tenant.id,
         },
         {
             name: 'Masala Tea',
@@ -159,6 +215,7 @@ async function main() {
             category: 'BEVERAGE',
             isAvailable: true,
             branchId: suburbanBranch.id,
+            tenantId: tenant.id,
         },
         // Desserts
         {
@@ -168,6 +225,7 @@ async function main() {
             category: 'DESSERT',
             isAvailable: true,
             branchId: mainBranch.id,
+            tenantId: tenant.id,
         },
         {
             name: 'Ice Cream Sundae',
@@ -176,6 +234,7 @@ async function main() {
             category: 'DESSERT',
             isAvailable: true,
             branchId: mainBranch.id,
+            tenantId: tenant.id,
         },
         {
             name: 'Apple Pie',
@@ -184,6 +243,7 @@ async function main() {
             category: 'DESSERT',
             isAvailable: true,
             branchId: suburbanBranch.id,
+            tenantId: tenant.id,
         },
     ];
 
@@ -196,12 +256,14 @@ async function main() {
     // Create sample orders
     console.log('📦 Creating sample orders...');
 
-    const order1 = await prisma.order.create({
+    await prisma.order.create({
         data: {
             branchId: mainBranch.id,
+            tenantId: tenant.id,
             tokenNumber: 1,
-            status: 'PENDING',
+            status: 'COMPLETED',
             totalAmount: 530,
+            completedAt: new Date(),
             orderItems: {
                 create: [
                     {
@@ -219,11 +281,15 @@ async function main() {
         },
     });
 
-    const order2 = await prisma.order.create({
+    await prisma.order.create({
         data: {
             branchId: mainBranch.id,
+            tenantId: tenant.id,
             tokenNumber: 2,
-            status: 'PREPARING',
+            status: 'CANCELLATION_PENDING',
+            cancellationRequestedAt: new Date(),
+            cancellationExpiresAt: new Date(Date.now() + 60_000),
+            cancellationPreviousStatus: 'PREPARING',
             totalAmount: 830,
             orderItems: {
                 create: [
@@ -252,14 +318,16 @@ async function main() {
 
     console.log('\n🎉 Database seeded successfully!');
     console.log('\n📋 Summary:');
+    console.log(`   • 2 Plans created`);
+    console.log(`   • 1 Tenant with active subscription`);
     console.log(`   • 2 Branches created`);
-    console.log(`   • 3 Users created (1 admin, 2 staff)`);
+    console.log(`   • 3 Users created (1 admin, 2 managers)`);
     console.log(`   • ${menuItems.length} Menu items created`);
     console.log(`   • 2 Sample orders created`);
     console.log('\n🔐 Login Credentials:');
     console.log(`   Admin:  admin@cafe.com  / admin123`);
-    console.log(`   Staff1: staff1@cafe.com / staff123`);
-    console.log(`   Staff2: staff2@cafe.com / staff123`);
+    console.log(`   Manager1: manager1@cafe.com / manager123`);
+    console.log(`   Manager2: manager2@cafe.com / manager123`);
 }
 
 main()

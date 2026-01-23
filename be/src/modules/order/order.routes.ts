@@ -15,14 +15,14 @@ router.get('/:id', OrderController.getOrder);
 router.get(
     '/',
     authenticate,
-    requireRole('ADMIN', 'MANAGER'),
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
     OrderController.listOrders
 );
 
 router.put(
     '/:id/status',
     authenticate,
-    requireRole('ADMIN', 'MANAGER'),
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
     OrderController.updateOrderStatus
 );
 

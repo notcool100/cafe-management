@@ -6,7 +6,7 @@ export class AuthService {
     static async login(email: string, password: string) {
         const user = await prisma.user.findUnique({
             where: { email },
-            include: { branch: true },
+            include: { branch: true, tenant: true },
         });
 
         if (!user || !user.isActive) {
@@ -31,6 +31,7 @@ export class AuthService {
                 role: user.role,
                 branchId: user.branchId,
                 branch: user.branch,
+                tenantId: user.tenantId,
             },
         };
     }
@@ -39,8 +40,9 @@ export class AuthService {
         email: string;
         password: string;
         name: string;
-        role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+        role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | 'SUPER_ADMIN';
         branchId?: string;
+        tenantId?: string;
     }) {
         const existingUser = await prisma.user.findUnique({
             where: { email: data.email },
@@ -52,12 +54,66 @@ export class AuthService {
 
         const hashedPassword = await bcrypt.hash(data.password, 10);
 
+        let resolvedTenantId = data.tenantId;
+        if (!resolvedTenantId && data.branchId) {
+            const branch = await prisma.branch.findUnique({
+                where: { id: data.branchId },
+                select: { tenantId: true },
+            });
+
+            if (!branch) {
+                throw new Error('Branch not found for registration');
+            }
+
+            resolvedTenantId = branch.tenantId;
+        }
+
+        if (!resolvedTenantId) {
+            // Auto-provision a tenant with the starter plan for self-serve signups
+            const starterPlan = await prisma.plan.upsert({
+                where: { slug: 'starter' },
+                update: {},
+                create: {
+                    slug: 'starter',
+                    name: 'Starter',
+                    branchesLimit: 1,
+                    seatsLimit: 5,
+                    menuItemsLimit: 50,
+                },
+            });
+
+            const slugBase = data.email.split('@')[0]?.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'tenant';
+            const tenant = await prisma.tenant.create({
+                data: {
+                    name: `${data.name}'s Cafe`,
+                    slug: `${slugBase}-${Math.random().toString(36).slice(2, 6)}`,
+                    planId: starterPlan.id,
+                },
+            });
+
+            await prisma.subscription.create({
+                data: {
+                    tenantId: tenant.id,
+                    planId: starterPlan.id,
+                    status: 'ACTIVE',
+                    startedAt: new Date(),
+                },
+            });
+
+            resolvedTenantId = tenant.id;
+        }
+
+        if (!resolvedTenantId) {
+            throw new Error('Tenant is required for registration');
+        }
+
         const user = await prisma.user.create({
             data: {
                 ...data,
+                tenantId: resolvedTenantId,
                 password: hashedPassword,
             },
-            include: { branch: true },
+            include: { branch: true, tenant: true },
         });
 
         const tokens = await this.generateTokens(user);
@@ -72,6 +128,7 @@ export class AuthService {
                 role: user.role,
                 branchId: user.branchId,
                 branch: user.branch,
+                tenantId: user.tenantId,
             },
         };
     }
@@ -119,6 +176,7 @@ export class AuthService {
                 id: user.id,
                 email: user.email,
                 role: user.role,
+                tenantId: user.tenantId,
                 branchId: user.branchId,
             },
             secret,

@@ -31,6 +31,9 @@ export class MenuController {
                     return res.status(403).json({ error: 'Managers can only add items for their branch' });
                 }
             }
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
             const file = (req as AuthRequest & { file?: Express.Multer.File }).file;
             const branchDirName = getBranchUploadDirName(branchId);
             const imageUrl = file ? `/uploads/${branchDirName}/${file.filename}` : undefined;
@@ -41,7 +44,7 @@ export class MenuController {
                 category,
                 imageUrl,
                 branchId,
-            });
+            }, req.user.tenantId);
 
             res.status(201).json(menuItem);
         } catch (error) {
@@ -57,10 +60,14 @@ export class MenuController {
             if (isManager(req) && managerBranchId(req) && branchId && branchId !== managerBranchId(req)) {
                 return res.status(403).json({ error: 'Forbidden: Not your branch' });
             }
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
             const effectiveBranchId = isManager(req) ? managerBranchId(req) : (branchId as string | undefined);
             const menuItems = await MenuService.listMenuItems(
                 effectiveBranchId,
-                category as string
+                category as string,
+                req.user.tenantId
             );
 
             res.json(menuItems);
@@ -74,7 +81,7 @@ export class MenuController {
     static async getMenuItem(req: AuthRequest, res: Response) {
         try {
             const { id } = req.params;
-            const menuItem = await MenuService.getMenuItem(id as string);
+            const menuItem = await MenuService.getMenuItem(id as string, (req as AuthRequest).user?.tenantId);
 
             res.json(menuItem);
         } catch (error) {
@@ -89,6 +96,9 @@ export class MenuController {
             const { id } = req.params;
             const { name, description, price, category, branchId } = req.body;
             const file = (req as AuthRequest & { file?: Express.Multer.File }).file;
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
             if (isManager(req)) {
                 if (!managerBranchId(req)) {
                     return res.status(400).json({ error: 'Manager is not assigned to a branch' });
@@ -96,7 +106,7 @@ export class MenuController {
                 if (branchId && branchId !== managerBranchId(req)) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
-                const existing = await MenuService.getMenuItem(id as string);
+                const existing = await MenuService.getMenuItem(id as string, req.user.tenantId);
                 if (existing.branchId !== managerBranchId(req)) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
@@ -114,7 +124,7 @@ export class MenuController {
                 category,
                 imageUrl,
                 isAvailable,
-            });
+            }, req.user.tenantId);
 
             res.json(menuItem);
         } catch (error) {
@@ -127,16 +137,19 @@ export class MenuController {
     static async deleteMenuItem(req: AuthRequest, res: Response) {
         try {
             const { id } = req.params;
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
             if (isManager(req)) {
                 if (!managerBranchId(req)) {
                     return res.status(400).json({ error: 'Manager is not assigned to a branch' });
                 }
-                const existing = await MenuService.getMenuItem(id as string);
+                const existing = await MenuService.getMenuItem(id as string, req.user.tenantId);
                 if (existing.branchId !== managerBranchId(req)) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
             }
-            const result = await MenuService.deleteMenuItem(id as string);
+            const result = await MenuService.deleteMenuItem(id as string, req.user.tenantId);
 
             res.json(result);
         } catch (error) {

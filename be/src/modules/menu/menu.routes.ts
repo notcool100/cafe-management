@@ -10,7 +10,7 @@ const router = Router();
 router.post(
     '/items',
     authenticate,
-    requireRole('ADMIN', 'MANAGER'),
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
     uploadMenuImage.single('image'),
     MenuController.createMenuItemValidation,
     MenuController.createMenuItem
@@ -19,21 +19,21 @@ router.post(
 router.get(
     '/items',
     authenticate,
-    requireRole('ADMIN', 'MANAGER'),
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
     MenuController.listMenuItems
 );
 
 router.get(
     '/items/:id',
     authenticate,
-    requireRole('ADMIN', 'MANAGER'),
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
     MenuController.getMenuItem
 );
 
 router.put(
     '/items/:id',
     authenticate,
-    requireRole('ADMIN', 'MANAGER'),
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
     uploadMenuImage.single('image'),
     MenuController.updateMenuItem
 );
@@ -41,7 +41,7 @@ router.put(
 router.delete(
     '/items/:id',
     authenticate,
-    requireRole('ADMIN', 'MANAGER'),
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
     MenuController.deleteMenuItem
 );
 

@@ -44,7 +44,7 @@ export default function LoginPage() {
             console.log('💾 [Login] Auth state updated via setAuth');
 
             // Redirect based on role
-            if (response.user.role === 'ADMIN') {
+            if (response.user.role === 'ADMIN' || response.user.role === 'SUPER_ADMIN') {
                 console.log('🔀 [Login] Redirecting to /admin');
                 router.push('/admin');
             } else if (response.user.role === 'MANAGER' || response.user.role === 'EMPLOYEE') {
