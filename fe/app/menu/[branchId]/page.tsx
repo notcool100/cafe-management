@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { menuService } from '@/lib/api/menu-service';
-import { branchService } from '@/lib/api/branch-service';
 import { MenuItem, MenuCategory, Branch } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -40,14 +39,13 @@ export default function PublicMenuPage() {
     const loadData = async () => {
         try {
             setIsLoading(true);
-            const [branchData, itemsData] = await Promise.all([
-                branchService.getBranch(branchId),
-                menuService.getPublicMenu(branchId)
-            ]);
-            setBranch(branchData);
-            setMenuItems(itemsData);
+            const data = await menuService.getPublicMenu(branchId);
+            setBranch(data.branch);
+            setMenuItems(data.menuItems);
         } catch (error) {
             console.error('Failed to load menu:', error);
+            setBranch(null);
+            setMenuItems([]);
             setToast({
                 message: 'Failed to load menu. Please check the URL or try again.',
                 type: 'error',

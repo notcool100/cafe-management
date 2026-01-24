@@ -50,10 +50,9 @@ export default function BranchForm({ initialData, onSubmit, isLoading, isEdit = 
         defaultValues: {
             name: initialData?.name || '',
             location: initialData?.location || '',
-            tokenSystemEnabled: initialData?.tokenSystemEnabled || false,
-            // Only set ranges if they exist, otherwise undefined or default
-            tokenRangeStart: initialData?.tokenRangeStart ?? 1,
-            tokenRangeEnd: initialData?.tokenRangeEnd ?? 999,
+            tokenSystemEnabled: initialData?.tokenSystemEnabled ?? initialData?.hasTokenSystem ?? false,
+            tokenRangeStart: initialData?.tokenRangeStart ?? (initialData?.tokenSystemEnabled ? 1 : undefined),
+            tokenRangeEnd: initialData?.tokenRangeEnd ?? initialData?.maxTokenNumber ?? 999,
         },
     });
 

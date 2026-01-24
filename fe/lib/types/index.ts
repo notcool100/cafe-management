@@ -44,12 +44,14 @@ export interface Branch {
     name: string;
     location: string;
     qrCode?: string;
-    tokenSystemEnabled: boolean;
+    hasTokenSystem?: boolean;
+    maxTokenNumber?: number;
+    currentToken?: number;
+    tokenSystemEnabled?: boolean;
     tokenRangeStart?: number;
     tokenRangeEnd?: number;
-    currentToken?: number;
-    createdAt: string;
-    updatedAt: string;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface CreateBranchData {
@@ -58,6 +60,7 @@ export interface CreateBranchData {
     tokenSystemEnabled: boolean;
     tokenRangeStart?: number;
     tokenRangeEnd?: number;
+    maxTokenNumber?: number;
 }
 
 // Menu Item Types
