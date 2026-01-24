@@ -8,9 +8,10 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import Spinner from '@/components/ui/Spinner';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import { Order, OrderStatus, Branch } from '@/lib/types';
 import Toast from '@/components/ui/Toast';
+import OrderDetailModal from '@/components/staff/OrderDetailModal';
 
 type DateFilter = 'TODAY' | 'LAST_24H' | 'THIS_WEEK' | 'ALL';
 
@@ -21,6 +22,7 @@ export default function AdminOrdersPage() {
     const [statusFilter, setStatusFilter] = useState<OrderStatus | 'ALL'>('ALL');
     const [dateFilter, setDateFilter] = useState<DateFilter>('TODAY');
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; isVisible: boolean }>({
         message: '',
         type: 'info',
@@ -152,23 +154,35 @@ export default function AdminOrdersPage() {
                                 <span className="text-xs text-gray-500 uppercase tracking-wide">{dateLabel}</span>
                                 <div className="h-px flex-1 bg-gradient-to-r from-transparent via-gray-800 to-transparent" />
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                 {items.map((order) => (
-                                    <OrderCard key={order.id} order={order} />
+                                    <OrderCard
+                                        key={order.id}
+                                        order={order}
+                                        onSelect={(id) => setSelectedOrderId(id)}
+                                    />
                                 ))}
                             </div>
                         </div>
                     ))}
                 </div>
             )}
+
+            <OrderDetailModal
+                orderId={selectedOrderId}
+                onClose={() => setSelectedOrderId(null)}
+                onUpdate={() => loadOrders()}
+            />
         </div>
     );
 }
 
-function OrderCard({ order }: { order: Order }) {
+function OrderCard({ order, onSelect }: { order: Order; onSelect: (orderId: string) => void }) {
+    const handleClick = () => onSelect(order.id);
+
     return (
-        <Card variant="glass" hover>
-            <CardContent className="space-y-3">
+        <Card variant="glass" hover onClick={handleClick} className="h-full">
+            <CardContent className="space-y-3 h-full">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <span className="text-xs font-mono text-gray-500">#{order.id.slice(-6)}</span>
@@ -186,9 +200,14 @@ function OrderCard({ order }: { order: Order }) {
                         <p className="text-white font-semibold">{order.branch?.name || '—'}</p>
                     </div>
                 </div>
-                <div className="flex justify-between text-sm text-gray-400">
+                <div className="flex justify-between items-center text-sm text-gray-400">
                     <span>{order.items.reduce((acc, item) => acc + item.quantity, 0)} items</span>
                     <span className="text-white font-semibold">Rs. {order.totalAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-end">
+                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleClick(); }}>
+                        View details
+                    </Button>
                 </div>
             </CardContent>
         </Card>
