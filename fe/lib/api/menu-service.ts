@@ -68,8 +68,12 @@ export const menuService = {
 
     // Public endpoint for customer menu browsing
     async getPublicMenu(branchId: string): Promise<{ branch: Branch; menuItems: MenuItem[] }> {
-        const response = await apiClient.get<{ branch: Partial<Branch>; menuItems: MenuItem[] }>(`/menu/${branchId}`);
+        const response = await apiClient.get<{ branch?: Partial<Branch>; menuItems?: MenuItem[] }>(`/menu/${branchId}`);
         const data = response.data;
+
+        if (!data.branch?.id || !data.branch.name || !data.branch.location) {
+            throw new Error('Invalid menu response: missing branch information');
+        }
 
         return {
             branch: {

@@ -19,14 +19,14 @@ router.post(
 router.get(
     '/items',
     authenticate,
-    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN','EMPLOYEE'),
     MenuController.listMenuItems
 );
 
 router.get(
     '/items/:id',
     authenticate,
-    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN','EMPLOYEE'),
     MenuController.getMenuItem
 );
 

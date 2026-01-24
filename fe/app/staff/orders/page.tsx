@@ -49,7 +49,7 @@ export default function ActiveOrdersPage() {
             ]);
             setOrders([...activeOrders, ...completedOrders, ...cancelledOrders]);
         } catch (error) {
-            console.error('Failed to load orders:', error);
+            // console.error('Failed to load orders:', error);
         } finally {
             if (showLoading) setIsLoading(false);
         }
@@ -65,7 +65,7 @@ export default function ActiveOrdersPage() {
                 setSelectedMenuItem(items[0].id);
             }
         } catch (error) {
-            console.error('Failed to load menu items:', error);
+            // console.error('Failed to load menu items:', error);
             setToast({
                 message: 'Unable to load menu items for this branch',
                 type: 'error',
@@ -167,7 +167,7 @@ export default function ActiveOrdersPage() {
             setCustomerPhone('');
             await loadOrders(false);
         } catch (error) {
-            console.error('Failed to create order:', error);
+            // console.error('Failed to create order:', error);
             setToast({
                 message: 'Failed to create order',
                 type: 'error',
