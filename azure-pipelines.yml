@@ -24,6 +24,12 @@ stages:
       inputs:
         versionSpec: '$(nodeVersion)'
       displayName: 'Install Node.js'
+
+    - task: DownloadSecureFile@1
+      name: downloadFeEnv
+      inputs:
+        secureFile: 'fe.env'
+      displayName: 'Download frontend env file'
     
     # - script: |
     #     echo "Building shared packages..."
@@ -39,7 +45,7 @@ stages:
         
         # Ensure environment files are properly set up
         echo "Setting up environment files for build"
-        cp fe.env .env
+        cp "$(downloadFeEnv.secureFilePath)" .env
       displayName: 'Install Frontend Dependencies'
     
     - script: |
@@ -79,6 +85,12 @@ stages:
       inputs:
         versionSpec: '$(nodeVersion)'
       displayName: 'Install Node.js'
+
+    - task: DownloadSecureFile@1
+      name: downloadBeEnv
+      inputs:
+        secureFile: 'be.env'
+      displayName: 'Download backend env file'
     
     # - script: |
     #     echo "Building shared packages..."
@@ -96,7 +108,7 @@ stages:
     - script: |
         cd be
         echo "Setting up environment files for backend build"
-        cp be.env .env
+        cp "$(downloadBeEnv.secureFilePath)" .env
       displayName: 'Setup Backend Environment'
 
     - script: |
