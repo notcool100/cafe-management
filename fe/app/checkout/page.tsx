@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Toast from '@/components/ui/Toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { getOrCreateDeviceId } from '@/lib/utils/device';
 
 export default function CheckoutPage() {
     const router = useRouter();
@@ -37,6 +38,7 @@ export default function CheckoutPage() {
                 branchId,
                 customerName: customerName || undefined,
                 customerPhone: customerPhone || undefined,
+                deviceId: getOrCreateDeviceId(),
                 items: items.map(item => ({
                     menuItemId: item.menuItem.id,
                     quantity: item.quantity,

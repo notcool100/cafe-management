@@ -11,6 +11,7 @@ export class OrderController {
         body('items.*.quantity')
             .isInt({ min: 1 })
             .withMessage('Quantity must be at least 1'),
+        body('deviceId').optional().isString().isLength({ min: 6, max: 128 }).withMessage('deviceId must be a string'),
     ];
 
     static async createOrder(req: Request, res: Response) {
@@ -20,12 +21,13 @@ export class OrderController {
                 return res.status(400).json({ errors: errors.array() });
             }
 
-            const { branchId, items, customerName, customerPhone } = req.body;
+            const { branchId, items, customerName, customerPhone, deviceId } = req.body;
             const order = await OrderService.createOrder({
                 branchId,
                 items,
                 customerName,
                 customerPhone,
+                deviceId,
             }, (req as AuthRequest).user?.tenantId);
 
             res.status(201).json(order);
@@ -49,26 +51,55 @@ export class OrderController {
         }
     }
 
+    static async listOrdersByDevice(req: Request, res: Response) {
+        try {
+            const { deviceId } = req.params;
+            const deviceIdParam = Array.isArray(deviceId) ? deviceId[0] : deviceId;
+
+            if (!deviceIdParam) {
+                return res.status(400).json({ error: 'deviceId is required' });
+            }
+
+            const orders = await OrderService.listOrdersByDevice(deviceIdParam);
+            res.json(orders);
+        } catch (error) {
+            res.status(500).json({
+                error: error instanceof Error ? error.message : 'Failed to fetch orders for device',
+            });
+        }
+    }
+
     static async listOrders(req: AuthRequest, res: Response) {
         try {
             const { branchId, status, startDate, endDate } = req.query;
+
+            const toStringParam = (value: unknown): string | undefined => {
+                if (Array.isArray(value)) return value[0] ? String(value[0]) : undefined;
+                return typeof value === 'string' ? value : undefined;
+            };
 
             if (!req.user?.tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
 
             if (req.user.role === 'MANAGER' || req.user.role === 'EMPLOYEE') {
-                if (branchId && branchId !== req.user.branchId) {
+                const branchQuery = toStringParam(branchId);
+                if (branchQuery && branchQuery !== req.user.branchId) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
             }
 
+            const branchQuery = toStringParam(branchId);
+            const statusQuery = toStringParam(status);
+            const startQuery = toStringParam(startDate);
+            const endQuery = toStringParam(endDate);
+
             const filters = {
                 tenantId: req.user.tenantId,
-                branchId: (branchId as string) || undefined,
-                status: status as string,
-                startDate: startDate ? new Date(startDate as string) : undefined,
-                endDate: endDate ? new Date(endDate as string) : undefined,
+                branchId: branchQuery || undefined,
+                status: statusQuery || undefined,
+                startDate: startQuery ? new Date(startQuery) : undefined,
+                endDate: endQuery ? new Date(endQuery) : undefined,
             };
 
             const orders = await OrderService.listOrders(filters);

@@ -139,6 +139,7 @@ export interface CreateOrderData {
     branchId: string;
     customerName?: string;
     customerPhone?: string;
+    deviceId?: string;
     items: {
         menuItemId: string;
         quantity: number;

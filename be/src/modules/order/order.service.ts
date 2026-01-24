@@ -24,6 +24,7 @@ export class OrderService {
             items: Array<{ menuItemId: string; quantity: number }>;
             customerName?: string;
             customerPhone?: string;
+            deviceId?: string;
         },
         tenantId?: string
     ) {
@@ -84,6 +85,7 @@ export class OrderService {
                 totalAmount,
                 customerName: data.customerName,
                 customerPhone: data.customerPhone,
+                deviceId: data.deviceId,
                 status: 'PENDING',
                 orderItems: {
                     create: orderItemsData,
@@ -152,6 +154,21 @@ export class OrderService {
                         menuItem: true,
                     },
                 },
+                branch: true,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        return orders;
+    }
+
+    static async listOrdersByDevice(deviceId: string) {
+        await this.finalizeExpiredCancellations();
+
+        const orders = await prisma.order.findMany({
+            where: { deviceId },
+            include: {
+                orderItems: { include: { menuItem: true } },
                 branch: true,
             },
             orderBy: { createdAt: 'desc' },

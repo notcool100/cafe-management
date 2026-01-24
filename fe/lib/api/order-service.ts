@@ -1,3 +1,4 @@
+import axios from 'axios';
 import apiClient from './api-client';
 import { Order, CreateOrderData, OrderStatus, OrderFilters } from '../types';
 
@@ -19,14 +20,24 @@ const normalizeOrder = (order: Order): Order => {
 
 const normalizeOrders = (orders: Order[]): Order[] => orders.map(normalizeOrder);
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4100';
+
+// Public client avoids auth headers/redirects for customer flows (menu/checkout/token)
+const publicClient = axios.create({
+    baseURL: `${API_BASE_URL}/api`,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+});
+
 export const orderService = {
     async createOrder(data: CreateOrderData): Promise<Order> {
-        const response = await apiClient.post<Order>('/orders', data);
+        const response = await publicClient.post<Order>('/orders', data);
         return normalizeOrder(response.data);
     },
 
     async getOrder(id: string): Promise<Order> {
-        const response = await apiClient.get<Order>(`/orders/${id}`);
+        const response = await publicClient.get<Order>(`/orders/${id}`);
         return normalizeOrder(response.data);
     },
 
@@ -46,6 +57,11 @@ export const orderService = {
     async updateOrderStatus(id: string, status: OrderStatus): Promise<Order> {
         const response = await apiClient.put<Order>(`/orders/${id}/status`, { status });
         return normalizeOrder(response.data);
+    },
+
+    async getOrdersByDevice(deviceId: string): Promise<Order[]> {
+        const response = await publicClient.get<Order[]>(`/orders/device/${deviceId}`);
+        return normalizeOrders(response.data);
     },
 
     // Staff endpoints

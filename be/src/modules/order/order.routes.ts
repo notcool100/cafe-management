@@ -8,7 +8,8 @@ const router: Router = Router();
 // Public route for customers to create orders
 router.post('/', OrderController.createOrderValidation, OrderController.createOrder);
 
-// Public route to get order details (for customer)
+// Public routes to get orders (for customer)
+router.get('/device/:deviceId', OrderController.listOrdersByDevice);
 router.get('/:id', OrderController.getOrder);
 
 // Protected routes for staff
