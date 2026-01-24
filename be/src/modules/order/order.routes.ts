@@ -3,7 +3,7 @@ import { OrderController } from './order.controller';
 import { authenticate } from '../../middleware/auth';
 import { requireRole } from '../../middleware/rbac';
 
-const router = Router();
+const router: Router = Router();
 
 // Public route for customers to create orders
 router.post('/', OrderController.createOrderValidation, OrderController.createOrder);

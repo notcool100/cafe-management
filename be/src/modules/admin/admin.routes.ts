@@ -3,7 +3,7 @@ import { AdminController } from './admin.controller';
 import { authenticate } from '../../middleware/auth';
 import { requireRole } from '../../middleware/rbac';
 
-const router = Router();
+const router: Router = Router();
 
 // All admin routes require authentication
 router.use(authenticate);

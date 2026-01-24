@@ -3,7 +3,7 @@ import { StaffController } from './staff.controller';
 import { authenticate } from '../../middleware/auth';
 import { requireRole } from '../../middleware/rbac';
 
-const router = Router();
+const router: Router = Router();
 
 // All staff routes require authentication and MANAGER/EMPLOYEE/ADMIN role
 router.use(authenticate);

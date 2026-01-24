@@ -4,7 +4,7 @@ import { authenticate } from '../../middleware/auth';
 import { requireRole } from '../../middleware/rbac';
 import { uploadMenuImage } from '../../middleware/upload';
 
-const router = Router();
+const router: Router = Router();
 
 // Protected routes for menu management
 router.post(
