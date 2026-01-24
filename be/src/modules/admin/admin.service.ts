@@ -168,7 +168,7 @@ export class AdminService {
         tenantId: string;
     }) {
         await assertBranchEntitlement(data.tenantId);
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4000';
 
         const branch = await prisma.branch.create({
             data: {

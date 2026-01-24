@@ -14,7 +14,7 @@ Create `.env` file with:
 DATABASE_URL="postgresql://username:password@localhost:5432/cafe_management?schema=public"
 JWT_SECRET="your-super-secret-jwt-key-change-in-production"
 JWT_EXPIRES_IN="7d"
-PORT=3001
+PORT=4100
 ```
 
 ### 3. Run Prisma Migrations
@@ -46,7 +46,7 @@ This seed creates a SaaS-ready baseline:
 pnpm dev
 ```
 
-Backend runs at `http://localhost:3001`
+Backend runs at `http://localhost:4100`
 
 ---
 
@@ -61,7 +61,7 @@ pnpm install
 ### 2. Configure Environment
 `.env.local` is already configured:
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_API_URL=http://localhost:4100
 ```
 
 ### 3. Start Frontend Server
@@ -69,14 +69,14 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 pnpm dev
 ```
 
-Frontend runs at `http://localhost:3000`
+Frontend runs at `http://localhost:4000`
 
 ---
 
 ## Testing the Application
 
 ### 1. Login as Admin
-- Go to `http://localhost:3000`
+- Go to `http://localhost:4000`
 - Email: `admin@cafe.com`
 - Password: `admin123`
 - You'll be redirected to `/admin` dashboard
@@ -135,8 +135,8 @@ Opens at `http://localhost:5555`
 The backend properly uses a singleton Prisma instance, so this shouldn't occur. If it does, restart both backend and database.
 
 ### Port already in use
-- Backend (3001): Check if another app is using the port
-- Frontend (3000): Same check
+- Backend (4100): Check if another app is using the port
+- Frontend (4000): Same check
 
 ### Database connection errors
 - Ensure PostgreSQL is running

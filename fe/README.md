@@ -23,7 +23,7 @@ A modern, beautiful Next.js 14 frontend for the cafe management system featuring
 
 ### Prerequisites
 - Node.js 18+ and pnpm
-- Backend running at `http://localhost:3001`
+- Backend running at `http://localhost:4100`
 
 ### Installation
 
@@ -31,18 +31,18 @@ A modern, beautiful Next.js 14 frontend for the cafe management system featuring
 # Install dependencies
 pnpm install
 
-# Run development server
+# Run development server (port 4000)
 pnpm dev
 ```
 
-Visit `http://localhost:3000`
+Visit `http://localhost:4000`
 
 ### Environment Variables
 
 Create a `.env.local` file:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_API_URL=http://localhost:4100
 ```
 
 ## 📁 Project Structure
