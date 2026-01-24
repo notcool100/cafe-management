@@ -17,6 +17,7 @@ export default function CheckoutPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [customerName, setCustomerName] = useState('');
     const [customerPhone, setCustomerPhone] = useState('');
+    const [hasCompletedOrder, setHasCompletedOrder] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; isVisible: boolean }>({
         message: '',
         type: 'success',
@@ -24,10 +25,10 @@ export default function CheckoutPage() {
     });
 
     useEffect(() => {
-        if (items.length === 0) {
+        if (items.length === 0 && !hasCompletedOrder) {
             router.push('/');
         }
-    }, [items, router]);
+    }, [items, router, hasCompletedOrder]);
 
     const handlePlaceOrder = async () => {
         if (!branchId || items.length === 0) return;
@@ -45,6 +46,7 @@ export default function CheckoutPage() {
                 })),
             });
 
+            setHasCompletedOrder(true);
             clearCart();
             router.push(`/order/${order.id}/token`);
         } catch (error: any) {
