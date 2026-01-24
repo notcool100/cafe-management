@@ -95,6 +95,12 @@ stages:
 
     - script: |
         cd be
+        echo "Setting up environment files for backend build"
+        cp be.env .env
+      displayName: 'Setup Backend Environment'
+
+    - script: |
+        cd be
         pnpm prisma:generate
       displayName: 'Generate Prisma Client'
     
