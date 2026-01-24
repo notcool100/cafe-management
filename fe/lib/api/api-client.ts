@@ -68,6 +68,8 @@ apiClient.interceptors.response.use(
             return Promise.reject(error);
         }
 
+        const hadAuthHeader = Boolean(originalRequest?.headers?.Authorization);
+
         if (error.response?.status === 401) {
             console.log('🚨 [API] 401 Unauthorized - Token may be expired');
 
@@ -93,8 +95,8 @@ apiClient.interceptors.response.use(
 
             if (!refreshToken || refreshToken === 'undefined') {
                 console.log('❌ [API] No refresh token available');
-                // If the user was never logged in (no tokens), don't force a redirect on public pages
-                if (!accessToken) {
+                // If the user was never logged in (no tokens or no auth header), don't force a redirect on public pages
+                if (!accessToken || !hadAuthHeader) {
                     return Promise.reject(error);
                 }
                 handleLogout();

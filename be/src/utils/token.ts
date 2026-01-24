@@ -24,25 +24,48 @@ export class TokenManager {
         if (shouldReset) {
             // Reset to token 1
             nextToken = 1;
-            await prisma.branch.update({
-                where: { id: branchId },
-                data: {
-                    currentToken: 1,
-                    lastTokenReset: now,
-                },
-            });
         } else {
             // Loop tokens within max range
             const maxToken = branch.maxTokenNumber || 99;
             nextToken = (branch.currentToken % maxToken) + 1;
-
-            await prisma.branch.update({
-                where: { id: branchId },
-                data: { currentToken: nextToken },
-            });
         }
 
-        return nextToken;
+        // Find first available token that isn't currently in use
+        const maxToken = branch.maxTokenNumber || 99;
+        const activeStatuses = ['PENDING', 'PREPARING', 'READY', 'CANCELLATION_PENDING'];
+        const activeOrders = await prisma.order.findMany({
+            where: {
+                branchId,
+                status: { in: activeStatuses as any },
+                tokenNumber: { not: null },
+            },
+            select: { tokenNumber: true },
+        });
+
+        const usedTokens = new Set<number>(
+            activeOrders
+                .map((o) => o.tokenNumber)
+                .filter((n): n is number => typeof n === 'number')
+        );
+
+        let candidate = nextToken;
+        let attempts = 0;
+        while (attempts < maxToken) {
+            if (!usedTokens.has(candidate)) {
+                await prisma.branch.update({
+                    where: { id: branchId },
+                    data: {
+                        currentToken: candidate,
+                        ...(shouldReset ? { lastTokenReset: now } : {}),
+                    },
+                });
+                return candidate;
+            }
+            candidate = (candidate % maxToken) + 1;
+            attempts += 1;
+        }
+
+        throw new Error('No available tokens for this branch. Please complete or cancel orders to free tokens.');
     }
 
     /**
