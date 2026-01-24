@@ -219,7 +219,7 @@ export default function MenuPage() {
                                     {item.category.replace('_', ' ')}
                                 </Badge>
                                 {item.branch && (
-                                    <Badge variant="outline" size="sm">
+                                    <Badge variant="info" size="sm">
                                         {item.branch.name}
                                     </Badge>
                                 )}

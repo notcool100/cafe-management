@@ -213,7 +213,6 @@ export class OrderService {
         return order;
     }
 
-    static async requestCancellation(orderId: string, userId?: string, tenantId?: string) {
     static async requestCancellation(
         orderId: string,
         userId?: string,

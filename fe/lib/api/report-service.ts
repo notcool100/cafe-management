@@ -16,6 +16,7 @@ const normalizeStatusBreakdown = (statusBreakdown: ReportOverview['statusBreakdo
         [OrderStatus.READY]: 0,
         [OrderStatus.COMPLETED]: 0,
         [OrderStatus.CANCELLED]: 0,
+        [OrderStatus.CANCELLATION_PENDING]: 0,
     };
 
     Object.entries(statusBreakdown || {}).forEach(([status, count]) => {

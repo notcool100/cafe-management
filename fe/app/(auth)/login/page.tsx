@@ -55,7 +55,7 @@ export default function LoginPage() {
                 router.push('/');
             }
         } catch (err: any) {
-            console.error('❌ [Login] Login failed:', err);
+            // console.error('❌ [Login] Login failed:', err);
             setError(err.message || 'Login failed. Please try again.');
         } finally {
             setIsLoading(false);
