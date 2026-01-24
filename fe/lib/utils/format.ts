@@ -15,11 +15,19 @@ export function formatTimeAgo(date: string | Date): string {
 }
 
 export function formatCurrency(amount: number, currency: string = 'NPR'): string {
-    return new Intl.NumberFormat('en-NP', {
+    const formatted = new Intl.NumberFormat('en-NP', {
         style: 'currency',
         currency: currency,
+        currencyDisplay: 'narrowSymbol',
         minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
     }).format(amount);
+
+    if (currency === 'NPR') {
+        return formatted.replace(/^Rs\b/, 'Rs.');
+    }
+
+    return formatted;
 }
 
 export function formatTokenNumber(token: number | undefined): string {

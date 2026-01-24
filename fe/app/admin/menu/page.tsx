@@ -206,7 +206,7 @@ export default function MenuPage() {
                                     {item.name}
                                 </h3>
                                 <span className="font-bold text-purple-400">
-                                    ${Number(item.price).toFixed(2)}
+                                    Rs. {Number(item.price).toFixed(2)}
                                 </span>
                             </div>
 

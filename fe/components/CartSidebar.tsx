@@ -85,11 +85,11 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                                                 <div className="flex justify-between items-start">
                                                     <h3 className="text-white font-medium line-clamp-1">{item.menuItem.name}</h3>
                                                     <p className="text-purple-400 font-bold ml-2">
-                                                        ${(item.menuItem.price * item.quantity).toFixed(2)}
+                                                        Rs. {(item.menuItem.price * item.quantity).toFixed(2)}
                                                     </p>
                                                 </div>
                                                 <p className="text-sm text-gray-500 mt-0.5">
-                                                    ${item.menuItem.price.toFixed(2)} each
+                                                    Rs. {item.menuItem.price.toFixed(2)} each
                                                 </p>
                                             </div>
 
@@ -130,7 +130,7 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                         <div className="p-6 bg-gray-900 border-t border-gray-800 space-y-4">
                             <div className="flex justify-between items-center text-lg font-bold text-white">
                                 <span>Total</span>
-                                <span>${total.toFixed(2)}</span>
+                                <span>Rs. {total.toFixed(2)}</span>
                             </div>
                             <Link href="/checkout" onClick={onClose} className="block w-full">
                                 <Button fullWidth size="lg" className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700">

@@ -87,14 +87,14 @@ export default function CheckoutPage() {
                                     <div key={item.menuItem.id} className="flex justify-between items-center py-2 border-b border-gray-800 last:border-0">
                                         <div className="flex-1">
                                             <h4 className="font-medium text-white">{item.menuItem.name}</h4>
-                                            <p className="text-sm text-gray-400">${item.menuItem.price.toFixed(2)} x {item.quantity}</p>
+                                            <p className="text-sm text-gray-400">Rs. {item.menuItem.price.toFixed(2)} x {item.quantity}</p>
                                         </div>
-                                        <p className="font-bold text-white">${(item.menuItem.price * item.quantity).toFixed(2)}</p>
+                                        <p className="font-bold text-white">Rs. {(item.menuItem.price * item.quantity).toFixed(2)}</p>
                                     </div>
                                 ))}
                                 <div className="pt-4 flex justify-between items-center text-xl font-bold text-white border-t border-gray-800">
                                     <span>Total</span>
-                                    <span>${getTotal().toFixed(2)}</span>
+                                    <span>Rs. {getTotal().toFixed(2)}</span>
                                 </div>
                             </CardContent>
                         </Card>

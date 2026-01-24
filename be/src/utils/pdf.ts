@@ -118,11 +118,11 @@ export async function generateBill(order: OrderWithItems): Promise<Buffer> {
                 width: 50,
                 continued: true,
             });
-            doc.text(`$${Number(item.price).toFixed(2)}`, 350, doc.y, {
+            doc.text(`Rs. ${Number(item.price).toFixed(2)}`, 350, doc.y, {
                 width: 100,
                 continued: true,
             });
-            doc.text(`$${itemTotal.toFixed(2)}`, 450, doc.y, {
+            doc.text(`Rs. ${itemTotal.toFixed(2)}`, 450, doc.y, {
                 width: 100,
                 align: 'right',
             });
@@ -136,7 +136,7 @@ export async function generateBill(order: OrderWithItems): Promise<Buffer> {
         // Total
         doc.fontSize(14);
         doc.text('Total Amount:', 350, doc.y, { continued: true });
-        doc.text(`$${Number(order.totalAmount).toFixed(2)}`, 450, doc.y, {
+        doc.text(`Rs. ${Number(order.totalAmount).toFixed(2)}`, 450, doc.y, {
             width: 100,
             align: 'right',
         });

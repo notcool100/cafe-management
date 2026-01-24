@@ -100,7 +100,7 @@ export default function OrderTrackingPage() {
                             </div>
                             <div className="text-right">
                                 <p className="text-sm text-gray-400">Total Amount</p>
-                                <p className="text-2xl font-bold text-purple-400">${order.totalAmount.toFixed(2)}</p>
+                                <p className="text-2xl font-bold text-purple-400">Rs. {order.totalAmount.toFixed(2)}</p>
                             </div>
                         </div>
 
@@ -112,7 +112,7 @@ export default function OrderTrackingPage() {
                                         <span className="text-gray-500 mr-2">{item.quantity}x</span>
                                         {item.menuItem?.name}
                                     </span>
-                                    <span className="text-gray-400">${(item.price * item.quantity).toFixed(2)}</span>
+                                    <span className="text-gray-400">Rs. {(item.price * item.quantity).toFixed(2)}</span>
                                 </div>
                             ))}
                         </div>

@@ -297,7 +297,7 @@ export default function ActiveOrdersPage() {
                             onChange={(e) => setSelectedMenuItem(e.target.value)}
                             options={menuItems.map((item) => ({
                                 value: item.id,
-                                label: `${item.name} — $${item.price.toFixed(2)}`,
+                                label: `${item.name} — Rs. ${item.price.toFixed(2)}`,
                             }))}
                             disabled={menuLoading || menuItems.length === 0}
                         />
@@ -357,7 +357,7 @@ export default function ActiveOrdersPage() {
                                     cartItems.map((item) => (
                                         <tr key={item.menuItemId} className="border-b border-gray-800 last:border-0">
                                             <td className="px-4 py-3 text-white">{item.name}</td>
-                                            <td className="px-4 py-3 text-right text-gray-200">${item.price.toFixed(2)}</td>
+                                            <td className="px-4 py-3 text-right text-gray-200">Rs. {item.price.toFixed(2)}</td>
                                             <td className="px-4 py-3 text-center">
                                                 <Input
                                                     type="number"
@@ -368,7 +368,7 @@ export default function ActiveOrdersPage() {
                                                 />
                                             </td>
                                             <td className="px-4 py-3 text-right text-white font-semibold">
-                                                ${(item.quantity * item.price).toFixed(2)}
+                                                Rs. {(item.quantity * item.price).toFixed(2)}
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 <Button
@@ -392,7 +392,7 @@ export default function ActiveOrdersPage() {
                         </div>
                         <div className="flex items-center gap-3">
                             <div className="text-xl font-bold text-white">
-                                Total: <span className="text-purple-400">${totalAmount.toFixed(2)}</span>
+                                Total: <span className="text-purple-400">Rs. {totalAmount.toFixed(2)}</span>
                             </div>
                             <Button
                                 onClick={handleCreateOrder}

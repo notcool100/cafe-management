@@ -218,9 +218,9 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                                             {item.menuItem?.name || 'Unknown Item'}
                                         </td>
                                         <td className="px-3 py-3 text-center">{item.quantity}</td>
-                                        <td className="px-3 py-3 text-right">${Number(item.price ?? 0).toFixed(2)}</td>
+                                        <td className="px-3 py-3 text-right">Rs. {Number(item.price ?? 0).toFixed(2)}</td>
                                         <td className="px-3 py-3 text-right font-medium text-purple-400">
-                                            ${(Number(item.price ?? 0) * item.quantity).toFixed(2)}
+                                            Rs. {(Number(item.price ?? 0) * item.quantity).toFixed(2)}
                                         </td>
                                     </tr>
                                 ))}
@@ -239,7 +239,7 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                         <div className="flex justify-between items-center mb-6">
                             <span className="text-gray-400">Total Amount</span>
                             <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
-                                ${order.totalAmount.toFixed(2)}
+                                Rs. {order.totalAmount.toFixed(2)}
                             </span>
                         </div>
 

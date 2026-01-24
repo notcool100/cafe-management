@@ -188,7 +188,7 @@ function OrderCard({ order }: { order: Order }) {
                 </div>
                 <div className="flex justify-between text-sm text-gray-400">
                     <span>{order.items.reduce((acc, item) => acc + item.quantity, 0)} items</span>
-                    <span className="text-white font-semibold">${order.totalAmount.toFixed(2)}</span>
+                    <span className="text-white font-semibold">Rs. {order.totalAmount.toFixed(2)}</span>
                 </div>
             </CardContent>
         </Card>
