@@ -87,11 +87,16 @@ apiClient.interceptors.response.use(
             isRefreshing = true;
 
             const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
+            const accessToken = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
 
             console.log('🔄 [API] Attempting token refresh:', { hasRefreshToken: !!refreshToken });
 
             if (!refreshToken || refreshToken === 'undefined') {
-                console.log('❌ [API] No refresh token available, logging out');
+                console.log('❌ [API] No refresh token available');
+                // If the user was never logged in (no tokens), don't force a redirect on public pages
+                if (!accessToken) {
+                    return Promise.reject(error);
+                }
                 handleLogout();
                 return Promise.reject(error);
             }
