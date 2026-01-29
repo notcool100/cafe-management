@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { format, startOfDay, subHours, startOfWeek } from 'date-fns';
 import { orderService } from '@/lib/api/order-service';
 import { menuService } from '@/lib/api/menu-service';
-import { Order, OrderStatus, MenuItem } from '@/lib/types';
+import { Order, OrderStatus, MenuItem, OrderType } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import Badge from '@/components/ui/Badge';
@@ -29,6 +29,7 @@ export default function ActiveOrdersPage() {
     const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
     const [customerName, setCustomerName] = useState('');
     const [customerPhone, setCustomerPhone] = useState('');
+    const [orderType, setOrderType] = useState<OrderType>(OrderType.DINE_IN);
     const [dateFilter, setDateFilter] = useState<'TODAY' | 'LAST_24H' | 'THIS_WEEK' | 'ALL'>('TODAY');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; isVisible: boolean }>({
         message: '',
@@ -151,6 +152,7 @@ export default function ActiveOrdersPage() {
                 branchId: user.branchId,
                 customerName: customerName || undefined,
                 customerPhone: customerPhone || undefined,
+                orderType,
                 items: cartItems.map((item) => ({
                     menuItemId: item.menuItemId,
                     quantity: item.quantity,
@@ -165,6 +167,7 @@ export default function ActiveOrdersPage() {
             setCartItems([]);
             setCustomerName('');
             setCustomerPhone('');
+            setOrderType(OrderType.DINE_IN);
             await loadOrders(false);
         } catch (error) {
             // console.error('Failed to create order:', error);
@@ -335,6 +338,29 @@ export default function ActiveOrdersPage() {
                         />
                     </div>
 
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <span className="text-xs uppercase tracking-wide text-gray-500">Order type</span>
+                            <div className="mt-2 grid grid-cols-2 gap-2">
+                                {[OrderType.DINE_IN, OrderType.TAKEAWAY].map((type) => (
+                                    <Button
+                                        key={type}
+                                        variant={orderType === type ? 'primary' : 'outline'}
+                                        onClick={() => setOrderType(type)}
+                                        fullWidth
+                                    >
+                                        {type === OrderType.DINE_IN ? 'Dine-in' : 'Takeaway'}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="flex items-end justify-end text-sm text-gray-400">
+                            {orderType === OrderType.TAKEAWAY
+                                ? 'Tokens are skipped for takeaway orders.'
+                                : 'Tokens will be generated for dine-in orders.'}
+                        </div>
+                    </div>
+
                     <div className="overflow-x-auto rounded-xl border border-gray-800 bg-gray-900/40">
                         <table className="w-full text-sm">
                             <thead className="text-gray-400 border-b border-gray-800">
@@ -441,8 +467,11 @@ export default function ActiveOrdersPage() {
                                 <div className="text-center my-4">
                                     <p className="text-sm text-gray-400 uppercase tracking-wider mb-1">Token</p>
                                     <p className="text-5xl font-black text-white tracking-tight">
-                                        {order.tokenNumber}
+                                        {order.tokenNumber ?? (order.orderType === OrderType.TAKEAWAY ? '—' : 'N/A')}
                                     </p>
+                                    {order.orderType === OrderType.TAKEAWAY && (
+                                        <p className="text-[11px] text-amber-300 mt-1">Takeaway • no token</p>
+                                    )}
                                 </div>
 
                                 <div className="mt-auto space-y-2">

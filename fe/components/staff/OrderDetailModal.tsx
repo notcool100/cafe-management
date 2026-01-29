@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Order, OrderStatus } from '@/lib/types';
+import { Order, OrderStatus, OrderType } from '@/lib/types';
 import { orderService } from '@/lib/api/order-service';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
@@ -59,8 +59,11 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
         }
     };
 
+    const isTerminal = (status: OrderStatus | undefined) =>
+        status === OrderStatus.COMPLETED || status === OrderStatus.CANCELLED;
+
     const handleStatusUpdate = async () => {
-        if (!order || !newStatus || newStatus === order.status) return;
+        if (!order || !newStatus || newStatus === order.status || isTerminal(order.status)) return;
 
         setIsUpdating(true);
         try {
@@ -171,10 +174,15 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                         <div className="flex justify-between items-start mb-2">
                             <div>
                                 <h3 className="text-2xl font-bold text-white mb-1">
-                                    Token: {order.tokenNumber}
+                                    {order.orderType === OrderType.TAKEAWAY
+                                        ? 'Takeaway (no token)'
+                                        : `Token: ${order.tokenNumber ?? 'N/A'}`}
                                 </h3>
                                 <p className="text-gray-400 text-sm">
                                     {format(new Date(order.createdAt), 'PPpp')}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Order type: {order.orderType === OrderType.TAKEAWAY ? 'Takeaway' : 'Dine-in'}
                                 </p>
                             </div>
                             <Badge variant={
@@ -248,7 +256,12 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                                 <Select
                                     value={newStatus}
                                     onChange={(e) => setNewStatus(e.target.value as OrderStatus)}
+                                    disabled={isTerminal(order.status)}
                                     options={Object.values(OrderStatus)
+                                        .filter(status =>
+                                            // Do not let users move a terminal order to another status
+                                            isTerminal(order.status) ? status === order.status : true
+                                        )
                                         .filter(status => status !== OrderStatus.CANCELLATION_PENDING || status === order.status)
                                         .map(status => ({
                                             value: status,
@@ -258,12 +271,18 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                                 />
                                 <Button
                                     onClick={handleStatusUpdate}
-                                    disabled={newStatus === order.status || isUpdating}
+                                    disabled={newStatus === order.status || isUpdating || isTerminal(order.status)}
                                     isLoading={isUpdating}
                                 >
                                     Update Status
                                 </Button>
                             </div>
+
+                            {isTerminal(order.status) && (
+                                <div className="text-sm text-gray-400">
+                                    Completed or cancelled orders cannot be changed.
+                                </div>
+                            )}
 
                             {order.status === OrderStatus.CANCELLATION_PENDING && (
                                 <Button

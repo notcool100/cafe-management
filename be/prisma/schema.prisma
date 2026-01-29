@@ -131,6 +131,7 @@ model MenuItem {
 model Order {
   id            String      @id @default(uuid())
   tokenNumber   Int?
+  orderType     OrderType   @default(DINE_IN)
   branchId      String
   branch        Branch      @relation(fields: [branchId], references: [id])
   tenantId      String
@@ -156,6 +157,11 @@ model Order {
   @@index([status])
   @@index([tokenNumber])
   @@index([createdAt])
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
 }
 
 enum OrderStatus {

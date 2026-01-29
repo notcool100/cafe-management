@@ -18,6 +18,8 @@ export class TokenManager {
         const now = new Date();
         const lastReset = branch.lastTokenReset;
         const shouldReset = this.shouldResetTokens(lastReset, now);
+        const todayStart = new Date(now);
+        todayStart.setHours(0, 0, 0, 0);
 
         let nextToken: number;
 
@@ -38,6 +40,7 @@ export class TokenManager {
                 branchId,
                 status: { in: activeStatuses as any },
                 tokenNumber: { not: null },
+                createdAt: { gte: todayStart }, // ignore previous-day tokens after reset
             },
             select: { tokenNumber: true },
         });

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { orderService } from '@/lib/api/order-service';
-import { Order, OrderStatus } from '@/lib/types';
+import { Order, OrderStatus, OrderType } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -51,13 +51,16 @@ export default function OrderTrackingPage() {
         OrderStatus.COMPLETED
     ];
     const currentStepIndex = steps.indexOf(order.status);
+    const displayToken = order.tokenNumber ?? order.id.slice(0, 8);
 
     return (
         <div className="min-h-screen bg-gray-950 py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-xl mx-auto space-y-8">
                 <div className="text-center">
                     <h1 className="text-3xl font-bold text-white mb-2">Order Status</h1>
-                    <p className="text-gray-400">Tracking Order #{order.tokenNumber || order.id.slice(0, 8)}</p>
+                    <p className="text-gray-400">
+                        {order.orderType === OrderType.TAKEAWAY ? 'Takeaway order' : 'Tracking Order'} #{order.tokenNumber || order.id.slice(0, 8)}
+                    </p>
                 </div>
 
                 {/* Status Timeline */}
@@ -96,7 +99,12 @@ export default function OrderTrackingPage() {
                         <div className="flex justify-between items-center mb-6 pb-6 border-b border-gray-800">
                             <div>
                                 <p className="text-sm text-gray-400">Display Token</p>
-                                <p className="text-3xl font-bold text-white">{order.tokenNumber}</p>
+                                <p className="text-3xl font-bold text-white">
+                                    {order.orderType === OrderType.TAKEAWAY ? 'Not required' : displayToken}
+                                </p>
+                                {order.orderType === OrderType.TAKEAWAY && (
+                                    <p className="text-xs text-gray-500 mt-1">Takeaway orders don't use tokens.</p>
+                                )}
                             </div>
                             <div className="text-right">
                                 <p className="text-sm text-gray-400">Total Amount</p>

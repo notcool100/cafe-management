@@ -3,13 +3,14 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { MenuItem, MenuCategory, Branch, CreateMenuItemData } from '@/lib/types';
+import { MenuItem, MenuCategory, Branch, CreateMenuItemData, UserRole } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Checkbox from '@/components/ui/Checkbox';
 import { useEffect, useState } from 'react';
 import { branchService } from '@/lib/api/branch-service';
+import { useAuthStore } from '@/lib/store/auth-store';
 
 const menuItemSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -34,11 +35,15 @@ interface MenuItemFormProps {
 export default function MenuItemForm({ initialData, onSubmit, isLoading, isEdit = false }: MenuItemFormProps) {
     const [branches, setBranches] = useState<Branch[]>([]);
     const [imageFile, setImageFile] = useState<File | null>(null);
+    const { user } = useAuthStore();
+    const isManager = user?.role === UserRole.MANAGER;
+    const lockedBranchId = isManager ? user?.branchId : undefined;
 
     const {
         register,
         handleSubmit,
         formState: { errors },
+        setValue,
     } = useForm<MenuItemFormData>({
         resolver: zodResolver(menuItemSchema),
         defaultValues: {
@@ -46,7 +51,7 @@ export default function MenuItemForm({ initialData, onSubmit, isLoading, isEdit 
             description: initialData?.description || '',
             price: initialData?.price || 0,
             category: initialData?.category || MenuCategory.FOOD,
-            branchId: initialData?.branchId || '',
+            branchId: initialData?.branchId || lockedBranchId || '',
             available: initialData?.available ?? true,
         },
     });
@@ -56,12 +61,22 @@ export default function MenuItemForm({ initialData, onSubmit, isLoading, isEdit 
             try {
                 const data = await branchService.getBranches();
                 setBranches(data);
+
+                // Auto-select branch for managers or when only one branch is available
+                const preferredBranch =
+                    initialData?.branchId ||
+                    lockedBranchId ||
+                    (data.length === 1 ? data[0].id : '');
+
+                if (preferredBranch) {
+                    setValue('branchId', preferredBranch, { shouldValidate: true });
+                }
             } catch (error) {
                 console.error('Failed to load branches:', error);
             }
         };
         loadBranches();
-    }, []);
+    }, [initialData?.branchId, lockedBranchId, setValue]);
 
     return (
         <form
@@ -116,11 +131,23 @@ export default function MenuItemForm({ initialData, onSubmit, isLoading, isEdit 
                     label="Branch"
                     {...register('branchId')}
                     error={errors.branchId?.message}
-                    options={[
-                        { value: '', label: 'Select Branch' },
-                        ...branches.map((b) => ({ value: b.id, label: b.name })),
-                    ]}
+                    options={
+                        isManager && lockedBranchId
+                            ? branches
+                                .filter((b) => b.id === lockedBranchId)
+                                .map((b) => ({ value: b.id, label: b.name }))
+                            : [
+                                { value: '', label: 'Select Branch' },
+                                ...branches.map((b) => ({ value: b.id, label: b.name })),
+                            ]
+                    }
+                    disabled={isManager}
                 />
+                {isManager && (
+                    <p className="text-xs text-amber-300 mt-1">
+                        Branch is locked to your assignment.
+                    </p>
+                )}
 
                 <div className="w-full">
                     <label className="block text-sm font-medium text-gray-300 mb-1">

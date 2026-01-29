@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { menuService } from '@/lib/api/menu-service';
 import { branchService } from '@/lib/api/branch-service';
-import { MenuItem, MenuCategory, Branch } from '@/lib/types';
+import { MenuItem, MenuCategory, Branch, UserRole } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
@@ -14,8 +14,12 @@ import Toast from '@/components/ui/Toast';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import { resolveImageUrl } from '@/lib/utils/image';
+import { useAuthStore } from '@/lib/store/auth-store';
 
 export default function MenuPage() {
+    const { user } = useAuthStore();
+    const isManager = user?.role === UserRole.MANAGER;
+    const managerBranchId = isManager ? user?.branchId : undefined;
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -23,7 +27,7 @@ export default function MenuPage() {
     const [filters, setFilters] = useState({
         search: '',
         category: '' as MenuCategory | '',
-        branchId: '',
+        branchId: managerBranchId || '',
     });
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; isVisible: boolean }>({
         message: '',
@@ -51,6 +55,13 @@ export default function MenuPage() {
             ]);
             setBranches(branchesData);
             setMenuItems(itemsData);
+
+            // Auto-apply branch filter for managers or single-branch tenants
+            if (managerBranchId) {
+                setFilters((prev) => ({ ...prev, branchId: managerBranchId }));
+            } else if (!managerBranchId && filters.branchId === '' && branchesData.length === 1) {
+                setFilters((prev) => ({ ...prev, branchId: branchesData[0].id }));
+            }
         } catch (error) {
             console.log('Failed to load data:', error);
             setToast({
@@ -161,12 +172,22 @@ export default function MenuPage() {
                 <Select
                     value={filters.branchId}
                     onChange={(e) => setFilters({ ...filters, branchId: e.target.value })}
-                    options={[
-                        { value: '', label: 'All Branches' },
-                        ...branches.map(b => ({ value: b.id, label: b.name }))
-                    ]}
+                    options={
+                        isManager && managerBranchId
+                            ? branches
+                                  .filter((b) => b.id === managerBranchId)
+                                  .map((b) => ({ value: b.id, label: b.name }))
+                            : [
+                                  { value: '', label: 'All Branches' },
+                                  ...branches.map(b => ({ value: b.id, label: b.name })),
+                              ]
+                    }
+                    disabled={isManager}
                     className="w-full"
                 />
+                {isManager && (
+                    <p className="text-xs text-amber-300">Branch locked to your assignment.</p>
+                )}
             </div>
 
             <div className="flex justify-end mb-6">

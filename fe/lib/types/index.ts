@@ -107,6 +107,11 @@ export enum OrderStatus {
     CANCELLATION_PENDING = 'CANCELLATION_PENDING'
 }
 
+export enum OrderType {
+    DINE_IN = 'DINE_IN',
+    TAKEAWAY = 'TAKEAWAY',
+}
+
 export interface OrderItem {
     id: string;
     orderId: string;
@@ -123,6 +128,7 @@ export interface Order {
     branch?: Branch;
     status: OrderStatus;
     tokenNumber?: number;
+    orderType?: OrderType;
     customerName?: string;
     customerPhone?: string;
     totalAmount: number;
@@ -140,6 +146,7 @@ export interface CreateOrderData {
     customerName?: string;
     customerPhone?: string;
     deviceId?: string;
+    orderType?: OrderType;
     items: {
         menuItemId: string;
         quantity: number;

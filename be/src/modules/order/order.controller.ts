@@ -11,6 +11,10 @@ export class OrderController {
         body('items.*.quantity')
             .isInt({ min: 1 })
             .withMessage('Quantity must be at least 1'),
+        body('orderType')
+            .optional()
+            .isIn(['DINE_IN', 'TAKEAWAY'])
+            .withMessage('orderType must be DINE_IN or TAKEAWAY'),
         body('deviceId').optional().isString().isLength({ min: 6, max: 128 }).withMessage('deviceId must be a string'),
     ];
 
@@ -21,13 +25,14 @@ export class OrderController {
                 return res.status(400).json({ errors: errors.array() });
             }
 
-            const { branchId, items, customerName, customerPhone, deviceId } = req.body;
+            const { branchId, items, customerName, customerPhone, deviceId, orderType } = req.body;
             const order = await OrderService.createOrder({
                 branchId,
                 items,
                 customerName,
                 customerPhone,
                 deviceId,
+                orderType,
             }, (req as AuthRequest).user?.tenantId);
 
             res.status(201).json(order);

@@ -9,16 +9,20 @@ import Button from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import Spinner from '@/components/ui/Spinner';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Order, OrderStatus, Branch } from '@/lib/types';
+import { Order, OrderStatus, Branch, OrderType, UserRole } from '@/lib/types';
 import Toast from '@/components/ui/Toast';
 import OrderDetailModal from '@/components/staff/OrderDetailModal';
+import { useAuthStore } from '@/lib/store/auth-store';
 
 type DateFilter = 'TODAY' | 'LAST_24H' | 'THIS_WEEK' | 'ALL';
 
 export default function AdminOrdersPage() {
+    const { user } = useAuthStore();
+    const isManager = user?.role === UserRole.MANAGER;
+    const managerBranchId = isManager ? user?.branchId : undefined;
     const [orders, setOrders] = useState<Order[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
-    const [branchFilter, setBranchFilter] = useState<string>('all');
+    const [branchFilter, setBranchFilter] = useState<string>(managerBranchId ?? 'all');
     const [statusFilter, setStatusFilter] = useState<OrderStatus | 'ALL'>('ALL');
     const [dateFilter, setDateFilter] = useState<DateFilter>('TODAY');
     const [isLoading, setIsLoading] = useState(true);
@@ -33,10 +37,16 @@ export default function AdminOrdersPage() {
         try {
             const data = await branchService.getBranches();
             setBranches(data);
+
+            if (managerBranchId) {
+                setBranchFilter(managerBranchId);
+            } else if (branchFilter === 'all' && data.length === 1) {
+                setBranchFilter(data[0].id);
+            }
         } catch {
             setToast({ message: 'Unable to load branches', type: 'error', isVisible: true });
         }
-    }, []);
+    }, [branchFilter, managerBranchId]);
 
     const loadOrders = useCallback(async () => {
         setIsLoading(true);
@@ -44,7 +54,7 @@ export default function AdminOrdersPage() {
             const { startDate, endDate } = computeDates(dateFilter);
             const data = await orderService.getOrders({
                 status: statusFilter === 'ALL' ? undefined : statusFilter,
-                branchId: branchFilter === 'all' ? undefined : branchFilter,
+                branchId: branchFilter === 'all' ? managerBranchId || undefined : branchFilter,
                 startDate,
                 endDate,
             });
@@ -55,7 +65,7 @@ export default function AdminOrdersPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [branchFilter, dateFilter, statusFilter]);
+    }, [branchFilter, dateFilter, managerBranchId, statusFilter]);
 
     useEffect(() => {
         void loadBranches();
@@ -100,11 +110,21 @@ export default function AdminOrdersPage() {
                             <Select
                                 value={branchFilter}
                                 onChange={(e) => setBranchFilter(e.target.value)}
-                                options={[
-                                    { value: 'all', label: 'All branches' },
-                                    ...branches.map((b) => ({ value: b.id, label: b.name })),
-                                ]}
+                                options={
+                                    isManager && managerBranchId
+                                        ? branches
+                                              .filter((b) => b.id === managerBranchId)
+                                              .map((b) => ({ value: b.id, label: b.name }))
+                                        : [
+                                              { value: 'all', label: 'All branches' },
+                                              ...branches.map((b) => ({ value: b.id, label: b.name })),
+                                          ]
+                                }
+                                disabled={isManager}
                             />
+                            {isManager && (
+                                <p className="text-xs text-amber-300 mt-1">Branch locked to your assignment.</p>
+                            )}
                         </div>
                     </div>
                     <div className="flex flex-col gap-1">
@@ -193,7 +213,12 @@ function OrderCard({ order, onSelect }: { order: Order; onSelect: (orderId: stri
                 <div className="flex items-center justify-between">
                     <div>
                         <p className="text-sm text-gray-400 uppercase tracking-wide mb-1">Token</p>
-                        <p className="text-2xl font-bold text-white">{order.tokenNumber ?? '--'}</p>
+                        <p className="text-2xl font-bold text-white">
+                            {order.tokenNumber ?? (order.orderType === OrderType.TAKEAWAY ? '—' : '--')}
+                        </p>
+                        {order.orderType === OrderType.TAKEAWAY && (
+                            <p className="text-[11px] text-amber-300 mt-1">Takeaway • no token</p>
+                        )}
                     </div>
                     <div className="text-right">
                         <p className="text-sm text-gray-400">Branch</p>

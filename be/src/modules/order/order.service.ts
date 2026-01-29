@@ -25,6 +25,7 @@ export class OrderService {
             customerName?: string;
             customerPhone?: string;
             deviceId?: string;
+            orderType?: 'DINE_IN' | 'TAKEAWAY';
         },
         tenantId?: string
     ) {
@@ -73,8 +74,9 @@ export class OrderService {
             };
         });
 
-        // Generate token
-        const tokenNumber = await TokenManager.generateToken(data.branchId);
+        // Generate token only for dine-in orders
+        const isTakeaway = data.orderType === 'TAKEAWAY';
+        const tokenNumber = isTakeaway ? null : await TokenManager.generateToken(data.branchId);
 
         // Create order with items
         const order = await prisma.order.create({
@@ -82,6 +84,7 @@ export class OrderService {
                 branchId: data.branchId,
                 tenantId: branch.tenantId,
                 tokenNumber,
+                orderType: isTakeaway ? 'TAKEAWAY' : 'DINE_IN',
                 totalAmount,
                 customerName: data.customerName,
                 customerPhone: data.customerPhone,
@@ -184,21 +187,26 @@ export class OrderService {
         tenantId?: string,
         branchConstraint?: string
     ) {
-        if (status === 'CANCELLED') {
-            return this.requestCancellation(id, completedBy, tenantId, branchConstraint);
-        }
-
         const existing = await prisma.order.findFirst({
             where: {
                 id,
                 ...(tenantId ? { tenantId } : {}),
                 ...(branchConstraint ? { branchId: branchConstraint } : {}),
             },
-            select: { id: true },
+            select: { id: true, status: true },
         });
 
         if (!existing) {
             throw new Error('Order not found');
+        }
+
+        const isTerminal = existing.status === 'COMPLETED' || existing.status === 'CANCELLED';
+        if (isTerminal && existing.status !== status) {
+            throw new Error('Completed or cancelled orders cannot be updated');
+        }
+
+        if (status === 'CANCELLED') {
+            return this.requestCancellation(id, completedBy, tenantId, branchConstraint);
         }
 
         const order = await prisma.order.update({

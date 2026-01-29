@@ -192,9 +192,13 @@ export class AdminService {
         return updatedBranch;
     }
 
-    static async listBranches(tenantId: string) {
+    static async listBranches(tenantId: string, branchId?: string) {
         const branches = await prisma.branch.findMany({
-            where: { isActive: true, tenantId },
+            where: {
+                isActive: true,
+                tenantId,
+                ...(branchId ? { id: branchId } : {}),
+            },
             include: {
                 _count: {
                     select: {

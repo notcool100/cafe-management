@@ -9,6 +9,7 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import { useEffect, useState } from 'react';
 import { branchService } from '@/lib/api/branch-service';
+import { useAuthStore } from '@/lib/store/auth-store';
 
 const employeeSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -32,19 +33,23 @@ interface EmployeeFormProps {
 
 export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit = false }: EmployeeFormProps) {
     const [branches, setBranches] = useState<Branch[]>([]);
+    const { user } = useAuthStore();
+    const isManager = user?.role === UserRole.MANAGER;
+    const lockedBranchId = isManager ? user?.branchId : undefined;
 
     const {
         register,
         handleSubmit,
         formState: { errors },
         setError,
+        setValue,
     } = useForm<EmployeeFormData>({
         resolver: zodResolver(employeeSchema),
         defaultValues: {
             name: initialData?.name || '',
             email: initialData?.email || '',
             role: initialData?.role || UserRole.EMPLOYEE,
-            branchId: initialData?.branchId || '',
+            branchId: initialData?.branchId || lockedBranchId || '',
             password: '',
         },
     });
@@ -54,12 +59,21 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
             try {
                 const data = await branchService.getBranches();
                 setBranches(data);
+
+                const preferredBranch =
+                    initialData?.branchId ||
+                    lockedBranchId ||
+                    (data.length === 1 ? data[0].id : '');
+
+                if (preferredBranch) {
+                    setValue('branchId', preferredBranch, { shouldValidate: true });
+                }
             } catch (error) {
                 console.error('Failed to load branches:', error);
             }
         };
         loadBranches();
-    }, []);
+    }, [initialData?.branchId, lockedBranchId, setValue]);
 
     const handleFormSubmit = async (data: EmployeeFormData) => {
         if (!isEdit && !data.password) {
@@ -116,11 +130,23 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
                     label="Branch (Optional)"
                     {...register('branchId')}
                     error={errors.branchId?.message}
-                    options={[
-                        { value: '', label: 'No Branch Assigned' },
-                        ...branches.map((b) => ({ value: b.id, label: b.name })),
-                    ]}
+                    options={
+                        isManager && lockedBranchId
+                            ? branches
+                                .filter((b) => b.id === lockedBranchId)
+                                .map((b) => ({ value: b.id, label: b.name }))
+                            : [
+                                { value: '', label: 'No Branch Assigned' },
+                                ...branches.map((b) => ({ value: b.id, label: b.name })),
+                            ]
+                    }
+                    disabled={isManager}
                 />
+                {isManager && (
+                    <p className="text-xs text-amber-300 mt-1">
+                        Branch is locked to your assignment.
+                    </p>
+                )}
             </div>
 
             <div className="flex justify-end gap-4 pt-4">

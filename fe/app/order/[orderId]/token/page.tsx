@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orderService } from '@/lib/api/order-service';
-import { Order } from '@/lib/types';
+import { Order, OrderType } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -23,6 +23,12 @@ export default function TokenPage() {
         const interval = setInterval(loadOrder, 5000);
         return () => clearInterval(interval);
     }, [orderId]);
+
+    useEffect(() => {
+        if (order && order.orderType === OrderType.TAKEAWAY) {
+            router.replace(`/order/${orderId}/track`);
+        }
+    }, [order, orderId, router]);
 
     const loadOrder = async () => {
         try {

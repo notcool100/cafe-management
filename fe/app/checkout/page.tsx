@@ -10,6 +10,7 @@ import Input from '@/components/ui/Input';
 import Toast from '@/components/ui/Toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { getOrCreateDeviceId } from '@/lib/utils/device';
+import { OrderType } from '@/lib/types';
 
 export default function CheckoutPage() {
     const router = useRouter();
@@ -17,6 +18,7 @@ export default function CheckoutPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [customerName, setCustomerName] = useState('');
     const [customerPhone, setCustomerPhone] = useState('');
+    const [orderType, setOrderType] = useState<OrderType>(OrderType.DINE_IN);
     const [hasCompletedOrder, setHasCompletedOrder] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; isVisible: boolean }>({
         message: '',
@@ -40,6 +42,7 @@ export default function CheckoutPage() {
                 customerName: customerName || undefined,
                 customerPhone: customerPhone || undefined,
                 deviceId: getOrCreateDeviceId(),
+                orderType,
                 items: items.map(item => ({
                     menuItemId: item.menuItem.id,
                     quantity: item.quantity,
@@ -48,7 +51,11 @@ export default function CheckoutPage() {
 
             setHasCompletedOrder(true);
             clearCart();
-            router.push(`/order/${order.id}/token`);
+            if (orderType === OrderType.TAKEAWAY) {
+                router.push(`/order/${order.id}/track`);
+            } else {
+                router.push(`/order/${order.id}/token`);
+            }
         } catch (error: any) {
             console.error('Failed to place order:', error);
             setToast({
@@ -107,6 +114,21 @@ export default function CheckoutPage() {
                                 <CardTitle>Customer Details (Optional)</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
+                                <div>
+                                    <p className="text-sm text-gray-400 mb-2">Order type</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {[OrderType.DINE_IN, OrderType.TAKEAWAY].map((type) => (
+                                            <Button
+                                                key={type}
+                                                variant={orderType === type ? 'primary' : 'outline'}
+                                                onClick={() => setOrderType(type)}
+                                                fullWidth
+                                            >
+                                                {type === OrderType.DINE_IN ? 'Dine-in' : 'Takeaway'}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </div>
                                 <Input
                                     label="Name"
                                     value={customerName}

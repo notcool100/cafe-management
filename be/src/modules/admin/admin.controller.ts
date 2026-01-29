@@ -238,7 +238,14 @@ export class AdminController {
             if (!req.user?.tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
-            const branches = await AdminService.listBranches(req.user.tenantId);
+            const isBranchScoped = req.user.role === 'MANAGER' || req.user.role === 'EMPLOYEE';
+            const branchConstraint = isBranchScoped ? req.user.branchId : undefined;
+
+            if (isBranchScoped && !branchConstraint) {
+                return res.status(403).json({ error: 'No branch assigned to this user' });
+            }
+
+            const branches = await AdminService.listBranches(req.user.tenantId, branchConstraint || undefined);
             res.json(branches);
         } catch (error) {
             res.status(500).json({
@@ -253,6 +260,12 @@ export class AdminController {
             if (!req.user?.tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
+
+            const isBranchScoped = req.user.role === 'MANAGER' || req.user.role === 'EMPLOYEE';
+            if (isBranchScoped && req.user.branchId && req.user.branchId !== id) {
+                return res.status(403).json({ error: 'Forbidden: Not your branch' });
+            }
+
             const branch = await AdminService.getBranch(id as string, req.user.tenantId);
             res.json(branch);
         } catch (error) {
