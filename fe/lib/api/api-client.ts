@@ -35,15 +35,15 @@ apiClient.interceptors.request.use(
     }
 );
 
-interface RefreshTokenResponse {
-    accessToken: string;
-    refreshToken: string;
-}
+type FailedRequest = {
+    resolve: (token: string | null) => void;
+    reject: (reason?: unknown) => void;
+};
 
 let isRefreshing = false;
-let failedQueue: any[] = [];
+let failedQueue: FailedRequest[] = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
     failedQueue.forEach((prom) => {
         if (error) {
             prom.reject(error);
@@ -60,11 +60,11 @@ apiClient.interceptors.response.use(
     (response) => {
         return response;
     },
-    async (error: AxiosError<any>) => {
-        const originalRequest = error.config as any;
+    async (error: AxiosError<{ message?: string; errors?: Record<string, unknown> }>) => {
+        const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
 
         // Prevent infinite loops
-        if (originalRequest._retry) {
+        if (originalRequest?._retry) {
             return Promise.reject(error);
         }
 
@@ -73,16 +73,22 @@ apiClient.interceptors.response.use(
         if (error.response?.status === 401) {
             console.log('🚨 [API] 401 Unauthorized - Token may be expired');
 
-            if (isRefreshing) {
+            if (isRefreshing && originalRequest) {
                 console.log('⏳ [API] Token refresh already in progress, queuing request');
-                return new Promise(function (resolve, reject) {
+                return new Promise<string | null>(function (resolve, reject) {
                     failedQueue.push({ resolve, reject });
                 }).then(token => {
-                    originalRequest.headers['Authorization'] = 'Bearer ' + token;
-                    return apiClient(originalRequest);
+                    if (token && originalRequest.headers) {
+                        originalRequest.headers['Authorization'] = 'Bearer ' + token;
+                    }
+                    return apiClient(originalRequest as InternalAxiosRequestConfig);
                 }).catch(err => {
                     return Promise.reject(err);
                 });
+            }
+
+            if (!originalRequest) {
+                return Promise.reject(error);
             }
 
             originalRequest._retry = true;
@@ -125,10 +131,12 @@ apiClient.interceptors.response.use(
                 // For now, simple localStorage update is fine for headers.
 
                 apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + accessToken;
-                originalRequest.headers['Authorization'] = 'Bearer ' + accessToken; // Update failed request
+                if (originalRequest.headers) {
+                    originalRequest.headers['Authorization'] = 'Bearer ' + accessToken; // Update failed request
+                }
 
                 processQueue(null, accessToken);
-                return apiClient(originalRequest);
+                return apiClient(originalRequest as InternalAxiosRequestConfig);
 
             } catch (err) {
                 console.error('❌ [API] Token refresh failed:', err);
@@ -141,9 +149,10 @@ apiClient.interceptors.response.use(
         }
 
         // Transform error for better handling
+        const responseData = (error.response?.data || {}) as { message?: string; errors?: Record<string, unknown> };
         const apiError = {
-            message: (error.response?.data as any)?.message || error.message || 'An error occurred',
-            errors: (error.response?.data as any)?.errors || {},
+            message: responseData.message || error.message || 'An error occurred',
+            errors: responseData.errors || {},
             status: error.response?.status,
         };
 

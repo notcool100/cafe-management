@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { LoadingPage } from '@/components/ui/Spinner';
@@ -18,8 +18,12 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
     const router = useRouter();
     const { isAuthenticated, user, accessToken, refreshToken, hasHydrated, setHasHydrated } = useAuthStore();
-    const [isLoading, setIsLoading] = useState(true);
-    const allowedRoles = Array.isArray(requiredRole) ? requiredRole : requiredRole ? [requiredRole] : null;
+    const allowedRoles = useMemo(() => {
+        if (Array.isArray(requiredRole)) return requiredRole;
+        if (requiredRole) return [requiredRole];
+        return null;
+    }, [requiredRole]);
+    const allowedRolesKey = allowedRoles?.join(',') || '';
 
     console.log('🔒 [ProtectedRoute] Render:', {
         hasHydrated,
@@ -27,8 +31,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
         user: user ? { id: user.id, email: user.email, role: user.role } : null,
         hasAccessToken: !!accessToken,
         hasRefreshToken: !!refreshToken,
-        requiredRole: allowedRoles,
-        isLoading
+        requiredRole: allowedRoles
     });
 
     // CRITICAL FIX: Manually set hydrated on mount if Zustand persist callback doesn't fire
@@ -125,11 +128,14 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
             return;
         }
 
-        console.log('🎉 [ProtectedRoute] All checks passed, rendering protected content');
-        setIsLoading(false);
-    }, [isAuthenticated, user, router, hasHydrated, allowedRoles ? allowedRoles.join(',') : '']);
+    }, [isAuthenticated, user, router, hasHydrated, allowedRolesKey, allowedRoles]);
 
-    if (!hasHydrated || isLoading) {
+    const isAuthorized =
+        hasHydrated &&
+        isAuthenticated &&
+        (!allowedRoles || (user?.role ? allowedRoles.includes(user.role) : false));
+
+    if (!isAuthorized) {
         console.log('⌛ [ProtectedRoute] Showing loading page');
         return <LoadingPage />;
     }

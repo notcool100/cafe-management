@@ -1,12 +1,16 @@
 import axios from 'axios';
 import apiClient from './api-client';
-import { Order, CreateOrderData, OrderStatus, OrderFilters } from '../types';
+import { Order, CreateOrderData, OrderStatus, OrderFilters, OrderItem } from '../types';
 
 const normalizeOrder = (order: Order): Order => {
-    const items = ((order as any).items ?? (order as any).orderItems ?? []).map((item: any) => ({
+    const rawItems = ((order as unknown as { items?: OrderItem[]; orderItems?: OrderItem[] }).items ??
+        (order as unknown as { items?: OrderItem[]; orderItems?: OrderItem[] }).orderItems ??
+        []) as Array<Partial<OrderItem> & { price?: number | string }>;
+
+    const items = rawItems.map((item) => ({
         ...item,
         price: typeof item.price === 'number' ? item.price : Number(item.price ?? 0),
-    }));
+    })) as OrderItem[];
     const totalAmount = typeof order.totalAmount === 'number'
         ? order.totalAmount
         : Number(order.totalAmount ?? 0);

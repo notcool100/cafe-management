@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { employeeService } from '@/lib/api/employee-service';
-import { UserRole } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import EmployeeForm, { EmployeeFormData } from '@/components/admin/EmployeeForm';
 import Button from '@/components/ui/Button';
@@ -40,9 +39,10 @@ export default function NewEmployeePage() {
             setTimeout(() => {
                 router.push('/admin/employees');
             }, 1000);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
             setToast({
-                message: error.response?.data?.message || 'Failed to create employee',
+                message: message || 'Failed to create employee',
                 type: 'error',
                 isVisible: true,
             });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
@@ -24,7 +24,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const { user, logout } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const isStaffManager = user?.role === UserRole.MANAGER || user?.role === UserRole.EMPLOYEE;
-    const staffAllowed = ['/admin/reports', '/admin/orders', '/admin/employees', '/admin/menu'];
+    const staffAllowed = useMemo(() => ['/admin/reports', '/admin/orders', '/admin/employees', '/admin/menu'], []);
     const visibleNavigation = isStaffManager
         ? navigation.filter((item) => staffAllowed.includes(item.href))
         : navigation;
@@ -42,7 +42,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 router.replace('/admin/reports');
             }
         }
-    }, [isStaffManager, pathname, router]);
+    }, [isStaffManager, pathname, router, staffAllowed]);
 
     return (
         <ProtectedRoute requiredRole={['ADMIN', 'MANAGER', 'SUPER_ADMIN']}>

@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { menuService } from '@/lib/api/menu-service';
 import { branchService } from '@/lib/api/branch-service';
 import { MenuItem, MenuCategory, Branch, UserRole } from '@/lib/types';
@@ -35,18 +36,7 @@ export default function MenuPage() {
         isVisible: false,
     });
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    // Reload menu items when filters change (except search which is client-side filtered for responsiveness, 
-    // or we could debounce it. Here for simplicity I'll fetch all and filter client side unless the dataset is expected to be huge)
-    // Actually the service supports filtering, let's use it properly.
-    useEffect(() => {
-        loadMenuItems();
-    }, [filters.category, filters.branchId]);
-
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         try {
             setIsLoading(true);
             const [branchesData, itemsData] = await Promise.all([
@@ -72,9 +62,10 @@ export default function MenuPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [filters.branchId, managerBranchId]);
 
-    const loadMenuItems = async () => {
+    // Reload menu items when filters change (except search which is client-side filtered for responsiveness)
+    const loadMenuItems = useCallback(async () => {
         try {
             // Only toggle loading if it takes a bit, but for now just simple state
             const items = await menuService.getMenuItems({
@@ -85,7 +76,15 @@ export default function MenuPage() {
         } catch (error) {
             console.log('Failed to load items:', error);
         }
-    };
+    }, [filters.branchId, filters.category]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    useEffect(() => {
+        loadMenuItems();
+    }, [loadMenuItems]);
 
     const handleDelete = async (id: string) => {
         try {
@@ -97,9 +96,10 @@ export default function MenuPage() {
                 type: 'success',
                 isVisible: true,
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
             setToast({
-                message: error.response?.data?.message || 'Failed to delete item',
+                message: message || 'Failed to delete item',
                 type: 'error',
                 isVisible: true,
             });
@@ -112,7 +112,7 @@ export default function MenuPage() {
                 available: !item.available
             });
             setMenuItems(menuItems.map(i => i.id === item.id ? updatedItem : i));
-        } catch (error) {
+        } catch {
             setToast({
                 message: 'Failed to update availability',
                 type: 'error',
@@ -204,10 +204,12 @@ export default function MenuPage() {
                     <Card key={item.id} variant="glass" hover className="flex flex-col h-full">
                         <div className="relative h-48 w-full bg-gray-800 rounded-t-xl overflow-hidden">
                             {resolveImageUrl(item.imageUrl) ? (
-                                <img
+                                <Image
                                     src={resolveImageUrl(item.imageUrl)}
                                     alt={item.name}
-                                    className="w-full h-full object-cover"
+                                    fill
+                                    sizes="(max-width: 1024px) 100vw, 25vw"
+                                    className="object-cover"
                                 />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center text-gray-600">

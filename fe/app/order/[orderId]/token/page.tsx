@@ -7,7 +7,6 @@ import { orderService } from '@/lib/api/order-service';
 import { Order, OrderType } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
-import { Card, CardContent } from '@/components/ui/Card';
 
 export default function TokenPage() {
     const params = useParams();
@@ -18,10 +17,26 @@ export default function TokenPage() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        loadOrder();
-        // Short poll to update status if needed, but primarily just display token
-        const interval = setInterval(loadOrder, 5000);
-        return () => clearInterval(interval);
+        let active = true;
+        const fetchOrder = async () => {
+            try {
+                const data = await orderService.getOrder(orderId);
+                if (!active) return;
+                setOrder(data);
+                setIsLoading(false);
+            } catch (error) {
+                if (!active) return;
+                console.error('Failed to load order:', error);
+                setIsLoading(false);
+            }
+        };
+
+        void fetchOrder();
+        const interval = setInterval(fetchOrder, 5000);
+        return () => {
+            active = false;
+            clearInterval(interval);
+        };
     }, [orderId]);
 
     useEffect(() => {
@@ -29,17 +44,6 @@ export default function TokenPage() {
             router.replace(`/order/${orderId}/track`);
         }
     }, [order, orderId, router]);
-
-    const loadOrder = async () => {
-        try {
-            const data = await orderService.getOrder(orderId);
-            setOrder(data);
-            setIsLoading(false);
-        } catch (error) {
-            console.error('Failed to load order:', error);
-            setIsLoading(false);
-        }
-    };
 
     if (isLoading) {
         return (

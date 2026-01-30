@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Branch, CreateBranchData } from '@/lib/types';
+import { Branch } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Checkbox from '@/components/ui/Checkbox';
@@ -44,7 +44,6 @@ export default function BranchForm({ initialData, onSubmit, isLoading, isEdit = 
         handleSubmit,
         watch,
         formState: { errors },
-        setValue,
     } = useForm<BranchFormData>({
         resolver: zodResolver(branchSchema),
         defaultValues: {
@@ -56,6 +55,7 @@ export default function BranchForm({ initialData, onSubmit, isLoading, isEdit = 
         },
     });
 
+    // eslint-disable-next-line react-hooks/incompatible-library
     const tokenSystemEnabled = watch('tokenSystemEnabled');
 
     return (

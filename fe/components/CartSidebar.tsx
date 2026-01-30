@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useCartStore } from '@/lib/store/cart-store';
 import Button from '@/components/ui/Button';
@@ -67,10 +67,12 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                                         {/* Item Image */}
                                         <div className="relative h-20 w-20 flex-shrink-0 rounded-lg bg-gray-800 overflow-hidden">
                                             {resolveImageUrl(item.menuItem.imageUrl) ? (
-                                                <img
-                                                    src={resolveImageUrl(item.menuItem.imageUrl)}
+                                                <Image
+                                                    src={resolveImageUrl(item.menuItem.imageUrl) as string}
                                                     alt={item.menuItem.name}
-                                                    className="h-full w-full object-cover"
+                                                    fill
+                                                    sizes="80px"
+                                                    className="object-cover"
                                                 />
                                             ) : (
                                                 <div className="h-full w-full flex items-center justify-center text-gray-600">

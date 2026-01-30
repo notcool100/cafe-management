@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { employeeService } from '@/lib/api/employee-service';
 import { branchService } from '@/lib/api/branch-service';
 import { menuService } from '@/lib/api/menu-service';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import Spinner from '@/components/ui/Spinner';
 
 export default function AdminDashboardPage() {

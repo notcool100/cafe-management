@@ -17,9 +17,6 @@ const employeeSchema = z.object({
     password: z.string().optional(),
     role: z.nativeEnum(UserRole),
     branchId: z.string().optional(),
-}).refine((data) => {
-    // Password is required for new employees (no ID check here, will be handled by parent)
-    return true;
 });
 
 export type EmployeeFormData = z.infer<typeof employeeSchema>;

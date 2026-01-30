@@ -40,9 +40,10 @@ export default function NewMenuItemPage() {
             setTimeout(() => {
                 router.push('/admin/menu');
             }, 1000);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
             setToast({
-                message: error.response?.data?.message || 'Failed to create menu item',
+                message: message || 'Failed to create menu item',
                 type: 'error',
                 isVisible: true,
             });

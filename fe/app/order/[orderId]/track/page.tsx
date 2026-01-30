@@ -8,7 +8,6 @@ import { Order, OrderStatus, OrderType } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import { Card, CardContent } from '@/components/ui/Card';
-import Badge from '@/components/ui/Badge';
 
 export default function OrderTrackingPage() {
     const params = useParams();
@@ -18,21 +17,27 @@ export default function OrderTrackingPage() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        loadOrder();
-        const interval = setInterval(loadOrder, 5000);
-        return () => clearInterval(interval);
-    }, [orderId]);
+        let active = true;
+        const fetchOrder = async () => {
+            try {
+                const data = await orderService.getOrder(orderId);
+                if (!active) return;
+                setOrder(data);
+                setIsLoading(false);
+            } catch (error) {
+                if (!active) return;
+                console.error('Failed to load order:', error);
+                setIsLoading(false);
+            }
+        };
 
-    const loadOrder = async () => {
-        try {
-            const data = await orderService.getOrder(orderId);
-            setOrder(data);
-            setIsLoading(false);
-        } catch (error) {
-            console.error('Failed to load order:', error);
-            setIsLoading(false);
-        }
-    };
+        void fetchOrder();
+        const interval = setInterval(fetchOrder, 5000);
+        return () => {
+            active = false;
+            clearInterval(interval);
+        };
+    }, [orderId]);
 
     if (isLoading) {
         return (
@@ -102,9 +107,9 @@ export default function OrderTrackingPage() {
                                 <p className="text-3xl font-bold text-white">
                                     {order.orderType === OrderType.TAKEAWAY ? 'Not required' : displayToken}
                                 </p>
-                                {order.orderType === OrderType.TAKEAWAY && (
-                                    <p className="text-xs text-gray-500 mt-1">Takeaway orders don't use tokens.</p>
-                                )}
+                                    {order.orderType === OrderType.TAKEAWAY && (
+                                        <p className="text-xs text-gray-500 mt-1">Takeaway orders don&apos;t use tokens.</p>
+                                    )}
                             </div>
                             <div className="text-right">
                                 <p className="text-sm text-gray-400">Total Amount</p>

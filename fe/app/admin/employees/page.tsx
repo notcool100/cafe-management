@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { employeeService } from '@/lib/api/employee-service';
 import { User } from '@/lib/types';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import Badge from '@/components/ui/Badge';
@@ -26,7 +26,7 @@ export default function EmployeesPage() {
             setIsLoading(true);
             const data = await employeeService.getEmployees();
             setEmployees(data);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Failed to load employees:', error);
         } finally {
             setIsLoading(false);
@@ -38,7 +38,7 @@ export default function EmployeesPage() {
             await employeeService.deleteEmployee(id);
             setEmployees(employees.filter(emp => emp.id !== id));
             setDeleteConfirm(null);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Failed to delete employee:', error);
         }
     };
@@ -87,7 +87,7 @@ export default function EmployeesPage() {
 
             {/* Employees Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredEmployees.map((employee, index) => (
+                {filteredEmployees.map((employee) => (
                     <Card key={employee.id} variant="glass" hover className="stagger-item overflow-hidden">
                         <CardContent className="p-0">
                             {/* Employee Header */}

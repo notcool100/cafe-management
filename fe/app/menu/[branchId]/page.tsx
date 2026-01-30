@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { menuService } from '@/lib/api/menu-service';
 import { MenuItem, MenuCategory, Branch } from '@/lib/types';
@@ -32,11 +33,7 @@ export default function PublicMenuPage() {
         isVisible: false,
     });
 
-    useEffect(() => {
-        loadData();
-    }, [branchId]);
-
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         try {
             setIsLoading(true);
             const data = await menuService.getPublicMenu(branchId);
@@ -54,7 +51,11 @@ export default function PublicMenuPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [branchId]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     const handleAddToCart = (item: MenuItem) => {
         addItem(item);
@@ -155,10 +156,13 @@ export default function PublicMenuPage() {
                             <Card key={item.id} variant="glass" className="overflow-hidden flex flex-col h-full">
                                 <div className="aspect-video relative bg-gray-800">
                                     {resolveImageUrl(item.imageUrl) ? (
-                                        <img
-                                            src={resolveImageUrl(item.imageUrl)}
+                                        <Image
+                                            src={resolveImageUrl(item.imageUrl) as string}
                                             alt={item.name}
-                                            className="w-full h-full object-cover"
+                                            fill
+                                            sizes="(max-width: 1280px) 50vw, 25vw"
+                                            className="object-cover"
+                                            priority={false}
                                         />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-gray-600">

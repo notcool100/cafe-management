@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { menuService } from '@/lib/api/menu-service';
@@ -25,16 +25,12 @@ export default function EditMenuItemPage() {
         isVisible: false,
     });
 
-    useEffect(() => {
-        loadMenuItem();
-    }, [id]);
-
-    const loadMenuItem = async () => {
+    const loadMenuItem = useCallback(async () => {
         try {
             setIsLoading(true);
             const data = await menuService.getMenuItem(id);
             setMenuItem(data);
-        } catch (error) {
+        } catch {
             setToast({
                 message: 'Failed to load menu item',
                 type: 'error',
@@ -46,7 +42,11 @@ export default function EditMenuItemPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [id, router]);
+
+    useEffect(() => {
+        loadMenuItem();
+    }, [loadMenuItem]);
 
     const handleSubmit = async (data: MenuItemFormData) => {
         try {
@@ -70,9 +70,10 @@ export default function EditMenuItemPage() {
             setTimeout(() => {
                 router.push('/admin/menu');
             }, 1000);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
             setToast({
-                message: error.response?.data?.message || 'Failed to update menu item',
+                message: message || 'Failed to update menu item',
                 type: 'error',
                 isVisible: true,
             });

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { employeeService } from '@/lib/api/employee-service';
-import { User, UserRole } from '@/lib/types';
+import { User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import EmployeeForm, { EmployeeFormData } from '@/components/admin/EmployeeForm';
 import Button from '@/components/ui/Button';
@@ -25,16 +25,12 @@ export default function EditEmployeePage() {
         isVisible: false,
     });
 
-    useEffect(() => {
-        loadEmployee();
-    }, [id]);
-
-    const loadEmployee = async () => {
+    const loadEmployee = useCallback(async () => {
         try {
             setIsLoading(true);
             const data = await employeeService.getEmployee(id);
             setEmployee(data);
-        } catch (error) {
+        } catch {
             setToast({
                 message: 'Failed to load employee details',
                 type: 'error',
@@ -47,7 +43,11 @@ export default function EditEmployeePage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [id, router]);
+
+    useEffect(() => {
+        loadEmployee();
+    }, [loadEmployee]);
 
     const handleSubmit = async (data: EmployeeFormData) => {
         try {
@@ -70,9 +70,10 @@ export default function EditEmployeePage() {
             setTimeout(() => {
                 router.push('/admin/employees');
             }, 1000);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
             setToast({
-                message: error.response?.data?.message || 'Failed to update employee',
+                message: message || 'Failed to update employee',
                 type: 'error',
                 isVisible: true,
             });

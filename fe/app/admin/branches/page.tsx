@@ -55,9 +55,10 @@ export default function BranchesPage() {
                 type: 'success',
                 isVisible: true,
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
             setToast({
-                message: error.response?.data?.message || 'Failed to delete branch',
+                message: message || 'Failed to delete branch',
                 type: 'error',
                 isVisible: true,
             });
@@ -127,7 +128,7 @@ export default function BranchesPage() {
 
             {/* Branch Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredBranches.map((branch, index) => (
+                {filteredBranches.map((branch) => (
                     <Card key={branch.id} variant="glass" hover className="stagger-item overflow-hidden">
                         <CardContent className="p-0">
                             {/* Branch Header with Gradient Background */}
@@ -160,9 +161,11 @@ export default function BranchesPage() {
                                 {branch.qrCode ? (
                                     <div className="relative group">
                                         <div className="w-36 h-36 bg-white p-3 rounded-2xl shadow-2xl transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-purple-500/20">
-                                            <img
+                                            <Image
                                                 src={branch.qrCode}
                                                 alt={`${branch.name} QR Code`}
+                                                width={144}
+                                                height={144}
                                                 className="w-full h-full object-contain"
                                             />
                                         </div>
@@ -293,4 +296,3 @@ function EditIcon({ className }: { className?: string }) {
         </svg>
     );
 }
-

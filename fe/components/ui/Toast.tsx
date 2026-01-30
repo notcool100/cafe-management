@@ -21,14 +21,21 @@ export default function Toast({
     const [show, setShow] = useState(false);
 
     useEffect(() => {
-        if (isVisible) {
-            setShow(true);
-            const timer = setTimeout(() => {
-                setShow(false);
-                setTimeout(onClose, 300); // Wait for fade out animation
-            }, duration);
-            return () => clearTimeout(timer);
+        if (!isVisible) {
+            const hideFrame = setTimeout(() => setShow(false), 0);
+            return () => clearTimeout(hideFrame);
         }
+
+        const frame = requestAnimationFrame(() => setShow(true));
+        const timer = setTimeout(() => {
+            setShow(false);
+            setTimeout(onClose, 300); // Wait for fade out animation
+        }, duration);
+
+        return () => {
+            cancelAnimationFrame(frame);
+            clearTimeout(timer);
+        };
     }, [isVisible, duration, onClose]);
 
     if (!isVisible && !show) return null;

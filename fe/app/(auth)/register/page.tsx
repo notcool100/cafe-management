@@ -45,8 +45,9 @@ export default function RegisterPage() {
             } else {
                 router.push('/');
             }
-        } catch (err: any) {
-            setError(err.message || 'Registration failed. Please try again.');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Registration failed. Please try again.';
+            setError(message);
         } finally {
             setIsLoading(false);
         }

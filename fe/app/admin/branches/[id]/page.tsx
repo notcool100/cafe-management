@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { branchService } from '@/lib/api/branch-service';
@@ -25,16 +25,12 @@ export default function EditBranchPage() {
         isVisible: false,
     });
 
-    useEffect(() => {
-        loadBranch();
-    }, [id]);
-
-    const loadBranch = async () => {
+    const loadBranch = useCallback(async () => {
         try {
             setIsLoading(true);
             const data = await branchService.getBranch(id);
             setBranch(data);
-        } catch (error) {
+        } catch {
             setToast({
                 message: 'Failed to load branch details',
                 type: 'error',
@@ -46,7 +42,11 @@ export default function EditBranchPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [id, router]);
+
+    useEffect(() => {
+        loadBranch();
+    }, [loadBranch]);
 
     const handleSubmit = async (data: BranchFormData) => {
         try {
@@ -68,9 +68,10 @@ export default function EditBranchPage() {
             setTimeout(() => {
                 router.push('/admin/branches');
             }, 1000);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
             setToast({
-                message: error.response?.data?.message || 'Failed to update branch',
+                message: message || 'Failed to update branch',
                 type: 'error',
                 isVisible: true,
             });

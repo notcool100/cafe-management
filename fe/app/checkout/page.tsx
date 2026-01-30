@@ -14,7 +14,7 @@ import { OrderType } from '@/lib/types';
 
 export default function CheckoutPage() {
     const router = useRouter();
-    const { items, getTotal, branchId, clearCart, removeItem, updateQuantity } = useCartStore();
+    const { items, getTotal, branchId, clearCart } = useCartStore();
     const [isLoading, setIsLoading] = useState(false);
     const [customerName, setCustomerName] = useState('');
     const [customerPhone, setCustomerPhone] = useState('');
@@ -56,10 +56,11 @@ export default function CheckoutPage() {
             } else {
                 router.push(`/order/${order.id}/token`);
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Failed to place order:', error);
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
             setToast({
-                message: error.response?.data?.message || 'Failed to place order. Please try again.',
+                message: message || 'Failed to place order. Please try again.',
                 type: 'error',
                 isVisible: true,
             });

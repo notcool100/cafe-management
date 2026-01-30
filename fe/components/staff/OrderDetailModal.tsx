@@ -47,8 +47,8 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                 })),
             });
             setNewStatus(data.status);
-        } catch (error) {
-            console.error('Failed to load order:', error);
+        } catch (err) {
+            console.error('Failed to load order:', err);
             setToast({
                 message: 'Failed to load order details',
                 type: 'error',
@@ -75,7 +75,7 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
             });
             await loadOrder(order.id);
             if (onUpdate) onUpdate();
-        } catch (error) {
+        } catch {
             setToast({
                 message: 'Failed to update order status',
                 type: 'error',
@@ -98,7 +98,7 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
             });
             await loadOrder(order.id);
             if (onUpdate) onUpdate();
-        } catch (error) {
+        } catch {
             setToast({
                 message: 'Unable to undo cancellation (window may have expired)',
                 type: 'error',
@@ -119,7 +119,7 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                 type: 'success',
                 isVisible: true,
             });
-        } catch (error) {
+        } catch {
             setToast({
                 message: 'Failed to generate KOT',
                 type: 'error',
@@ -138,7 +138,7 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                 type: 'success',
                 isVisible: true,
             });
-        } catch (error) {
+        } catch {
             setToast({
                 message: 'Failed to generate Bill',
                 type: 'error',

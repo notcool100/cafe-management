@@ -54,9 +54,10 @@ export default function LoginPage() {
                 console.log('🔀 [Login] Redirecting to /');
                 router.push('/');
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Login failed. Please try again.';
             // console.error('❌ [Login] Login failed:', err);
-            setError(err.message || 'Login failed. Please try again.');
+            setError(message);
         } finally {
             setIsLoading(false);
         }
@@ -120,7 +121,7 @@ export default function LoginPage() {
                     {/* Register link */}
                     <div className="mt-6 text-center">
                         <p className="text-gray-400 text-sm">
-                            Don't have an account?{' '}
+                            Don&apos;t have an account?{' '}
                             <Link
                                 href="/register"
                                 className="text-purple-400 hover:text-purple-300 font-medium transition-colors"

@@ -1,4 +1,4 @@
-import { format, formatDistance, formatRelative } from 'date-fns';
+import { format, formatDistance } from 'date-fns';
 
 export function formatDate(date: string | Date, formatStr: string = 'PPP'): string {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
