@@ -16,6 +16,7 @@ const navigation = [
     { name: 'Employees', href: '/admin/employees', icon: UsersIcon },
     { name: 'Branches', href: '/admin/branches', icon: BuildingIcon },
     { name: 'Menu Items', href: '/admin/menu', icon: MenuIcon },
+    { name: 'Theme', href: '/admin/theme', icon: PaletteIcon },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -49,10 +50,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
                 {/* Sidebar for desktop - Fixed position */}
                 <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:flex lg:flex-col lg:z-50">
-                    <div className="flex flex-col flex-grow bg-gray-900 border-r-2 border-gray-800 shadow-2xl">
+                    <div className="flex flex-col flex-grow border-r-2 border-gray-800 shadow-2xl" style={{ background: 'var(--nav-bg)', color: 'var(--nav-text)' }}>
                         {/* Logo */}
                         <div className="flex items-center flex-shrink-0 px-6 py-6 border-b border-gray-800">
-                            <h1 className="text-xl font-bold">
+                            <h1 className="text-xl font-bold" style={{ color: 'var(--nav-text)' }}>
                                 <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent">
                                     ☕ Cafe Admin
                                 </span>
@@ -72,15 +73,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         className={cn(
                                             'group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200',
                                             isActive
-                                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/30'
-                                                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                                                ? 'shadow-lg shadow-purple-500/30'
+                                                : 'hover:bg-gray-800'
                                         )}
+                                        style={{
+                                            backgroundImage: isActive ? 'var(--gradient-primary)' : undefined,
+                                            color: 'var(--nav-text)',
+                                        }}
                                     >
                                         <Icon
                                             className={cn(
-                                                'mr-3 h-5 w-5 flex-shrink-0 transition-transform duration-200',
-                                                isActive ? 'text-white' : 'text-gray-500 group-hover:text-purple-400'
+                                                'mr-3 h-5 w-5 flex-shrink-0 transition-transform duration-200'
                                             )}
+                                            style={{
+                                                color: isActive ? '#ffffff' : 'var(--nav-text)',
+                                            }}
                                         />
                                         <span>{item.name}</span>
                                     </Link>
@@ -115,7 +122,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 {/* Main content wrapper - Simple margin approach */}
                 <div className="min-h-screen lg:ml-64">
                     {/* Top bar for mobile */}
-                    <div className="sticky top-0 z-40 lg:hidden bg-gray-900 border-b border-gray-800 px-4 py-4 shadow-lg">
+                    <div className="sticky top-0 z-40 lg:hidden border-b border-gray-800 px-4 py-4 shadow-lg" style={{ background: 'var(--nav-bg)', color: 'var(--nav-text)' }}>
                         <div className="flex items-center justify-between">
                             <h1 className="text-lg font-bold">
                                 <span className="bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
@@ -173,6 +180,15 @@ function MenuIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+    );
+}
+
+function PaletteIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c-4.97 0-9 3.582-9 8 0 3.022 2.239 5.632 5.343 6.16.36.06.657.31.75.66l.338 1.27c.11.41.48.71.905.71H12c4.97 0 9-3.582 9-8s-4.03-8-9-8z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 10.5h.01M12 8h.01M15.5 10.5h.01M14 14h.01" />
         </svg>
     );
 }

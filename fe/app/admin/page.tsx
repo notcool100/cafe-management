@@ -53,8 +53,8 @@ export default function AdminDashboardPage() {
         <div className="animate-fade-in">
             {/* Enhanced Header */}
             <div className="mb-10">
-                <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">
-                    <span className="gradient-text">Dashboard</span>
+                <h1 className="text-4xl font-bold mb-3 tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                    <span className="gradient-text" style={{ backgroundImage: 'var(--gradient-primary)' }}>Dashboard</span>
                 </h1>
                 <p className="text-lg text-gray-400">Welcome to the cafe management admin panel</p>
             </div>
