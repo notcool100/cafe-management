@@ -200,28 +200,31 @@ export default function MenuPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredItems.map((item) => (
-                    <Card key={item.id} variant="glass" hover className="flex flex-col h-full">
-                        <div className="relative h-48 w-full bg-gray-800 rounded-t-xl overflow-hidden">
-                            {resolveImageUrl(item.imageUrl) ? (
-                                <Image
-                                    src={resolveImageUrl(item.imageUrl)}
-                                    alt={item.name}
-                                    fill
-                                    sizes="(max-width: 1024px) 100vw, 25vw"
-                                    className="object-cover"
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-600">
-                                    <ImageIcon className="h-12 w-12" />
+                {filteredItems.map((item) => {
+                    const imageSrc = resolveImageUrl(item.imageUrl);
+
+                    return (
+                        <Card key={item.id} variant="glass" hover className="flex flex-col h-full">
+                            <div className="relative h-48 w-full bg-gray-800 rounded-t-xl overflow-hidden">
+                                {imageSrc ? (
+                                    <Image
+                                        src={imageSrc}
+                                        alt={item.name}
+                                        fill
+                                        sizes="(max-width: 1024px) 100vw, 25vw"
+                                        className="object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-gray-600">
+                                        <ImageIcon className="h-12 w-12" />
+                                    </div>
+                                )}
+                                <div className="absolute top-2 right-2">
+                                    <Badge variant={item.available ? 'success' : 'danger'}>
+                                        {item.available ? 'Available' : 'Unavailable'}
+                                    </Badge>
                                 </div>
-                            )}
-                            <div className="absolute top-2 right-2">
-                                <Badge variant={item.available ? 'success' : 'danger'}>
-                                    {item.available ? 'Available' : 'Unavailable'}
-                                </Badge>
                             </div>
-                        </div>
 
                         <CardContent className="flex-1 flex flex-col p-4">
                             <div className="flex justify-between items-start mb-2">
@@ -271,8 +274,9 @@ export default function MenuPage() {
                                 </Button>
                             </div>
                         </CardContent>
-                    </Card>
-                ))}
+                        </Card>
+                    );
+                })}
             </div>
 
             {filteredItems.length === 0 && (

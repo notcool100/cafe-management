@@ -65,6 +65,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             {visibleNavigation.map((item) => {
                                 const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
                                 const Icon = item.icon;
+                                const iconColor = isActive ? '#ffffff' : 'var(--nav-text)';
 
                                 return (
                                     <Link
@@ -81,14 +82,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                             color: 'var(--nav-text)',
                                         }}
                                     >
-                                        <Icon
-                                            className={cn(
-                                                'mr-3 h-5 w-5 flex-shrink-0 transition-transform duration-200'
-                                            )}
-                                            style={{
-                                                color: isActive ? '#ffffff' : 'var(--nav-text)',
-                                            }}
-                                        />
+                                        <span style={{ color: iconColor }}>
+                                            <Icon
+                                                className={cn(
+                                                    'mr-3 h-5 w-5 flex-shrink-0 transition-transform duration-200'
+                                                )}
+                                            />
+                                        </span>
                                         <span>{item.name}</span>
                                     </Link>
                                 );

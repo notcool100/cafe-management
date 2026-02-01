@@ -163,7 +163,7 @@ export default function ActiveOrdersPage() {
     useEffect(() => {
         const mq = window.matchMedia('(max-width: 1023px)'); // up to lg breakpoint
         const handler = (e: MediaQueryListEvent | MediaQueryList) => {
-            const matches = 'matches' in e ? e.matches : e.matches;
+            const matches = e.matches;
             setIsCompact(matches);
             if (!matches) {
                 setActiveSection('BUILD');
