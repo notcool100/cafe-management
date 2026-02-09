@@ -2,15 +2,19 @@ import type { NextConfig } from "next";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4100";
 
-const buildRemotePatterns = () => {
+const buildRemotePatterns = (): NonNullable<
+  NextConfig["images"]
+>["remotePatterns"] => {
   const patterns: NonNullable<NextConfig["images"]>["remotePatterns"] = [];
 
   try {
     const parsed = new URL(apiBaseUrl);
+    const protocol = parsed.protocol === "https:" ? "https" : "http";
+    const port = parsed.port || undefined;
     patterns.push({
-      protocol: parsed.protocol.replace(":", ""),
+      protocol,
       hostname: parsed.hostname,
-      port: parsed.port || "",
+      ...(port ? { port } : {}),
       pathname: "/**",
     });
   } catch {
