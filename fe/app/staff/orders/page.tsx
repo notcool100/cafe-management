@@ -200,10 +200,14 @@ export default function ActiveOrdersPage() {
     };
 
     const handleUpdateQuantity = (menuItemId: string, qty: number) => {
+        if (qty < 1) {
+            handleRemoveItem(menuItemId);
+            return;
+        }
         setCartItems((prev) =>
             prev.map((item) =>
                 item.menuItemId === menuItemId
-                    ? { ...item, quantity: Math.max(1, qty) }
+                    ? { ...item, quantity: qty }
                     : item
             )
         );
@@ -348,227 +352,227 @@ export default function ActiveOrdersPage() {
 
             <div className={`${isCompact ? '' : 'grid grid-cols-1 xl:grid-cols-[1.6fr_1fr] gap-4'}`}>
                 {(!isCompact || activeSection === 'BUILD') && (
-                <Card id="build-section" variant="glass" className="shadow-xl border border-gray-800/60">
-                    <CardHeader className="flex flex-col gap-1">
-                        <CardTitle>Build Order</CardTitle>
-                        <p className="text-sm text-gray-500">Tap an item to add, keep the cart on the right in view.</p>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-                            <div className="flex-1">
-                                <div className="relative">
-                                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                                    <input
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="w-full rounded-xl border border-gray-800 bg-gray-900/60 pl-9 pr-4 py-3 text-sm text-white placeholder:text-gray-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 outline-none"
-                                        placeholder="Search menu or notes"
-                                    />
+                    <Card id="build-section" variant="glass" className="shadow-xl border border-gray-800/60">
+                        <CardHeader className="flex flex-col gap-1">
+                            <CardTitle>Build Order</CardTitle>
+                            <p className="text-sm text-gray-500">Tap an item to add, keep the cart on the right in view.</p>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                                <div className="flex-1">
+                                    <div className="relative">
+                                        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                                        <input
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="w-full rounded-xl border border-gray-800 bg-gray-900/60 pl-9 pr-4 py-3 text-sm text-white placeholder:text-gray-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 outline-none"
+                                            placeholder="Search menu or notes"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {['ALL', ...Object.values(MenuCategory)].map((cat) => (
+                                        <FilterChip
+                                            key={cat}
+                                            active={categoryFilter === cat}
+                                            label={cat === 'ALL' ? 'All' : categoryLabel[cat as MenuCategory]}
+                                            onClick={() => setCategoryFilter(cat as MenuCategory | 'ALL')}
+                                        />
+                                    ))}
                                 </div>
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                                {['ALL', ...Object.values(MenuCategory)].map((cat) => (
-                                    <FilterChip
-                                        key={cat}
-                                        active={categoryFilter === cat}
-                                        label={cat === 'ALL' ? 'All' : categoryLabel[cat as MenuCategory]}
-                                        onClick={() => setCategoryFilter(cat as MenuCategory | 'ALL')}
-                                    />
-                                ))}
-                            </div>
-                        </div>
 
-                        {menuLoading ? (
-                            <div className="flex justify-center py-16">
-                                <Spinner size="lg" />
-                            </div>
-                        ) : filteredMenuItems.length === 0 ? (
-                            <div className="text-center py-12 border border-dashed border-gray-800 rounded-2xl bg-gray-900/40">
-                                <p className="text-gray-400">No menu items match your filters.</p>
-                                <p className="text-gray-500 text-sm">Clear search or switch category.</p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                                {filteredMenuItems.map((item) => {
-                                    const existing = cartItems.find((c) => c.menuItemId === item.id);
-                                    return (
-                                        <div
-                                            key={item.id}
-                                            className="group rounded-2xl border border-gray-800 bg-gray-900/50 overflow-hidden flex flex-col shadow-sm hover:border-purple-500/50 transition-all"
-                                        >
-                                            <div className="aspect-[4/3] relative bg-gray-800">
-                                                {resolveImageUrl(item.imageUrl) ? (
-                                                    <Image
-                                                        src={resolveImageUrl(item.imageUrl) as string}
-                                                        alt={item.name}
-                                                        fill
-                                                        sizes="(max-width: 1280px) 50vw, 33vw"
-                                                        className="object-cover"
-                                                        priority={false}
-                                                    />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-gray-600">
-                                                        <ImageIcon className="h-10 w-10" />
-                                                    </div>
-                                                )}
-                                                <div className="absolute top-3 left-3">
-                                                    <span className="px-3 py-1 text-xs font-semibold rounded-full bg-black/60 text-white border border-white/10 backdrop-blur-sm">
-                                                        Rs. {item.price.toFixed(2)}
-                                                    </span>
-                                                </div>
-                                                <div className="absolute top-3 right-3">
-                                                    <Badge variant="default" size="sm">
-                                                        {categoryLabel[item.category]}
-                                                    </Badge>
-                                                </div>
-                                            </div>
-
-                                            <div className="p-4 flex flex-col gap-2 flex-1">
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <h3 className="text-white font-semibold leading-tight line-clamp-1">{item.name}</h3>
-                                                    {!item.available && (
-                                                        <Badge variant="danger" size="sm">Sold Out</Badge>
-                                                    )}
-                                                </div>
-                                                {item.description && (
-                                                    <p className="text-sm text-gray-400 line-clamp-2 flex-1">{item.description}</p>
-                                                )}
-                                                <div className="flex items-center justify-between pt-1">
-                                                    <span className="text-sm text-gray-400">Tap to add to order</span>
-                                                    {existing ? (
-                                                        <div className="inline-flex items-center gap-2 rounded-full bg-purple-500/10 border border-purple-500/30 px-2 py-1">
-                                                            <IconButton
-                                                                ariaLabel="Decrease"
-                                                                onClick={() => handleUpdateQuantity(item.id, existing.quantity - 1)}
-                                                            >
-                                                                <MinusIcon className="h-4 w-4" />
-                                                            </IconButton>
-                                                            <span className="text-white font-semibold text-sm min-w-[1.5rem] text-center">{existing.quantity}</span>
-                                                            <IconButton
-                                                                ariaLabel="Increase"
-                                                                onClick={() => handleAddItem(item, 1)}
-                                                            >
-                                                                <PlusIcon className="h-4 w-4" />
-                                                            </IconButton>
-                                                        </div>
+                            {menuLoading ? (
+                                <div className="flex justify-center py-16">
+                                    <Spinner size="lg" />
+                                </div>
+                            ) : filteredMenuItems.length === 0 ? (
+                                <div className="text-center py-12 border border-dashed border-gray-800 rounded-2xl bg-gray-900/40">
+                                    <p className="text-gray-400">No menu items match your filters.</p>
+                                    <p className="text-gray-500 text-sm">Clear search or switch category.</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                                    {filteredMenuItems.map((item) => {
+                                        const existing = cartItems.find((c) => c.menuItemId === item.id);
+                                        return (
+                                            <div
+                                                key={item.id}
+                                                className="group rounded-2xl border border-gray-800 bg-gray-900/50 overflow-hidden flex flex-col shadow-sm hover:border-purple-500/50 transition-all"
+                                            >
+                                                <div className="aspect-[4/3] relative bg-gray-800">
+                                                    {resolveImageUrl(item.imageUrl) ? (
+                                                        <Image
+                                                            src={resolveImageUrl(item.imageUrl) as string}
+                                                            alt={item.name}
+                                                            fill
+                                                            sizes="(max-width: 1280px) 50vw, 33vw"
+                                                            className="object-cover"
+                                                            priority={false}
+                                                        />
                                                     ) : (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="primary"
-                                                            onClick={() => handleAddItem(item)}
-                                                            disabled={!item.available}
-                                                        >
-                                                            Add
-                                                        </Button>
+                                                        <div className="w-full h-full flex items-center justify-center text-gray-600">
+                                                            <ImageIcon className="h-10 w-10" />
+                                                        </div>
                                                     )}
+                                                    <div className="absolute top-3 left-3">
+                                                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-black/60 text-white border border-white/10 backdrop-blur-sm">
+                                                            Rs. {item.price.toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="absolute top-3 right-3">
+                                                        <Badge variant="default" size="sm">
+                                                            {categoryLabel[item.category]}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+
+                                                <div className="p-4 flex flex-col gap-2 flex-1">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <h3 className="text-white font-semibold leading-tight line-clamp-1">{item.name}</h3>
+                                                        {!item.available && (
+                                                            <Badge variant="danger" size="sm">Sold Out</Badge>
+                                                        )}
+                                                    </div>
+                                                    {item.description && (
+                                                        <p className="text-sm text-gray-400 line-clamp-2 flex-1">{item.description}</p>
+                                                    )}
+                                                    <div className="flex items-center justify-between pt-1">
+                                                        <span className="text-sm text-gray-400">Tap to add to order</span>
+                                                        {existing ? (
+                                                            <div className="inline-flex items-center gap-2 rounded-full bg-purple-500/10 border border-purple-500/30 px-2 py-1">
+                                                                <IconButton
+                                                                    ariaLabel="Decrease"
+                                                                    onClick={() => handleUpdateQuantity(item.id, existing.quantity - 1)}
+                                                                >
+                                                                    <MinusIcon className="h-4 w-4" />
+                                                                </IconButton>
+                                                                <span className="text-white font-semibold text-sm min-w-[1.5rem] text-center">{existing.quantity}</span>
+                                                                <IconButton
+                                                                    ariaLabel="Increase"
+                                                                    onClick={() => handleAddItem(item, 1)}
+                                                                >
+                                                                    <PlusIcon className="h-4 w-4" />
+                                                                </IconButton>
+                                                            </div>
+                                                        ) : (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="primary"
+                                                                onClick={() => handleAddItem(item)}
+                                                                disabled={!item.available}
+                                                            >
+                                                                Add
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
                 )}
 
                 {(!isCompact || activeSection === 'BUILD') && (
-                <Card id="order-summary" variant="glass" className="shadow-xl border border-gray-800/60">
-                    <CardHeader className="flex flex-col gap-1">
-                        <CardTitle>Order Summary</CardTitle>
-                        <p className="text-sm text-gray-500">Cart with item photos, quantities, and total at a glance.</p>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex flex-wrap gap-2">
-                            {[OrderType.DINE_IN, OrderType.TAKEAWAY].map((type) => (
-                                <FilterChip
-                                    key={type}
-                                    active={orderType === type}
-                                    label={type === OrderType.DINE_IN ? 'Dine-in (token)' : 'Takeaway'}
-                                    onClick={() => setOrderType(type)}
+                    <Card id="order-summary" variant="glass" className="shadow-xl border border-gray-800/60">
+                        <CardHeader className="flex flex-col gap-1">
+                            <CardTitle>Order Summary</CardTitle>
+                            <p className="text-sm text-gray-500">Cart with item photos, quantities, and total at a glance.</p>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex flex-wrap gap-2">
+                                {[OrderType.DINE_IN, OrderType.TAKEAWAY].map((type) => (
+                                    <FilterChip
+                                        key={type}
+                                        active={orderType === type}
+                                        label={type === OrderType.DINE_IN ? 'Dine-in (token)' : 'Takeaway'}
+                                        onClick={() => setOrderType(type)}
+                                    />
+                                ))}
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <Input
+                                    label="Customer name (optional)"
+                                    value={customerName}
+                                    onChange={(e) => setCustomerName(e.target.value)}
+                                    placeholder="Walk-in guest"
                                 />
-                            ))}
-                        </div>
+                                <Input
+                                    label="Customer phone (optional)"
+                                    value={customerPhone}
+                                    onChange={(e) => setCustomerPhone(e.target.value)}
+                                    placeholder="For pickup updates"
+                                />
+                            </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <Input
-                                label="Customer name (optional)"
-                                value={customerName}
-                                onChange={(e) => setCustomerName(e.target.value)}
-                                placeholder="Walk-in guest"
-                            />
-                            <Input
-                                label="Customer phone (optional)"
-                                value={customerPhone}
-                                onChange={(e) => setCustomerPhone(e.target.value)}
-                                placeholder="For pickup updates"
-                            />
-                        </div>
-
-                        <div className="rounded-2xl border border-gray-800 bg-gray-900/60 divide-y divide-gray-800 max-h-[360px] overflow-y-auto">
-                            {!hasCart ? (
-                                <div className="p-6 text-center text-gray-500">
-                                    <p className="text-base">Add items from the menu to start an order.</p>
-                                    <p className="text-sm text-gray-600 mt-1">Images appear here for quick visual checks.</p>
-                                </div>
-                            ) : (
-                                cartItems.map((item) => (
-                                    <div key={item.menuItemId} className="p-3 flex items-center gap-3">
-                                        <ImageThumb src={resolveImageUrl(item.imageUrl)} label={item.name} />
-                                        <div className="flex-1">
-                                            <p className="text-white font-semibold leading-tight">{item.name}</p>
-                                            <p className="text-xs text-gray-400">{item.category ? categoryLabel[item.category] : 'Item'} • Rs. {item.price.toFixed(2)}</p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <IconButton
-                                                ariaLabel="Decrease"
-                                                onClick={() => handleUpdateQuantity(item.menuItemId, item.quantity - 1)}
-                                            >
-                                                <MinusIcon className="h-4 w-4" />
-                                            </IconButton>
-                                            <span className="text-white font-semibold min-w-[1.5rem] text-center">{item.quantity}</span>
-                                            <IconButton
-                                                ariaLabel="Increase"
-                                                onClick={() => handleUpdateQuantity(item.menuItemId, item.quantity + 1)}
-                                            >
-                                                <PlusIcon className="h-4 w-4" />
-                                            </IconButton>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-sm text-gray-300">Rs. {item.price.toFixed(2)}</p>
-                                            <p className="text-base font-semibold text-white">Rs. {(item.price * item.quantity).toFixed(2)}</p>
-                                        </div>
-                                        <button
-                                            onClick={() => handleRemoveItem(item.menuItemId)}
-                                            className="text-gray-500 hover:text-red-400 transition"
-                                            aria-label="Remove"
-                                        >
-                                            <TrashIcon className="h-4 w-4" />
-                                        </button>
+                            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 divide-y divide-gray-800 max-h-[360px] overflow-y-auto">
+                                {!hasCart ? (
+                                    <div className="p-6 text-center text-gray-500">
+                                        <p className="text-base">Add items from the menu to start an order.</p>
+                                        <p className="text-sm text-gray-600 mt-1">Images appear here for quick visual checks.</p>
                                     </div>
-                                ))
-                            )}
-                        </div>
+                                ) : (
+                                    cartItems.map((item) => (
+                                        <div key={item.menuItemId} className="p-3 flex items-center gap-3">
+                                            <ImageThumb src={resolveImageUrl(item.imageUrl)} label={item.name} />
+                                            <div className="flex-1">
+                                                <p className="text-white font-semibold leading-tight">{item.name}</p>
+                                                <p className="text-xs text-gray-400">{item.category ? categoryLabel[item.category] : 'Item'} • Rs. {item.price.toFixed(2)}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <IconButton
+                                                    ariaLabel="Decrease"
+                                                    onClick={() => handleUpdateQuantity(item.menuItemId, item.quantity - 1)}
+                                                >
+                                                    <MinusIcon className="h-4 w-4" />
+                                                </IconButton>
+                                                <span className="text-white font-semibold min-w-[1.5rem] text-center">{item.quantity}</span>
+                                                <IconButton
+                                                    ariaLabel="Increase"
+                                                    onClick={() => handleUpdateQuantity(item.menuItemId, item.quantity + 1)}
+                                                >
+                                                    <PlusIcon className="h-4 w-4" />
+                                                </IconButton>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm text-gray-300">Rs. {item.price.toFixed(2)}</p>
+                                                <p className="text-base font-semibold text-white">Rs. {(item.price * item.quantity).toFixed(2)}</p>
+                                            </div>
+                                            <button
+                                                onClick={() => handleRemoveItem(item.menuItemId)}
+                                                className="text-gray-500 hover:text-red-400 transition"
+                                                aria-label="Remove"
+                                            >
+                                                <TrashIcon className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
 
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <div className="text-sm text-gray-400">
-                                {totalItems} item{totalItems === 1 ? '' : 's'} • {orderType === OrderType.TAKEAWAY ? 'No token needed' : 'Token will be generated'}
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="text-2xl font-bold text-white">
-                                    Total: <span className="text-purple-400">Rs. {totalAmount.toFixed(2)}</span>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="text-sm text-gray-400">
+                                    {totalItems} item{totalItems === 1 ? '' : 's'} • {orderType === OrderType.TAKEAWAY ? 'No token needed' : 'Token will be generated'}
                                 </div>
-                                <Button
-                                    onClick={handleCreateOrder}
-                                    disabled={isSubmitting || cartItems.length === 0 || !user?.branchId}
-                                    isLoading={isSubmitting}
-                                >
-                                    Create Order
-                                </Button>
+                                <div className="flex items-center gap-3">
+                                    <div className="text-2xl font-bold text-white">
+                                        Total: <span className="text-purple-400">Rs. {totalAmount.toFixed(2)}</span>
+                                    </div>
+                                    <Button
+                                        onClick={handleCreateOrder}
+                                        disabled={isSubmitting || cartItems.length === 0 || !user?.branchId}
+                                        isLoading={isSubmitting}
+                                    >
+                                        Create Order
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
                 )}
             </div>
 
@@ -583,72 +587,72 @@ export default function ActiveOrdersPage() {
             )}
 
             {(!isCompact || activeSection === 'ORDERS') && (
-            <div className="space-y-4" id="orders-section">
-                <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
-                    <div>
-                        <h2 className="text-xl font-semibold text-white">Live Orders</h2>
-                        <p className="text-sm text-gray-500">Tap a card to update or print. Keeps refreshing every 10s.</p>
-                    </div>
-                    <div className="flex flex-col lg:flex-row lg:items-center gap-3 w-full xl:w-auto">
-                        <div className="flex flex-wrap gap-2">
-                            <FilterChip
-                                active={filterStatus === 'ALL'}
-                                label="All"
-                                onClick={() => setFilterStatus('ALL')}
-                            />
-                            {[OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.CANCELLATION_PENDING, OrderStatus.COMPLETED, OrderStatus.CANCELLED].map((status) => (
-                                <FilterChip
-                                    key={status}
-                                    active={filterStatus === status}
-                                    label={status}
-                                    onClick={() => setFilterStatus(status)}
-                                />
-                            ))}
-                            <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => loadOrders(true)}
-                                title="Refresh"
-                                className="px-3"
-                            >
-                                <RefreshIcon className="h-4 w-4" />
-                            </Button>
+                <div className="space-y-4" id="orders-section">
+                    <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+                        <div>
+                            <h2 className="text-xl font-semibold text-white">Live Orders</h2>
+                            <p className="text-sm text-gray-500">Tap a card to update or print. Keeps refreshing every 10s.</p>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                            {DATE_FILTERS.map(({ key, label }) => (
+                        <div className="flex flex-col lg:flex-row lg:items-center gap-3 w-full xl:w-auto">
+                            <div className="flex flex-wrap gap-2">
                                 <FilterChip
-                                    key={key}
-                                    active={dateFilter === key}
-                                    label={label}
-                                    onClick={() => setDateFilter(key)}
+                                    active={filterStatus === 'ALL'}
+                                    label="All"
+                                    onClick={() => setFilterStatus('ALL')}
                                 />
-                            ))}
+                                {[OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.CANCELLATION_PENDING, OrderStatus.COMPLETED, OrderStatus.CANCELLED].map((status) => (
+                                    <FilterChip
+                                        key={status}
+                                        active={filterStatus === status}
+                                        label={status}
+                                        onClick={() => setFilterStatus(status)}
+                                    />
+                                ))}
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => loadOrders(true)}
+                                    title="Refresh"
+                                    className="px-3"
+                                >
+                                    <RefreshIcon className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {DATE_FILTERS.map(({ key, label }) => (
+                                    <FilterChip
+                                        key={key}
+                                        active={dateFilter === key}
+                                        label={label}
+                                        onClick={() => setDateFilter(key)}
+                                    />
+                                ))}
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                {isLoading ? (
-                    <div className="flex items-center justify-center h-64">
-                        <Spinner size="lg" />
-                    </div>
-                ) : filteredOrders.length === 0 ? (
-                    <div className="text-center py-20 bg-gray-900/30 rounded-2xl border border-gray-800 border-dashed">
-                        <p className="text-gray-400 text-lg mb-2">No orders in this view</p>
-                        <p className="text-gray-600 text-sm">New orders will appear here automatically.</p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-                        {filteredOrders.map((order) => (
-                            <OrderCard
-                                key={order.id}
-                                order={order}
-                                onClick={() => setSelectedOrder(order.id)}
-                                lookup={menuLookup}
-                            />
-                        ))}
-                    </div>
-                )}
-            </div>
+                    {isLoading ? (
+                        <div className="flex items-center justify-center h-64">
+                            <Spinner size="lg" />
+                        </div>
+                    ) : filteredOrders.length === 0 ? (
+                        <div className="text-center py-20 bg-gray-900/30 rounded-2xl border border-gray-800 border-dashed">
+                            <p className="text-gray-400 text-lg mb-2">No orders in this view</p>
+                            <p className="text-gray-600 text-sm">New orders will appear here automatically.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                            {filteredOrders.map((order) => (
+                                <OrderCard
+                                    key={order.id}
+                                    order={order}
+                                    onClick={() => setSelectedOrder(order.id)}
+                                    lookup={menuLookup}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
             )}
 
             <OrderDetailModal
@@ -750,8 +754,9 @@ function MobileFooterBar({
     if (!hasCart) return null;
     return (
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-gray-950/90 backdrop-blur-md border-t border-gray-800 px-4 py-3">
+            disabled={disabled}
             <div className="flex items-center gap-3">
-                <div className="flex-1 text-white">
+                <div className="flex-1 text-white disabled:opacity-50 disabled:cursor-not-allowed">
                     <p className="text-sm text-gray-400">Cart total</p>
                     <p className="text-xl font-bold">Rs. {totalAmount.toFixed(2)}</p>
                 </div>
