@@ -272,12 +272,25 @@ export class AdminService {
             throw new Error('Branch not found');
         }
 
-        await prisma.branch.update({
-            where: { id },
-            data: { isActive: false },
-        });
+        // Use transaction to ensure all operations succeed or all fail
+        await prisma.$transaction([
+            // Deactivate all staff/employees assigned to this branch
+            prisma.user.updateMany({
+                where: { branchId: id, isActive: true },
+                data: { isActive: false },
+            }),
+            // Delete all menu items for this branch
+            prisma.menuItem.deleteMany({
+                where: { branchId: id },
+            }),
+            // Deactivate the branch
+            prisma.branch.update({
+                where: { id },
+                data: { isActive: false },
+            }),
+        ]);
 
-        return { message: 'Branch deactivated successfully' };
+        return { message: 'Branch and associated staff and menu items deleted successfully' };
     }
 
     static async getReportOverview(filters: {
