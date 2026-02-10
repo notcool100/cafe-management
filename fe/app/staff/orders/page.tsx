@@ -754,7 +754,6 @@ function MobileFooterBar({
     if (!hasCart) return null;
     return (
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-gray-950/90 backdrop-blur-md border-t border-gray-800 px-4 py-3">
-            disabled={disabled}
             <div className="flex items-center gap-3">
                 <div className="flex-1 text-white disabled:opacity-50 disabled:cursor-not-allowed">
                     <p className="text-sm text-gray-400">Cart total</p>
