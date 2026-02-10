@@ -45,6 +45,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
     }, [isStaffManager, pathname, router, staffAllowed]);
 
+    useEffect(() => {
+        setSidebarOpen(false);
+    }, [pathname]);
+
+    useEffect(() => {
+        const originalOverflow = document.body.style.overflow;
+        if (sidebarOpen) {
+            document.body.style.overflow = 'hidden';
+        }
+
+        return () => {
+            document.body.style.overflow = originalOverflow;
+        };
+    }, [sidebarOpen]);
+
     return (
         <ProtectedRoute requiredRole={['ADMIN', 'MANAGER', 'SUPER_ADMIN']}>
             <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
@@ -121,6 +136,104 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                 {/* Main content wrapper - Simple margin approach */}
                 <div className="min-h-screen lg:ml-64">
+                    {/* Mobile sidebar */}
+                    <div
+                        className={cn(
+                            'fixed inset-0 z-50 lg:hidden',
+                            sidebarOpen ? 'pointer-events-auto' : 'pointer-events-none'
+                        )}
+                        aria-hidden={!sidebarOpen}
+                    >
+                        <div
+                            className={cn(
+                                'absolute inset-0 bg-black/60 transition-opacity duration-200',
+                                sidebarOpen ? 'opacity-100' : 'opacity-0'
+                            )}
+                            onClick={() => setSidebarOpen(false)}
+                        />
+                        <aside
+                            className={cn(
+                                'absolute left-0 top-0 h-full w-72 max-w-[85vw] transform border-r border-gray-800 shadow-2xl transition-transform duration-300',
+                                sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                            )}
+                            style={{ background: 'var(--nav-bg)', color: 'var(--nav-text)' }}
+                        >
+                            <div className="flex h-full flex-col">
+                                <div className="flex items-center justify-between px-6 py-5 border-b border-gray-800">
+                                    <h2 className="text-lg font-bold">
+                                        <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent">
+                                            ☕ Cafe Admin
+                                        </span>
+                                    </h2>
+                                    <button
+                                        type="button"
+                                        className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors"
+                                        onClick={() => setSidebarOpen(false)}
+                                        aria-label="Close menu"
+                                    >
+                                        <CloseIcon className="h-5 w-5" />
+                                    </button>
+                                </div>
+
+                                <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+                                    {visibleNavigation.map((item) => {
+                                        const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                                        const Icon = item.icon;
+                                        const iconColor = isActive ? '#ffffff' : 'var(--nav-text)';
+
+                                        return (
+                                            <Link
+                                                key={item.name}
+                                                href={item.href}
+                                                onClick={() => setSidebarOpen(false)}
+                                                className={cn(
+                                                    'group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200',
+                                                    isActive
+                                                        ? 'shadow-lg shadow-purple-500/30'
+                                                        : 'hover:bg-gray-800'
+                                                )}
+                                                style={{
+                                                    backgroundImage: isActive ? 'var(--gradient-primary)' : undefined,
+                                                    color: 'var(--nav-text)',
+                                                }}
+                                            >
+                                                <span style={{ color: iconColor }}>
+                                                    <Icon
+                                                        className={cn(
+                                                            'mr-3 h-5 w-5 flex-shrink-0 transition-transform duration-200'
+                                                        )}
+                                                    />
+                                                </span>
+                                                <span>{item.name}</span>
+                                            </Link>
+                                        );
+                                    })}
+                                </nav>
+
+                                <div className="flex-shrink-0 p-4 border-t border-gray-800">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex-shrink-0">
+                                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg">
+                                                {user?.name?.charAt(0).toUpperCase()}
+                                            </div>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-white truncate">{user?.name}</p>
+                                            <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                                        </div>
+                                        <button
+                                            onClick={handleLogout}
+                                            className="flex-shrink-0 p-2 text-gray-500 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10"
+                                            title="Logout"
+                                        >
+                                            <LogoutIcon className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+
                     {/* Top bar for mobile */}
                     <div className="sticky top-0 z-40 lg:hidden border-b border-gray-800 px-4 py-4 shadow-lg" style={{ background: 'var(--nav-bg)', color: 'var(--nav-text)' }}>
                         <div className="flex items-center justify-between">
@@ -213,6 +326,14 @@ function LogoutIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+    );
+}
+
+function CloseIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
     );
 }
