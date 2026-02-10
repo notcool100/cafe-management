@@ -175,12 +175,12 @@ export default function MenuPage() {
                     options={
                         isManager && managerBranchId
                             ? branches
-                                  .filter((b) => b.id === managerBranchId)
-                                  .map((b) => ({ value: b.id, label: b.name }))
+                                .filter((b) => b.id === managerBranchId)
+                                .map((b) => ({ value: b.id, label: b.name }))
                             : [
-                                  { value: '', label: 'All Branches' },
-                                  ...branches.map(b => ({ value: b.id, label: b.name })),
-                              ]
+                                { value: '', label: 'All Branches' },
+                                ...branches.map(b => ({ value: b.id, label: b.name })),
+                            ]
                     }
                     disabled={isManager}
                     className="w-full"
@@ -190,14 +190,23 @@ export default function MenuPage() {
                 )}
             </div>
 
-            <div className="flex justify-end mb-6">
+            <div className="flex justify-end gap-3 mb-6">
                 <Link href="/admin/menu/new">
                     <Button>
                         <PlusIcon className="h-5 w-5 mr-2" />
                         Add Menu Item
                     </Button>
                 </Link>
+
+                <Link href="/admin/category/new">
+                    <Button >
+                        <PlusIcon className="h-5 w-5 mr-2" />
+                        Add Category
+                    </Button>
+                </Link>
             </div>
+
+
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredItems.map((item) => {
@@ -226,54 +235,54 @@ export default function MenuPage() {
                                 </div>
                             </div>
 
-                        <CardContent className="flex-1 flex flex-col p-4">
-                            <div className="flex justify-between items-start mb-2">
-                                <h3 className="font-bold text-white text-lg line-clamp-1" title={item.name}>
-                                    {item.name}
-                                </h3>
-                                <span className="font-bold text-purple-400">
-                                    Rs. {Number(item.price).toFixed(2)}
-                                </span>
-                            </div>
+                            <CardContent className="flex-1 flex flex-col p-4">
+                                <div className="flex justify-between items-start mb-2">
+                                    <h3 className="font-bold text-white text-lg line-clamp-1" title={item.name}>
+                                        {item.name}
+                                    </h3>
+                                    <span className="font-bold text-purple-400">
+                                        Rs. {Number(item.price).toFixed(2)}
+                                    </span>
+                                </div>
 
-                            <p className="text-gray-400 text-sm mb-4 line-clamp-2 flex-1">
-                                {item.description || 'No description available'}
-                            </p>
+                                <p className="text-gray-400 text-sm mb-4 line-clamp-2 flex-1">
+                                    {item.description || 'No description available'}
+                                </p>
 
-                            <div className="flex flex-wrap gap-2 mb-4">
-                                <Badge variant="default" size="sm">
-                                    {item.category.replace('_', ' ')}
-                                </Badge>
-                                {item.branch && (
-                                    <Badge variant="info" size="sm">
-                                        {item.branch.name}
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    <Badge variant="default" size="sm">
+                                        {item.category.replace('_', ' ')}
                                     </Badge>
-                                )}
-                            </div>
+                                    {item.branch && (
+                                        <Badge variant="info" size="sm">
+                                            {item.branch.name}
+                                        </Badge>
+                                    )}
+                                </div>
 
-                            <div className="flex gap-2 mt-auto">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleToggleAvailability(item)}
-                                    className={item.available ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}
-                                >
-                                    {item.available ? 'Disable' : 'Enable'}
-                                </Button>
-                                <Link href={`/admin/menu/${item.id}`} className="flex-1">
-                                    <Button variant="outline" size="sm" fullWidth>
-                                        Edit
+                                <div className="flex gap-2 mt-auto">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleToggleAvailability(item)}
+                                        className={item.available ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}
+                                    >
+                                        {item.available ? 'Disable' : 'Enable'}
                                     </Button>
-                                </Link>
-                                <Button
-                                    variant="danger"
-                                    size="sm"
-                                    onClick={() => setDeleteConfirm(item.id)}
-                                >
-                                    <TrashIcon className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </CardContent>
+                                    <Link href={`/admin/menu/${item.id}`} className="flex-1">
+                                        <Button variant="outline" size="sm" fullWidth>
+                                            Edit
+                                        </Button>
+                                    </Link>
+                                    <Button
+                                        variant="danger"
+                                        size="sm"
+                                        onClick={() => setDeleteConfirm(item.id)}
+                                    >
+                                        <TrashIcon className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </CardContent>
                         </Card>
                     );
                 })}
