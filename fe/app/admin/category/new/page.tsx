@@ -32,15 +32,26 @@ export default function MenuItemForm({ onSubmit, isLoading }: MenuItemFormProps)
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
     ) => {
-        const { name, value, type, checked, files } = e.target;
+        const target = e.target;
+        const { name } = target;
+
+        if (target instanceof HTMLInputElement) {
+            const { type, value, checked, files } = target;
+            setFormData(prev => ({
+                ...prev,
+                [name]:
+                    type === 'checkbox'
+                        ? checked
+                        : type === 'file'
+                            ? files?.[0] || null
+                            : value,
+            }));
+            return;
+        }
+
         setFormData(prev => ({
             ...prev,
-            [name]:
-                type === 'checkbox'
-                    ? checked
-                    : type === 'file'
-                        ? files?.[0] || null
-                        : value,
+            [name]: target.value,
         }));
     };
 
