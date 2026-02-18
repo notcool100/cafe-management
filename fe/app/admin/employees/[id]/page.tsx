@@ -101,13 +101,13 @@ export default function EditEmployeePage() {
                 onClose={() => setToast({ ...toast, isVisible: false })}
             />
 
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Edit Employee</h1>
+                    <h1 className="mb-2 text-2xl font-bold text-white sm:text-3xl">Edit Employee</h1>
                     <p className="text-gray-400">Update staff member details</p>
                 </div>
-                <Link href="/admin/employees">
-                    <Button variant="ghost">Back to List</Button>
+                <Link href="/admin/employees" className="w-full sm:w-auto">
+                    <Button variant="ghost" className="w-full sm:w-auto">Back to List</Button>
                 </Link>
             </div>
 

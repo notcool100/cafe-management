@@ -90,7 +90,7 @@ export default function PublicMenuPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-950 pb-20">
+        <div className="min-h-screen bg-gray-950 pb-24 sm:pb-20">
             <Toast
                 message={toast.message}
                 type={toast.type}
@@ -102,11 +102,11 @@ export default function PublicMenuPage() {
             <div className="sticky top-0 z-30 bg-gray-900/80 backdrop-blur-md border-b border-gray-800">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center h-16">
-                        <div>
-                            <h1 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                        <div className="min-w-0">
+                            <h1 className="truncate text-lg font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent sm:text-xl">
                                 {branch.name}
                             </h1>
-                            <p className="text-xs text-gray-400">{branch.location}</p>
+                            <p className="truncate text-xs text-gray-400">{branch.location}</p>
                         </div>
                         <button
                             onClick={() => setIsCartOpen(true)}
@@ -130,7 +130,7 @@ export default function PublicMenuPage() {
                                 key={cat}
                                 onClick={() => setSelectedCategory(cat as MenuCategory | 'ALL')}
                                 className={`
-                                    whitespace-nowrap px-4 py-2 border-b-2 text-sm font-medium transition-colors
+                                    whitespace-nowrap border-b-2 px-3 py-2 text-xs font-medium transition-colors sm:px-4 sm:text-sm
                                     ${selectedCategory === cat
                                         ? 'border-purple-500 text-purple-400'
                                         : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-700'
@@ -145,13 +145,13 @@ export default function PublicMenuPage() {
             </div>
 
             {/* Menu Grid */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
                 {filteredItems.length === 0 ? (
                     <div className="text-center py-20">
                         <p className="text-gray-400">No items available in this category.</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {filteredItems.map((item) => (
                             <Card key={item.id} variant="glass" className="overflow-hidden flex flex-col h-full">
                                 <div className="aspect-video relative bg-gray-800">

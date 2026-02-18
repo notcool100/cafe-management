@@ -81,6 +81,10 @@ export interface MenuItem {
     category: MenuCategory;
     imageUrl?: string;
     available: boolean;
+    isTransferable?: boolean;
+    borrowedByBranchIds?: string[];
+    borrowedByBranches?: Branch[];
+    sourceBranchId?: string;
     branchId: string;
     branch?: Branch;
     createdAt: string;
@@ -95,6 +99,8 @@ export interface CreateMenuItemData {
     imageFile?: File | null;
     available: boolean;
     branchId: string;
+    isTransferable?: boolean;
+    borrowedByBranchIds?: string[];
 }
 
 // Order Types

@@ -28,6 +28,7 @@ export default function AdminDashboardPage() {
     const [earningsTrend, setEarningsTrend] = useState<number[]>([]);
     const [todayEarnings, setTodayEarnings] = useState(0);
     const [earningsChange, setEarningsChange] = useState(0);
+    const [statsError, setStatsError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -37,11 +38,12 @@ export default function AdminDashboardPage() {
     const loadStats = async () => {
         try {
             setIsLoading(true);
+            setStatsError(null);
             const endDate = new Date();
             const startDate = new Date();
             startDate.setDate(endDate.getDate() - 6);
 
-            const [employees, branches, menuItems, salesOverview] = await Promise.all([
+            const [employeesResult, branchesResult, menuItemsResult, salesOverviewResult] = await Promise.allSettled([
                 employeeService.getEmployees(),
                 branchService.getBranches(),
                 menuService.getMenuItems({}),
@@ -51,12 +53,20 @@ export default function AdminDashboardPage() {
                 }),
             ]);
 
+            const employees = employeesResult.status === 'fulfilled' ? employeesResult.value : [];
+            const branchList = branchesResult.status === 'fulfilled' ? branchesResult.value : [];
+            const menuItems = menuItemsResult.status === 'fulfilled' ? menuItemsResult.value : [];
+            const salesOverview =
+                salesOverviewResult.status === 'fulfilled'
+                    ? salesOverviewResult.value
+                    : { dailyTrend: [] as Array<{ sales: number }> };
+
             setStats({
                 employees: employees.length,
-                branches: branches.length,
+                branches: branchList.length,
                 menuItems: menuItems.length,
             });
-            setBranches(branches);
+            setBranches(branchList);
 
             const salesTrend = (salesOverview.dailyTrend || []).map((point) => point.sales);
             const normalizedTrend = salesTrend.length ? salesTrend : [0];
@@ -67,8 +77,23 @@ export default function AdminDashboardPage() {
             setEarningsTrend(normalizedTrend);
             setTodayEarnings(today);
             setEarningsChange(change);
-        } catch (error) {
-            console.error('Failed to load stats:', error);
+
+            const settledResults = [employeesResult, branchesResult, menuItemsResult, salesOverviewResult];
+            const successCount = settledResults.filter((result) => result.status === 'fulfilled').length;
+            if (successCount === 0) {
+                setStatsError('Unable to load dashboard stats right now.');
+            }
+        } catch {
+            setStats({
+                employees: 0,
+                branches: 0,
+                menuItems: 0,
+            });
+            setBranches([]);
+            setEarningsTrend([0]);
+            setTodayEarnings(0);
+            setEarningsChange(0);
+            setStatsError('Unable to load dashboard stats right now.');
         } finally {
             setIsLoading(false);
         }
@@ -120,21 +145,22 @@ export default function AdminDashboardPage() {
     }
 
     return (
-        <div className="animate-fade-in space-y-10">
+        <div className="animate-fade-in space-y-8 sm:space-y-10">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                     <p className="text-xs uppercase tracking-[0.35em] text-[#9b7d6b]">Dashboard</p>
-                    <h1 className="text-3xl md:text-4xl font-semibold text-[#5a3a2e] mt-2">Welcome back</h1>
-                    <p className="text-sm text-[#9b7d6b] mt-2">Here's what's happening across your cafe today.</p>
+                    <h1 className="mt-2 text-2xl font-semibold text-[#5a3a2e] sm:text-3xl md:text-4xl">Welcome back</h1>
+                    <p className="mt-2 text-sm text-[#9b7d6b]">Here&apos;s what&apos;s happening across your cafe today.</p>
+                    {statsError && <p className="mt-2 text-sm text-[#a44f3a]">{statsError}</p>}
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
-                    <button className="rounded-full border border-[#e2d6c1] bg-[#fff6e6] px-4 py-2 text-sm font-medium text-[#6a4a3a] shadow-[0_6px_18px_rgba(90,58,46,0.08)]">
+                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+                    <button className="w-full rounded-full border border-[#e2d6c1] bg-[#fff6e6] px-4 py-2 text-sm font-medium text-[#6a4a3a] shadow-[0_6px_18px_rgba(90,58,46,0.08)] sm:w-auto">
                         View All
                     </button>
-                    <button className="h-11 w-11 rounded-full border border-[#e2d6c1] bg-[#fff6e6] text-[#6a4a3a] shadow-[0_6px_18px_rgba(90,58,46,0.08)] flex items-center justify-center">
+                    <button className="h-11 w-11 self-start rounded-full border border-[#e2d6c1] bg-[#fff6e6] text-[#6a4a3a] shadow-[0_6px_18px_rgba(90,58,46,0.08)] flex items-center justify-center sm:self-auto">
                         <BellIcon className="h-5 w-5" />
                     </button>
-                    <div className="flex items-center gap-2 rounded-full border border-[#e2d6c1] bg-[#f3e7d2] px-4 py-2 text-sm font-medium text-[#5a3a2e] shadow-[0_6px_18px_rgba(90,58,46,0.08)]">
+                    <div className="flex w-full items-center justify-between gap-2 rounded-full border border-[#e2d6c1] bg-[#f3e7d2] px-4 py-2 text-sm font-medium text-[#5a3a2e] shadow-[0_6px_18px_rgba(90,58,46,0.08)] sm:w-auto sm:justify-start">
                         Hi, Admin
                         <span className="h-7 w-7 rounded-full bg-[#5a3a2e] text-[#fffaf0] flex items-center justify-center text-xs font-semibold">
                             A
@@ -143,67 +169,67 @@ export default function AdminDashboardPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3">
                 <Link href="/admin/employees" className="block h-full group">
-                    <div className="h-full min-h-[152px] rounded-3xl border border-[#e2d6c1] bg-[#f3e7d2] p-6 shadow-[0_12px_28px_rgba(90,58,46,0.08)] transition-colors duration-200 hover:bg-[#5a3a2e] hover:border-transparent">
+                    <div className="h-full min-h-[152px] rounded-3xl border border-[#e2d6c1] bg-[#f3e7d2] p-5 sm:p-6 shadow-[0_12px_28px_rgba(90,58,46,0.08)] transition-colors duration-200 hover:bg-[#5a3a2e] hover:border-transparent">
                         <div className="flex items-center justify-between">
                             <p className="text-sm text-[#8b6f5f] group-hover:text-[#f3e7d2]">Total Employees</p>
                             <span className="rounded-full bg-[#fff6e6] border border-[#e2d6c1] px-2 py-1 text-xs font-semibold text-[#5a3a2e] group-hover:bg-[#2f7d53] group-hover:border-[#2f7d53] group-hover:text-[#fffaf0]">+8%</span>
                         </div>
-                        <p className="text-4xl font-semibold mt-6 text-[#5a3a2e] group-hover:text-[#fffaf0]">{stats.employees}</p>
+                        <p className="mt-5 text-3xl font-semibold text-[#5a3a2e] group-hover:text-[#fffaf0] sm:text-4xl">{stats.employees}</p>
                     </div>
                 </Link>
                 <Link href="/admin/branches" className="block h-full group">
-                    <div className="h-full min-h-[152px] rounded-3xl border border-[#e2d6c1] bg-[#f3e7d2] p-6 shadow-[0_12px_28px_rgba(90,58,46,0.08)] transition-colors duration-200 hover:bg-[#5a3a2e] hover:border-transparent">
+                    <div className="h-full min-h-[152px] rounded-3xl border border-[#e2d6c1] bg-[#f3e7d2] p-5 sm:p-6 shadow-[0_12px_28px_rgba(90,58,46,0.08)] transition-colors duration-200 hover:bg-[#5a3a2e] hover:border-transparent">
                         <div className="flex items-center justify-between">
                             <p className="text-sm text-[#8b6f5f] group-hover:text-[#f3e7d2]">Total Branches</p>
                             <div className="h-10 w-10 rounded-2xl border border-[#e2d6c1] bg-[#fff6e6] flex items-center justify-center text-[#5a3a2e] group-hover:bg-[#6d4a3b] group-hover:border-[#7f5d4d] group-hover:text-[#fffaf0]">
                                 <BuildingIcon className="h-5 w-5" />
                             </div>
                         </div>
-                        <p className="text-4xl font-semibold mt-6 text-[#5a3a2e] group-hover:text-[#fffaf0]">{stats.branches}</p>
+                        <p className="mt-5 text-3xl font-semibold text-[#5a3a2e] group-hover:text-[#fffaf0] sm:text-4xl">{stats.branches}</p>
                     </div>
                 </Link>
                 <Link href="/admin/menu" className="block h-full group">
-                    <div className="h-full min-h-[152px] rounded-3xl border border-[#e2d6c1] bg-[#f3e7d2] p-6 shadow-[0_12px_28px_rgba(90,58,46,0.08)] transition-colors duration-200 hover:bg-[#5a3a2e] hover:border-transparent">
+                    <div className="h-full min-h-[152px] rounded-3xl border border-[#e2d6c1] bg-[#f3e7d2] p-5 sm:p-6 shadow-[0_12px_28px_rgba(90,58,46,0.08)] transition-colors duration-200 hover:bg-[#5a3a2e] hover:border-transparent">
                         <div className="flex items-center justify-between">
                             <p className="text-sm text-[#8b6f5f] group-hover:text-[#f3e7d2]">Menu Items</p>
                             <div className="h-10 w-10 rounded-2xl border border-[#e2d6c1] bg-[#fff6e6] flex items-center justify-center text-[#5a3a2e] group-hover:bg-[#6d4a3b] group-hover:border-[#7f5d4d] group-hover:text-[#fffaf0]">
                                 <MenuIcon className="h-5 w-5" />
                             </div>
                         </div>
-                        <p className="text-4xl font-semibold mt-6 text-[#5a3a2e] group-hover:text-[#fffaf0]">{stats.menuItems}</p>
+                        <p className="mt-5 text-3xl font-semibold text-[#5a3a2e] group-hover:text-[#fffaf0] sm:text-4xl">{stats.menuItems}</p>
                     </div>
                 </Link>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-3">
-                <div className="lg:col-span-2 rounded-3xl border border-[#e2d6c1] bg-[#fff6e6] p-6 shadow-[0_12px_28px_rgba(90,58,46,0.08)]">
+                <div className="rounded-3xl border border-[#e2d6c1] bg-[#fff6e6] p-5 shadow-[0_12px_28px_rgba(90,58,46,0.08)] sm:p-6 lg:col-span-2">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-semibold text-[#5a3a2e]">Sales Summary</h2>
                         <span className="text-xs text-[#9b7d6b]">Last 7 days</span>
                     </div>
-                    <div className="mt-8 grid grid-cols-4 items-end gap-6 h-40">
+                    <div className="mt-6 grid h-40 grid-cols-4 items-end gap-3 sm:mt-8 sm:gap-6">
                         {salesSummary.map((bar) => (
                             <div key={bar.label} className="flex flex-col items-center gap-3">
                                 <div className="w-8 rounded-full bg-[#e6d8c6] overflow-hidden flex items-end" style={{ height: '100%' }}>
                                     <div className="w-full rounded-full bg-[#5a3a2e]" style={{ height: `${bar.value}%` }} />
                                 </div>
-                                <span className="text-xs text-[#8b6f5f]">{bar.label}</span>
+                                <span className="max-w-full truncate text-[11px] text-[#8b6f5f] sm:text-xs">{bar.label}</span>
                             </div>
                         ))}
                     </div>
                 </div>
 
                 <div className="space-y-6">
-                    <div className="rounded-3xl border border-[#e2d6c1] bg-[#fff6e6] p-6 shadow-[0_12px_28px_rgba(90,58,46,0.08)]">
+                    <div className="rounded-3xl border border-[#e2d6c1] bg-[#fff6e6] p-5 shadow-[0_12px_28px_rgba(90,58,46,0.08)] sm:p-6">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-sm font-semibold text-[#5a3a2e]">Overview</h3>
                             <button className="rounded-full border border-[#e2d6c1] px-3 py-1 text-xs text-[#8b6f5f]">
                                 View All
                             </button>
                         </div>
-                        <div className="flex items-center gap-6">
+                        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
                             <div
                                 className="relative h-24 w-24 rounded-full"
                                 style={{
@@ -224,7 +250,7 @@ export default function AdminDashboardPage() {
                         </div>
                     </div>
 
-                    <div className="rounded-3xl border border-[#e2d6c1] bg-[#fff6e6] p-6 shadow-[0_12px_28px_rgba(90,58,46,0.08)]">
+                    <div className="rounded-3xl border border-[#e2d6c1] bg-[#fff6e6] p-5 shadow-[0_12px_28px_rgba(90,58,46,0.08)] sm:p-6">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-xs text-[#9b7d6b]">Today earnings</p>
@@ -262,7 +288,7 @@ export default function AdminDashboardPage() {
 
             <div>
                 <h2 className="text-xl font-semibold text-[#5a3a2e] mb-4">Branches</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
                     {branches.map((branch) => (
                         <div key={branch.id} className="rounded-3xl bg-[#5a3a2e] text-[#fffaf0] p-4 shadow-[0_12px_28px_rgba(90,58,46,0.2)]">
                             <div className="rounded-2xl bg-[#f3e7d2] text-[#5a3a2e] p-4 text-center text-sm font-semibold shadow-[inset_0_0_0_1px_rgba(90,58,46,0.15)]">

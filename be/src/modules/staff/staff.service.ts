@@ -26,11 +26,11 @@ export class StaffService {
         return orders;
     }
 
-    static async getOrdersByStatus(branchId: string, status: string, tenantId?: string) {
+    static async getOrdersByStatus(branchId: string | undefined, status: string, tenantId?: string) {
         await OrderService.finalizeExpiredCancellations();
         const orders = await prisma.order.findMany({
             where: {
-                branchId,
+                ...(branchId ? { branchId } : {}),
                 ...(tenantId ? { tenantId } : {}),
                 status: status as any,
             },

@@ -19,6 +19,7 @@ model Tenant {
   users       User[]
   branches    Branch[]
   menuItems   MenuItem[]
+  menuItemBorrows MenuItemBorrow[]
   orders      Order[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -98,6 +99,7 @@ model Branch {
   qrCode          String?    @db.Text
   users           User[]
   menuItems       MenuItem[]
+  borrowedMenuItems MenuItemBorrow[]
   orders          Order[]
   tenantId        String
   tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -115,16 +117,34 @@ model MenuItem {
   category    String?
   imageUrl    String?
   isAvailable Boolean     @default(true)
+  isTransferable Boolean  @default(false)
   branchId    String
   branch      Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
   tenantId    String
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  borrowedByBranches MenuItemBorrow[]
   orderItems  OrderItem[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
   @@index([branchId])
   @@index([category])
+  @@index([tenantId])
+}
+
+model MenuItemBorrow {
+  id            String    @id @default(uuid())
+  menuItemId    String
+  menuItem      MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  targetBranchId String
+  targetBranch  Branch    @relation(fields: [targetBranchId], references: [id], onDelete: Cascade)
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+
+  @@unique([menuItemId, targetBranchId])
+  @@index([menuItemId])
+  @@index([targetBranchId])
   @@index([tenantId])
 }
 

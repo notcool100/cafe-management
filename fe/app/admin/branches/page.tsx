@@ -96,13 +96,13 @@ export default function BranchesPage() {
             />
 
             <div className="mx-auto max-w-7xl rounded-md border border-[#e3dcc4] bg-[#efe8cf] p-3 sm:p-5">
-                <div className="mb-6 flex items-start justify-between gap-3">
+                <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <p className="text-xl font-semibold leading-tight text-[#1f1c17]">Dashboard</p>
-                        <h1 className="mt-2 text-3xl font-bold leading-tight text-[#15120f]">Select a Branch</h1>
+                        <h1 className="mt-2 text-2xl font-bold leading-tight text-[#15120f] sm:text-3xl">Select a Branch</h1>
                     </div>
-                    <Link href="/admin/branches/new">
-                        <Button className="bg-[#6b3b2f] text-[#f7f3e6] hover:bg-[#5d3127]">
+                    <Link href="/admin/branches/new" className="w-full sm:w-auto">
+                        <Button className="w-full bg-[#6b3b2f] text-[#f7f3e6] hover:bg-[#5d3127] sm:w-auto">
                             <PlusIcon className="mr-2 h-5 w-5" />
                             Add Branch
                         </Button>
@@ -128,7 +128,7 @@ export default function BranchesPage() {
                                 </div>
                             </Link>
 
-                            <p className="truncate px-1 text-2xl font-semibold text-[#f1e8d6]">{branch.location}</p>
+                            <p className="truncate px-1 text-xl font-semibold text-[#f1e8d6] sm:text-2xl">{branch.location}</p>
 
                             <div className="mt-4 flex gap-2">
                                 <Button

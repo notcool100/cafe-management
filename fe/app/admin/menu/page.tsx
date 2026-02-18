@@ -130,7 +130,7 @@ export default function MenuPage() {
     }
 
     return (
-        <div>
+        <div className="space-y-6">
             <Toast
                 message={toast.message}
                 type={toast.type}
@@ -138,9 +138,9 @@ export default function MenuPage() {
                 onClose={() => setToast({ ...toast, isVisible: false })}
             />
 
-            <div className="mb-8 rounded-xl border border-[#d7c5a8] bg-[#f7efdf] p-6 lg:p-8">
-                <h1 className="text-3xl font-semibold text-[#5b3629] mb-8">MENU ITEAM</h1>
-                <h2 className="text-center text-3xl font-semibold tracking-wide text-[#20110b] mb-8">MENU</h2>
+            <div className="rounded-xl border border-[#d7c5a8] bg-[#f7efdf] p-4 sm:p-6 lg:p-8">
+                <h1 className="mb-6 text-2xl font-semibold text-[#5b3629] sm:mb-8 sm:text-3xl">MENU ITEAM</h1>
+                <h2 className="mb-6 text-center text-2xl font-semibold tracking-wide text-[#20110b] sm:mb-8 sm:text-3xl">MENU</h2>
 
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="w-full sm:max-w-[260px]">
@@ -175,16 +175,25 @@ export default function MenuPage() {
 
                     <Link
                         href="/admin/menu/new"
-                        className="inline-flex items-center justify-center rounded-lg bg-[#5b3629] px-8 py-2 text-3xl leading-none text-[#f8efe1] transition hover:bg-[#4c2c20]"
+                        className="inline-flex w-full items-center justify-center rounded-lg bg-[#5b3629] px-8 py-2 text-xl leading-none text-[#f8efe1] transition hover:bg-[#4c2c20] sm:w-auto sm:text-2xl"
                     >
                         Add item
                     </Link>
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 xl:grid-cols-4">
                 {filteredItems.map((item) => {
                     const imageSrc = resolveImageUrl(item.imageUrl);
+                    const isBorrowedInSelectedBranch = Boolean(
+                        filters.branchId &&
+                        item.branchId !== filters.branchId &&
+                        (
+                            item.borrowedByBranchIds?.includes(filters.branchId) ||
+                            item.isTransferable
+                        )
+                    );
+                    const canManageItem = !(isManager && isBorrowedInSelectedBranch);
 
                     return (
                         <div key={item.id} className="rounded-xl bg-[#5b3629] p-4 shadow-[0_4px_10px_rgba(0,0,0,0.2)]">
@@ -210,28 +219,39 @@ export default function MenuPage() {
                             </div>
 
                             <div className="pt-4">
-                                <h3 className="line-clamp-1 text-3xl font-medium text-[#f9f0e2]" title={item.name}>
+                                <h3 className="line-clamp-1 text-xl font-medium text-[#f9f0e2] sm:text-2xl" title={item.name}>
                                     {item.name}
                                 </h3>
                                 <p className="mt-1 text-base text-[#e9d8c5]">Rs. {Number(item.price).toFixed(2)}</p>
+                                {isBorrowedInSelectedBranch && (
+                                    <p className="mt-1 text-xs text-amber-200">Borrowed from another branch</p>
+                                )}
                                 <div className="mt-3 flex flex-wrap gap-2">
-                                    <Link href={`/admin/menu/${item.id}`} className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]">
-                                        Edit
-                                    </Link>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleToggleAvailability(item)}
-                                        className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]"
-                                    >
-                                        {item.available ? 'Disable' : 'Enable'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setDeleteConfirm(item.id)}
-                                        className="rounded-md border border-[#f0b8ae] px-3 py-1 text-sm text-[#ffe1dc] hover:bg-[#7f3f34]"
-                                    >
-                                        Delete
-                                    </button>
+                                    {canManageItem ? (
+                                        <>
+                                            <Link href={`/admin/menu/${item.id}`} className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]">
+                                                Edit
+                                            </Link>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleToggleAvailability(item)}
+                                                className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]"
+                                            >
+                                                {item.available ? 'Disable' : 'Enable'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDeleteConfirm(item.id)}
+                                                className="rounded-md border border-[#f0b8ae] px-3 py-1 text-sm text-[#ffe1dc] hover:bg-[#7f3f34]"
+                                            >
+                                                Delete
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <p className="text-xs text-[#f4d7b6]">
+                                            This item is borrowed. Ask admin to edit ownership settings.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>

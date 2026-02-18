@@ -326,7 +326,7 @@ export default function ActiveOrdersPage() {
     const hasCart = cartItems.length > 0;
 
     return (
-        <div className="space-y-6" style={staffOrdersTextTheme}>
+        <div className={`space-y-6 ${isCompact && hasCart ? 'pb-24' : ''}`} style={staffOrdersTextTheme}>
             <Toast
                 message={toast.message}
                 type={toast.type}

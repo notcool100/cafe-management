@@ -94,10 +94,10 @@ export default function EmployeesPage() {
                 <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                         <p className="text-xl font-semibold leading-tight text-[#1f1c17]">Dashboard</p>
-                        <h1 className="mt-2 text-3xl font-bold leading-tight text-[#15120f]">Select an Employee</h1>
+                        <h1 className="mt-2 text-2xl font-bold leading-tight text-[#15120f] sm:text-3xl">Select an Employee</h1>
                     </div>
                     <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
-                        <div className="min-w-[240px]">
+                        <div className="w-full sm:min-w-[240px]">
                             <Input
                                 type="text"
                                 placeholder="Search employee..."
@@ -106,8 +106,8 @@ export default function EmployeesPage() {
                                 className="w-full"
                             />
                         </div>
-                        <Link href="/admin/employees/new">
-                            <Button className="bg-gradient-to-r from-[#7d5bff] to-[#3d84f6] text-[#f7f3e6] shadow-[0_10px_24px_rgba(73,94,213,0.35)] hover:from-[#6f4ef0] hover:to-[#2f78ea]">
+                        <Link href="/admin/employees/new" className="w-full sm:w-auto">
+                            <Button className="w-full bg-gradient-to-r from-[#7d5bff] to-[#3d84f6] text-[#f7f3e6] shadow-[0_10px_24px_rgba(73,94,213,0.35)] hover:from-[#6f4ef0] hover:to-[#2f78ea] sm:w-auto">
                                 <PlusIcon className="mr-2 h-5 w-5" />
                                 Add Employee
                             </Button>
@@ -135,7 +135,7 @@ export default function EmployeesPage() {
                                 </div>
                             </Link>
 
-                            <p className="truncate px-1 text-2xl font-semibold text-[#f1e8d6]">{employee.role}</p>
+                            <p className="truncate px-1 text-xl font-semibold text-[#f1e8d6] sm:text-2xl">{employee.role}</p>
                             <div className="mt-2 px-1">
                                 <Badge variant={employee.role === 'ADMIN' ? 'info' : 'default'}>
                                     {employee.role === 'ADMIN' ? 'Admin' : employee.role === 'MANAGER' ? 'Manager' : 'Staff'}

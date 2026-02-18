@@ -33,6 +33,8 @@ export default function NewMenuItemPage() {
                 branchId: data.branchId,
                 imageFile: data.imageFile || null,
                 available: data.available,
+                isTransferable: data.isTransferable,
+                borrowedByBranchIds: data.borrowedByBranchIds,
             });
 
             setToast({
@@ -44,10 +46,10 @@ export default function NewMenuItemPage() {
             setTimeout(() => {
                 router.push('/admin/menu');
             }, 1000);
-        } catch (error: any) {
+        } catch (error: unknown) {
             setToast({
                 message:
-                    error?.response?.data?.message ||
+                    (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
                     'Failed to create menu item',
                 type: 'error',
                 isVisible: true,
@@ -58,7 +60,7 @@ export default function NewMenuItemPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#e7dcc5] flex flex-col items-center py-10 px-4">
+        <div className="min-h-screen bg-[#e7dcc5] flex flex-col items-center px-4 py-6 sm:py-10">
 
             <Toast
                 message={toast.message}
@@ -69,7 +71,7 @@ export default function NewMenuItemPage() {
                 }
             />
 
-            <h1 className="text-2xl font-semibold mb-8 tracking-wide">
+            <h1 className="mb-6 text-2xl font-semibold tracking-wide sm:mb-8">
                 MENU
             </h1>
 
@@ -77,7 +79,7 @@ export default function NewMenuItemPage() {
                 <div className="grid md:grid-cols-2">
 
                     {/* LEFT SIDE FORM */}
-                    <div className="p-8 bg-[#8d776f]">
+                    <div className="bg-[#8d776f] p-5 sm:p-8">
                         <h2 className="text-lg text-white mb-6">
                             Add an item to the menu
                         </h2>
@@ -94,9 +96,9 @@ export default function NewMenuItemPage() {
                     </div>
 
                     {/* RIGHT SIDE IMAGE PREVIEW */}
-                    <div className="bg-[#d9d2c3] flex flex-col items-center justify-center p-8">
+                    <div className="bg-[#d9d2c3] flex flex-col items-center justify-center p-5 sm:p-8">
 
-                        <div className="w-64 h-64 bg-[#e8dccb] rounded-2xl shadow-md flex items-center justify-center overflow-hidden">
+                        <div className="h-52 w-full max-w-xs rounded-2xl bg-[#e8dccb] shadow-md flex items-center justify-center overflow-hidden sm:h-64 sm:w-64">
                             {preview ? (
                                 <img
                                     src={preview}

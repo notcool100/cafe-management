@@ -11,6 +11,7 @@ export default function StaffDashboardPage() {
         completed: 0,
         totalToday: 0,
     });
+    const [statsError, setStatsError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -20,14 +21,20 @@ export default function StaffDashboardPage() {
     const loadStats = async () => {
         try {
             setIsLoading(true);
+            setStatsError(null);
             const activeOrders = await orderService.getActiveOrders();
             setStats({
                 active: activeOrders.length,
                 completed: 0,
                 totalToday: activeOrders.length,
             });
-        } catch (error) {
-            console.error('Failed to load stats:', error);
+        } catch {
+            setStats({
+                active: 0,
+                completed: 0,
+                totalToday: 0,
+            });
+            setStatsError('Unable to load dashboard stats right now.');
         } finally {
             setIsLoading(false);
         }
@@ -47,6 +54,9 @@ export default function StaffDashboardPage() {
                 <p className="text-xs uppercase tracking-[0.35em] text-[#9b7d6b]">Staff Dashboard</p>
                 <h1 className="text-3xl md:text-4xl font-semibold text-[#5a3a2e]">Ready for service</h1>
                 <p className="text-sm text-[#8b6f5f]">Track active orders and keep the floor moving smoothly.</p>
+                {statsError && (
+                    <p className="text-sm text-[#a44f3a]">{statsError}</p>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
