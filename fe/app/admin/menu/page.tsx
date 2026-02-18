@@ -6,14 +6,10 @@ import Image from 'next/image';
 import { menuService } from '@/lib/api/menu-service';
 import { branchService } from '@/lib/api/branch-service';
 import { MenuItem, MenuCategory, Branch, UserRole } from '@/lib/types';
-import { Card, CardContent } from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Toast from '@/components/ui/Toast';
-import Input from '@/components/ui/Input';
-import Select from '@/components/ui/Select';
 import { resolveImageUrl } from '@/lib/utils/image';
 import { useAuthStore } from '@/lib/store/auth-store';
 
@@ -142,79 +138,57 @@ export default function MenuPage() {
                 onClose={() => setToast({ ...toast, isVisible: false })}
             />
 
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-white mb-2">Menu Items</h1>
-                <p className="text-gray-400">Manage food and beverage offerings</p>
-            </div>
+            <div className="mb-8 rounded-xl border border-[#d7c5a8] bg-[#f7efdf] p-6 lg:p-8">
+                <h1 className="text-3xl font-semibold text-[#5b3629] mb-8">MENU ITEAM</h1>
+                <h2 className="text-center text-3xl font-semibold tracking-wide text-[#20110b] mb-8">MENU</h2>
 
-            {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="md:col-span-2">
-                    <Input
-                        placeholder="Search items..."
-                        value={filters.search}
-                        onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                        className="w-full"
-                    />
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="w-full sm:max-w-[260px]">
+                        <label htmlFor="branch-filter" className="sr-only">Filter by branch</label>
+                        <select
+                            id="branch-filter"
+                            value={filters.branchId}
+                            onChange={(e) => setFilters({ ...filters, branchId: e.target.value })}
+                            disabled={isManager}
+                            className="w-full rounded-lg border border-[#5b3629] bg-[#5b3629] px-4 py-2 text-lg font-medium text-[#f8efe1] outline-none disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            {isManager && managerBranchId
+                                ? branches
+                                    .filter((b) => b.id === managerBranchId)
+                                    .map((b) => (
+                                        <option key={b.id} value={b.id}>
+                                            {b.name}
+                                        </option>
+                                    ))
+                                : (
+                                    <>
+                                        <option value="">Branch</option>
+                                        {branches.map((b) => (
+                                            <option key={b.id} value={b.id}>
+                                                {b.name}
+                                            </option>
+                                        ))}
+                                    </>
+                                )}
+                        </select>
+                    </div>
+
+                    <Link
+                        href="/admin/menu/new"
+                        className="inline-flex items-center justify-center rounded-lg bg-[#5b3629] px-8 py-2 text-3xl leading-none text-[#f8efe1] transition hover:bg-[#4c2c20]"
+                    >
+                        Add item
+                    </Link>
                 </div>
-                <Select
-                    value={filters.category}
-                    onChange={(e) => setFilters({ ...filters, category: e.target.value as MenuCategory })}
-                    options={[
-                        { value: '', label: 'All Categories' },
-                        ...Object.values(MenuCategory).map(cat => ({
-                            value: cat,
-                            label: cat.charAt(0) + cat.slice(1).toLowerCase().replace('_', ' ')
-                        }))
-                    ]}
-                    className="w-full"
-                />
-                <Select
-                    value={filters.branchId}
-                    onChange={(e) => setFilters({ ...filters, branchId: e.target.value })}
-                    options={
-                        isManager && managerBranchId
-                            ? branches
-                                .filter((b) => b.id === managerBranchId)
-                                .map((b) => ({ value: b.id, label: b.name }))
-                            : [
-                                { value: '', label: 'All Branches' },
-                                ...branches.map(b => ({ value: b.id, label: b.name })),
-                            ]
-                    }
-                    disabled={isManager}
-                    className="w-full"
-                />
-                {isManager && (
-                    <p className="text-xs text-amber-300">Branch locked to your assignment.</p>
-                )}
             </div>
 
-            <div className="flex justify-end gap-3 mb-6">
-                <Link href="/admin/menu/new">
-                    <Button>
-                        <PlusIcon className="h-5 w-5 mr-2" />
-                        Add Menu Item
-                    </Button>
-                </Link>
-
-                <Link href="/admin/category/new">
-                    <Button >
-                        <PlusIcon className="h-5 w-5 mr-2" />
-                        Add Category
-                    </Button>
-                </Link>
-            </div>
-
-
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredItems.map((item) => {
                     const imageSrc = resolveImageUrl(item.imageUrl);
 
                     return (
-                        <Card key={item.id} variant="glass" hover className="flex flex-col h-full">
-                            <div className="relative h-48 w-full bg-gray-800 rounded-t-xl overflow-hidden">
+                        <div key={item.id} className="rounded-xl bg-[#5b3629] p-4 shadow-[0_4px_10px_rgba(0,0,0,0.2)]">
+                            <div className="relative h-36 w-full rounded-lg bg-[#cdcdcd] overflow-hidden">
                                 {imageSrc ? (
                                     <Image
                                         src={imageSrc}
@@ -224,7 +198,7 @@ export default function MenuPage() {
                                         className="object-cover"
                                     />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-gray-600">
+                                    <div className="w-full h-full flex items-center justify-center text-[#808080]">
                                         <ImageIcon className="h-12 w-12" />
                                     </div>
                                 )}
@@ -235,68 +209,46 @@ export default function MenuPage() {
                                 </div>
                             </div>
 
-                            <CardContent className="flex-1 flex flex-col p-4">
-                                <div className="flex justify-between items-start mb-2">
-                                    <h3 className="font-bold text-white text-lg line-clamp-1" title={item.name}>
-                                        {item.name}
-                                    </h3>
-                                    <span className="font-bold text-purple-400">
-                                        Rs. {Number(item.price).toFixed(2)}
-                                    </span>
-                                </div>
-
-                                <p className="text-gray-400 text-sm mb-4 line-clamp-2 flex-1">
-                                    {item.description || 'No description available'}
-                                </p>
-
-                                <div className="flex flex-wrap gap-2 mb-4">
-                                    <Badge variant="default" size="sm">
-                                        {item.category.replace('_', ' ')}
-                                    </Badge>
-                                    {item.branch && (
-                                        <Badge variant="info" size="sm">
-                                            {item.branch.name}
-                                        </Badge>
-                                    )}
-                                </div>
-
-                                <div className="flex gap-2 mt-auto">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
+                            <div className="pt-4">
+                                <h3 className="line-clamp-1 text-3xl font-medium text-[#f9f0e2]" title={item.name}>
+                                    {item.name}
+                                </h3>
+                                <p className="mt-1 text-base text-[#e9d8c5]">Rs. {Number(item.price).toFixed(2)}</p>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    <Link href={`/admin/menu/${item.id}`} className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]">
+                                        Edit
+                                    </Link>
+                                    <button
+                                        type="button"
                                         onClick={() => handleToggleAvailability(item)}
-                                        className={item.available ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}
+                                        className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]"
                                     >
                                         {item.available ? 'Disable' : 'Enable'}
-                                    </Button>
-                                    <Link href={`/admin/menu/${item.id}`} className="flex-1">
-                                        <Button variant="outline" size="sm" fullWidth>
-                                            Edit
-                                        </Button>
-                                    </Link>
-                                    <Button
-                                        variant="danger"
-                                        size="sm"
+                                    </button>
+                                    <button
+                                        type="button"
                                         onClick={() => setDeleteConfirm(item.id)}
+                                        className="rounded-md border border-[#f0b8ae] px-3 py-1 text-sm text-[#ffe1dc] hover:bg-[#7f3f34]"
                                     >
-                                        <TrashIcon className="h-4 w-4" />
-                                    </Button>
+                                        Delete
+                                    </button>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     );
                 })}
             </div>
 
             {filteredItems.length === 0 && (
-                <Card variant="glass">
-                    <CardContent className="py-12 text-center">
-                        <p className="text-gray-400 mb-4">No menu items found</p>
-                        <Link href="/admin/menu/new">
-                            <Button>Add First Item</Button>
-                        </Link>
-                    </CardContent>
-                </Card>
+                <div className="rounded-xl border border-[#d7c5a8] bg-[#f7efdf] py-12 text-center">
+                    <p className="mb-4 text-[#6e4b3d]">No menu items found</p>
+                    <Link
+                        href="/admin/menu/new"
+                        className="inline-flex items-center justify-center rounded-lg bg-[#5b3629] px-5 py-2 text-[#f8efe1] transition hover:bg-[#4c2c20]"
+                    >
+                        Add First Item
+                    </Link>
+                </div>
             )}
 
             <Modal
@@ -308,34 +260,23 @@ export default function MenuPage() {
                     Are you sure you want to delete this menu item?
                 </p>
                 <div className="flex gap-3 justify-end">
-                    <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>
+                    <button
+                        type="button"
+                        onClick={() => setDeleteConfirm(null)}
+                        className="rounded-lg border border-[#8f7668] px-4 py-2 text-[#f8efe1] hover:bg-[#674739]"
+                    >
                         Cancel
-                    </Button>
-                    <Button
-                        variant="danger"
+                    </button>
+                    <button
+                        type="button"
                         onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
+                        className="rounded-lg bg-[#8a2f23] px-4 py-2 text-[#fff4f2] hover:bg-[#75261c]"
                     >
                         Delete
-                    </Button>
+                    </button>
                 </div>
             </Modal>
         </div>
-    );
-}
-
-function PlusIcon({ className }: { className?: string }) {
-    return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-    );
-}
-
-function TrashIcon({ className }: { className?: string }) {
-    return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
     );
 }
 

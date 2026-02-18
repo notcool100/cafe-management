@@ -1,559 +1,426 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { branchService } from '@/lib/api/branch-service';
 import { reportService } from '@/lib/api/report-service';
-import { Branch, OrderStatus, ReportOverview, UserRole } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import Select from '@/components/ui/Select';
-import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
+import { Branch, ReportOverview, UserRole } from '@/lib/types';
 import Spinner from '@/components/ui/Spinner';
 import Toast from '@/components/ui/Toast';
-import Badge from '@/components/ui/Badge';
 import { useAuthStore } from '@/lib/store/auth-store';
 
 const toInputDate = (date: Date) => date.toISOString().split('T')[0];
+
 const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('en-US', {
+    new Intl.NumberFormat('en-IN', {
         style: 'currency',
-        currency: 'USD',
+        currency: 'INR',
         maximumFractionDigits: 0,
     }).format(value || 0);
 
-const formatShortDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const formatPercent = (value: number) => `${value >= 0 ? '+' : ''}${Math.round(value)}%`;
+
+const formatCompactNumber = (value: number) =>
+    new Intl.NumberFormat('en-US', {
+        notation: 'compact',
+        maximumFractionDigits: 1,
+    }).format(value || 0);
+
+function buildTrendPoints(values: number[], width: number, height: number, padding = 24) {
+    if (!values.length) {
+        return '';
+    }
+
+    const max = Math.max(...values, 1);
+    const min = Math.min(...values, 0);
+    const range = Math.max(max - min, 1);
+
+    return values
+        .map((value, index) => {
+            const x = padding + (index * (width - padding * 2)) / Math.max(values.length - 1, 1);
+            const y = height - padding - ((value - min) / range) * (height - padding * 2);
+            return `${x},${y}`;
+        })
+        .join(' ');
+}
+
+const defaultMonths = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'];
 
 export default function ReportsPage() {
     const { user } = useAuthStore();
-    const isStaffManager = user?.role === UserRole.MANAGER;
+    const isManager = user?.role === UserRole.MANAGER;
+
     const [branches, setBranches] = useState<Branch[]>([]);
     const [report, setReport] = useState<ReportOverview | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    const hasLoadedOnceRef = useRef(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; isVisible: boolean }>({
         message: '',
         type: 'info',
         isVisible: false,
     });
-    const [selectedBranchForTop, setSelectedBranchForTop] = useState<string | null>(null);
+
     const [filters, setFilters] = useState(() => {
         const end = new Date();
         const start = new Date();
         start.setDate(end.getDate() - 29);
 
         return {
-            branchId: isStaffManager && user?.branchId ? user.branchId : 'all',
+            branchId: isManager && user?.branchId ? user.branchId : 'all',
             startDate: toInputDate(start),
             endDate: toInputDate(end),
+            range: '30',
         };
     });
 
-    const loadBranches = useCallback(async () => {
-        try {
-            if (isStaffManager && user?.branchId) {
-                setFilters((prev) => ({ ...prev, branchId: user.branchId! }));
-
-                if (user.branch) {
-                    const branchSource = user.branch as Branch & {
-                        hasTokenSystem?: boolean;
-                        maxTokenNumber?: number;
-                    };
-
-                    const staffBranch: Branch = {
-                        ...branchSource,
-                        tokenSystemEnabled: branchSource.tokenSystemEnabled ?? Boolean(branchSource.hasTokenSystem),
-                        tokenRangeEnd: branchSource.tokenRangeEnd ?? branchSource.maxTokenNumber,
-                    };
-                    setBranches([staffBranch]);
+    useEffect(() => {
+        const loadBranches = async () => {
+            try {
+                if (isManager && user?.branchId) {
+                    if (user.branch) {
+                        setBranches([user.branch as Branch]);
+                    }
+                    return;
                 }
-                return;
+                const data = await branchService.getBranches();
+                setBranches(data);
+            } catch {
+                setToast({
+                    message: 'Unable to load branches.',
+                    type: 'error',
+                    isVisible: true,
+                });
             }
+        };
 
-            const data = await branchService.getBranches();
-            setBranches(data);
-        } catch {
-            setToast({
-                message: 'Unable to load branches for filtering',
-                type: 'error',
-                isVisible: true,
-            });
-        }
-    }, [isStaffManager, user?.branch, user?.branchId]);
+        void loadBranches();
+    }, [isManager, user?.branch, user?.branchId]);
 
-    const fetchReport = useCallback(async () => {
-        if (new Date(filters.startDate) > new Date(filters.endDate)) {
-            setToast({
-                message: 'Start date must be before end date',
-                type: 'error',
-                isVisible: true,
-            });
-            return;
-        }
-
-        const isFirstLoad = !hasLoadedOnceRef.current;
-        if (isFirstLoad) {
+    useEffect(() => {
+        const fetchReport = async () => {
             setIsLoading(true);
-        } else {
-            setIsRefreshing(true);
-        }
-
-        try {
-            const data = await reportService.getOverview({
-                branchId: filters.branchId !== 'all' ? filters.branchId : undefined,
-                startDate: filters.startDate,
-                endDate: filters.endDate,
-            });
-            setReport(data);
-            hasLoadedOnceRef.current = true;
-        } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : 'Failed to load report data';
-            setToast({
-                message,
-                type: 'error',
-                isVisible: true,
-            });
-        } finally {
-            if (isFirstLoad) {
+            try {
+                const data = await reportService.getOverview({
+                    branchId: filters.branchId !== 'all' ? filters.branchId : undefined,
+                    startDate: filters.startDate,
+                    endDate: filters.endDate,
+                });
+                setReport(data);
+            } catch (error: unknown) {
+                setToast({
+                    message: error instanceof Error ? error.message : 'Failed to load report data.',
+                    type: 'error',
+                    isVisible: true,
+                });
+            } finally {
                 setIsLoading(false);
-            } else {
-                setIsRefreshing(false);
             }
-        }
+        };
+
+        void fetchReport();
     }, [filters.branchId, filters.endDate, filters.startDate]);
 
-    useEffect(() => {
-        void loadBranches();
-    }, [loadBranches]);
+    const branchName = useMemo(() => {
+        if (filters.branchId === 'all') {
+            return 'All Branches';
+        }
+        return branches.find((branch) => branch.id === filters.branchId)?.name || user?.branch?.name || 'Branch';
+    }, [branches, filters.branchId, user?.branch?.name]);
 
-    useEffect(() => {
-        void fetchReport();
-    }, [fetchReport]);
-
-    useEffect(() => {
-        if (!report || !report.branchTopItems?.length) {
-            setSelectedBranchForTop(null);
-            return;
+    const trendValues = report?.dailyTrend?.map((point) => point.sales) || [];
+    const plottedValues = useMemo(() => {
+        if (trendValues.length <= 7) {
+            return trendValues;
         }
 
-        const preferred =
-            filters.branchId !== 'all' ? filters.branchId : report.branchTopItems[0]?.branchId;
-        const hasPreferred = report.branchTopItems.some((b) => b.branchId === preferred);
+        const chunk = Math.ceil(trendValues.length / 7);
+        const sampled: number[] = [];
+        for (let i = 0; i < trendValues.length; i += chunk) {
+            sampled.push(trendValues.slice(i, i + chunk).reduce((sum, value) => sum + value, 0) / Math.min(chunk, trendValues.length - i));
+        }
+        return sampled.slice(0, 7);
+    }, [trendValues]);
 
-        setSelectedBranchForTop(hasPreferred ? preferred : report.branchTopItems[0].branchId);
-    }, [filters.branchId, report]);
+    const monthLabels = useMemo(() => {
+        if (!report?.dailyTrend?.length) {
+            return defaultMonths;
+        }
 
-    const statusMeta: Record<OrderStatus, { label: string; color: string; bar: string }> = {
-        [OrderStatus.PENDING]: { label: 'Pending', color: 'text-amber-300', bar: 'from-amber-500/30 to-amber-300/50' },
-        [OrderStatus.PREPARING]: { label: 'Preparing', color: 'text-blue-300', bar: 'from-blue-500/30 to-blue-300/50' },
-        [OrderStatus.READY]: { label: 'Ready', color: 'text-cyan-300', bar: 'from-cyan-500/30 to-cyan-300/50' },
-        [OrderStatus.COMPLETED]: { label: 'Completed', color: 'text-emerald-300', bar: 'from-emerald-500/40 to-green-300/60' },
-        [OrderStatus.CANCELLED]: { label: 'Cancelled', color: 'text-rose-300', bar: 'from-rose-500/30 to-rose-300/50' },
-        [OrderStatus.CANCELLATION_PENDING]: { label: 'Cancellation Pending', color: 'text-amber-200', bar: 'from-amber-500/40 to-amber-300/60' },
+        if (report.dailyTrend.length <= 7) {
+            return report.dailyTrend.map((point) =>
+                new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            );
+        }
+
+        const step = Math.floor(report.dailyTrend.length / 7);
+        const labels: string[] = [];
+        for (let i = 0; i < report.dailyTrend.length && labels.length < 7; i += step) {
+            labels.push(new Date(report.dailyTrend[i].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        }
+        return labels.length ? labels : defaultMonths;
+    }, [report?.dailyTrend]);
+
+    const yAxisLabels = useMemo(() => {
+        const maxValue = Math.max(...trendValues, 0);
+        if (maxValue <= 0) {
+            return [0, 0, 0, 0, 0];
+        }
+
+        const step = maxValue / 4;
+        return [0, 1, 2, 3, 4].map((index) => Math.round(step * index));
+    }, [trendValues]);
+
+    const trendPath = useMemo(() => buildTrendPoints(plottedValues, 430, 230), [plottedValues]);
+    const trendShadowPath = useMemo(
+        () => buildTrendPoints(plottedValues.map((value, index) => value * (0.9 + index * 0.01)), 430, 230),
+        [plottedValues],
+    );
+
+    const growth = useMemo(() => {
+        if (trendValues.length < 2 || trendValues[0] === 0) {
+            return 0;
+        }
+        return ((trendValues[trendValues.length - 1] - trendValues[0]) / Math.abs(trendValues[0])) * 100;
+    }, [trendValues]);
+
+    const peak = useMemo(() => {
+        if (!report?.dailyTrend.length) {
+            return null;
+        }
+        return report.dailyTrend.reduce((max, day) => (day.sales > max.sales ? day : max));
+    }, [report?.dailyTrend]);
+
+    const peakOrderDay = useMemo(() => {
+        if (!report?.dailyTrend.length) {
+            return null;
+        }
+        return report.dailyTrend.reduce((max, day) => (day.orders > max.orders ? day : max));
+    }, [report?.dailyTrend]);
+
+    const applyRange = (days: string) => {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(end.getDate() - (Number(days) - 1));
+
+        setFilters((prev) => ({
+            ...prev,
+            range: days,
+            startDate: toInputDate(start),
+            endDate: toInputDate(end),
+        }));
     };
 
-    const branchOptions = [
-        ...(isStaffManager && user?.branchId
-            ? [{
-                value: user.branchId,
-                label: user.branch?.name || 'My Branch',
-            }]
-            : [{ value: 'all', label: 'All branches' }, ...branches.map((branch) => ({ value: branch.id, label: branch.name }))]),
-    ];
+    const onDateChange = (field: 'startDate' | 'endDate', value: string) => {
+        setFilters((prev) => ({
+            ...prev,
+            [field]: value,
+            range: 'custom',
+        }));
+    };
 
-    const totalOrders = report?.totals.totalOrders || 0;
-    const maxTrendValue =
-        report?.dailyTrend?.reduce((max, point) => (point.sales > max ? point.sales : max), 0) || 0;
+    const onBranchChange = (branchId: string) => {
+        setFilters((prev) => ({
+            ...prev,
+            branchId,
+        }));
+    };
+
+    const selectedRangeLabel = useMemo(() => {
+        const start = new Date(filters.startDate);
+        const end = new Date(filters.endDate);
+        return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+        })}`;
+    }, [filters.endDate, filters.startDate]);
 
     return (
-        <div className="animate-fade-in">
+        <div className="min-h-screen bg-[#eee8cf] px-4 py-3 md:px-8 md:py-4 text-[#231b17]">
             <Toast
                 message={toast.message}
                 type={toast.type}
                 isVisible={toast.isVisible}
-                onClose={() => setToast({ ...toast, isVisible: false })}
+                onClose={() => setToast((prev) => ({ ...prev, isVisible: false }))}
             />
 
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8">
-                <div>
-                    <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
-                        <span className="gradient-text">Reports & Insights</span>
-                    </h1>
-                    <p className="text-gray-400">
-                        Track sales momentum, spot losses, and compare branches in one place.
-                    </p>
+            <div className="mx-auto w-full max-w-[1240px]">
+                <div className="mb-2 flex items-start justify-between">
+                    <div>
+                        <h1 className="text-[36px] font-semibold leading-tight">Dashboard</h1>
+                        <p className="mt-0.5 text-[32px] font-semibold leading-tight">Revenue</p>
+                    </div>
+                    <p className="pt-1 text-base font-medium">Hi, {user?.name || 'User'}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Badge variant="default">
-                        {filters.branchId === 'all'
-                            ? 'All branches'
-                            : branches.find((b) => b.id === filters.branchId)?.name || user?.branch?.name || 'Branch'}
-                    </Badge>
-                    <Badge variant="info">
-                        {formatShortDate(filters.startDate)} - {formatShortDate(filters.endDate)}
-                    </Badge>
-                </div>
+
+                {isLoading ? (
+                    <div className="flex h-72 items-center justify-center rounded-[22px] border-4 border-[#8e7871] bg-[#937f77]">
+                        <Spinner size="lg" />
+                    </div>
+                ) : (
+                    <div className="rounded-[22px] border-[6px] border-[#8e7871] bg-[#8f7b76] p-[3px] shadow-[0_8px_18px_rgba(55,39,33,0.22)]">
+                        <div className="grid gap-[2px] rounded-[16px] lg:grid-cols-[1fr_1fr]">
+                            <div className="rounded-l-[15px] bg-[#8f7b76] p-4 md:p-5 text-[#f4eee9]">
+                                <div className="mb-2 flex items-start justify-between gap-4">
+                                    <div>
+                                        <h2 className="text-[40px] font-semibold leading-none text-[#130e0c]">{branchName}</h2>
+                                        <p className="mt-1 text-sm text-white/80">{selectedRangeLabel}</p>
+                                        <div className="mt-3 flex items-center gap-3">
+                                            <p className="text-[38px] font-semibold leading-none">{formatCurrency(report?.totals.netSales || 0)}</p>
+                                            <span className="rounded-full border border-black/30 bg-[#2f6547] px-2 py-0.5 text-[13px] font-semibold text-white">
+                                                {formatPercent(growth)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-2">
+                                        <select
+                                            className="rounded-lg border border-[#6a4a3d] bg-[#4c3026] px-3 py-2 text-[16px] font-semibold leading-none text-[#f3e9dd] outline-none"
+                                            value={filters.branchId}
+                                            onChange={(e) => onBranchChange(e.target.value)}
+                                            disabled={isManager}
+                                        >
+                                            {!isManager ? <option value="all">All Branches</option> : null}
+                                            {branches.map((branch) => (
+                                                <option key={branch.id} value={branch.id}>
+                                                    {branch.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            className="rounded-lg border border-[#6a4a3d] bg-[#4c3026] px-3 py-2 text-[18px] font-semibold leading-none text-[#f3e9dd] outline-none"
+                                            value={filters.range}
+                                            onChange={(e) => {
+                                                if (e.target.value === 'custom') {
+                                                    setFilters((prev) => ({ ...prev, range: 'custom' }));
+                                                    return;
+                                                }
+                                                applyRange(e.target.value);
+                                            }}
+                                        >
+                                            <option value="7">Last 7 days</option>
+                                            <option value="30">Last 30 days</option>
+                                            <option value="90">Last 90 days</option>
+                                            <option value="custom">Custom</option>
+                                        </select>
+                                        <div className="flex items-center gap-1 text-xs text-[#f3e9dd]">
+                                            <input
+                                                type="date"
+                                                className="rounded border border-[#6a4a3d] bg-[#4c3026] px-2 py-1 outline-none"
+                                                value={filters.startDate}
+                                                onChange={(e) => onDateChange('startDate', e.target.value)}
+                                                max={filters.endDate}
+                                            />
+                                            <span>to</span>
+                                            <input
+                                                type="date"
+                                                className="rounded border border-[#6a4a3d] bg-[#4c3026] px-2 py-1 outline-none"
+                                                value={filters.endDate}
+                                                onChange={(e) => onDateChange('endDate', e.target.value)}
+                                                min={filters.startDate}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="mt-7 rounded border border-white/20 p-2">
+                                    <svg viewBox="0 0 430 230" className="h-[214px] w-full" preserveAspectRatio="none">
+                                        <rect x="24" y="24" width="382" height="182" fill="none" stroke="rgba(255,255,255,0.28)" strokeDasharray="3 4" />
+                                        {[1, 2, 3, 4].map((i) => (
+                                            <line
+                                                key={`h-${i}`}
+                                                x1="24"
+                                                y1={24 + i * 36}
+                                                x2="406"
+                                                y2={24 + i * 36}
+                                                stroke="rgba(255,255,255,0.28)"
+                                                strokeDasharray="3 4"
+                                            />
+                                        ))}
+                                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                                            <line
+                                                key={`v-${i}`}
+                                                x1={24 + i * 54.5}
+                                                y1="24"
+                                                x2={24 + i * 54.5}
+                                                y2="206"
+                                                stroke="rgba(255,255,255,0.28)"
+                                                strokeDasharray="3 4"
+                                            />
+                                        ))}
+
+                                        {trendPath ? (
+                                            <>
+                                                <polyline fill="none" stroke="#f6ede8" strokeWidth="2.6" points={trendPath} />
+                                                <polyline fill="none" stroke="#d0aca0" strokeWidth="2" points={trendShadowPath} />
+                                            </>
+                                        ) : null}
+
+                                        <text x="6" y="208" fill="rgba(255,255,255,0.8)" fontSize="10">{formatCompactNumber(yAxisLabels[0])}</text>
+                                        <text x="2" y="172" fill="rgba(255,255,255,0.8)" fontSize="10">{formatCompactNumber(yAxisLabels[1])}</text>
+                                        <text x="2" y="136" fill="rgba(255,255,255,0.8)" fontSize="10">{formatCompactNumber(yAxisLabels[2])}</text>
+                                        <text x="2" y="100" fill="rgba(255,255,255,0.8)" fontSize="10">{formatCompactNumber(yAxisLabels[3])}</text>
+                                        <text x="2" y="64" fill="rgba(255,255,255,0.8)" fontSize="10">{formatCompactNumber(yAxisLabels[4])}</text>
+
+                                        {monthLabels.slice(0, 7).map((label, index) => (
+                                            <text
+                                                key={`${label}-${index}`}
+                                                x={24 + index * (382 / Math.max(monthLabels.slice(0, 7).length - 1, 1))}
+                                                y="224"
+                                                fill="rgba(255,255,255,0.8)"
+                                                fontSize="10"
+                                                textAnchor="middle"
+                                            >
+                                                {label}
+                                            </text>
+                                        ))}
+                                    </svg>
+                                </div>
+                                <p className="mt-1 text-center text-[20px] font-semibold">Date</p>
+                            </div>
+
+                            <div className="relative rounded-r-[15px] border-l border-[#604f48] bg-[linear-gradient(135deg,#ece8d9,#e2dbc9_45%,#e9e3d5)] p-4 md:p-5 text-[#17120f]">
+                                <div className="grid h-full grid-cols-[1.1fr_0.9fr] gap-5">
+                                    <div className="space-y-4 border-r border-[#7a7068] pr-5">
+                                        <div>
+                                            <span className="inline-block rounded-lg bg-black px-3 py-1 text-[18px] font-semibold leading-none text-white">Growth</span>
+                                            <p className="mt-3 text-[28px] font-semibold leading-tight">{formatPercent(growth)} growth</p>
+                                            <p className="mt-4 text-[25px] leading-tight">
+                                                Peak Day:
+                                                <br />
+                                                Peak Orders:
+                                                <br />
+                                                Avg Order Value:
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <span className="inline-block rounded-lg bg-black px-3 py-1 text-[18px] font-semibold leading-none text-white">Fund Breakdown</span>
+                                            <div className="mt-3 grid grid-cols-[1fr_auto] gap-x-5 gap-y-1 text-[24px] leading-tight">
+                                                <span>Total Sales</span>
+                                                <span>{formatCurrency(report?.totals.totalSales || 0)}</span>
+                                                <span>Total Orders</span>
+                                                <span>{report?.totals.totalOrders || 0}</span>
+                                                <span>Cancelled Orders</span>
+                                                <span>{report?.totals.cancelledOrders || 0}</span>
+                                                <span>Discount Loss</span>
+                                                <span>-{formatCurrency(report?.totals.cancellationLoss || 0)}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-[1fr_auto] text-[26px] font-semibold leading-tight">
+                                            <span>Net Revenue</span>
+                                            <span>{formatCurrency(report?.totals.netSales || 0)}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col justify-center text-[30px] font-semibold leading-tight">
+                                        <p>{peak ? new Date(peak.date).toLocaleDateString('en-US', { weekday: 'long' }) : '-'}</p>
+                                        <p className="mt-2">{peakOrderDay?.orders || 0} orders</p>
+                                        <p className="mt-2">{formatCurrency(report?.totals.averageOrderValue || 0)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
-
-            <Card variant="glass" className="mb-8">
-                <CardContent className="space-y-4">
-                    <div className="flex flex-col md:flex-row md:items-end gap-4">
-                        <div className="w-full md:w-1/3">
-                            <Select
-                                label="Branch"
-                                value={filters.branchId}
-                                onChange={(e) => setFilters((prev) => ({ ...prev, branchId: e.target.value }))}
-                                options={branchOptions}
-                                disabled={user?.role === UserRole.MANAGER}
-                            />
-                            {user?.role === UserRole.MANAGER && (
-                                <p className="mt-1 text-xs text-amber-300">
-                                    You are seeing data for your assigned branch.
-                                </p>
-                            )}
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
-                            <Input
-                                label="Start date"
-                                type="date"
-                                value={filters.startDate}
-                                onChange={(e) => setFilters((prev) => ({ ...prev, startDate: e.target.value }))}
-                            />
-                            <Input
-                                label="End date"
-                                type="date"
-                                value={filters.endDate}
-                                onChange={(e) => setFilters((prev) => ({ ...prev, endDate: e.target.value }))}
-                            />
-                        </div>
-                        <div className="flex gap-2">
-                            <Button variant="outline" onClick={fetchReport} disabled={isRefreshing}>
-                                {isRefreshing ? <Spinner size="sm" /> : 'Refresh'}
-                            </Button>
-                        </div>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                        Reports refresh automatically when filters change. Default window shows the last 30 days.
-                    </p>
-                </CardContent>
-            </Card>
-
-            {isLoading ? (
-                <div className="flex items-center justify-center h-64">
-                    <Spinner size="lg" />
-                </div>
-            ) : !report ? (
-                <Card variant="glass">
-                    <CardContent className="py-16 text-center">
-                        <p className="text-gray-300">No report data available.</p>
-                    </CardContent>
-                </Card>
-            ) : (
-                <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                        <MetricCard
-                            title="Gross Sales"
-                            value={formatCurrency(report.totals.totalSales)}
-                            accent="from-purple-500 to-pink-500"
-                            sub={`${report.totals.completedOrders} completed orders`}
-                        />
-                        <MetricCard
-                            title="Net Sales"
-                            value={formatCurrency(report.totals.netSales)}
-                            accent="from-indigo-500 to-blue-500"
-                            sub={`-${formatCurrency(report.totals.cancellationLoss)} lost to cancellations`}
-                        />
-                        <MetricCard
-                            title="Orders Volume"
-                            value={report.totals.totalOrders.toLocaleString()}
-                            accent="from-emerald-500 to-teal-500"
-                            sub={`${report.totals.cancelledOrders} cancelled • ${report.totals.completedOrders} fulfilled`}
-                        />
-                        <MetricCard
-                            title="Avg Ticket"
-                            value={formatCurrency(report.totals.averageOrderValue)}
-                            accent="from-orange-500 to-amber-400"
-                            sub="Based on completed orders"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                        <Card variant="glass" className="xl:col-span-1">
-                            <CardHeader className="flex items-center justify-between">
-                                <CardTitle>Order Status Mix</CardTitle>
-                                <Badge variant="info">Total {totalOrders}</Badge>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {Object.values(OrderStatus).map((status) => {
-                                    const count = report.statusBreakdown[status] || 0;
-                                    const percent = totalOrders ? Math.round((count / totalOrders) * 100) : 0;
-                                    const meta = statusMeta[status] || {
-                                        label: status,
-                                        color: 'text-gray-300',
-                                        bar: 'from-gray-600/40 to-gray-500/60',
-                                    };
-
-                                    return (
-                                        <div key={status} className="space-y-2">
-                                            <div className="flex items-center justify-between text-sm">
-                                                <span className={`font-medium ${meta.color}`}>{meta.label}</span>
-                                                <span className="text-gray-300 font-semibold">
-                                                    {count} ({percent}%)
-                                                </span>
-                                            </div>
-                                            <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
-                                                <div
-                                                    className={`h-full bg-gradient-to-r ${meta.bar}`}
-                                                    style={{ width: `${percent}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </CardContent>
-                        </Card>
-
-                        <Card variant="glass" className="xl:col-span-2">
-                        <CardHeader className="flex items-center justify-between">
-                            <CardTitle>Daily Sales Trend</CardTitle>
-                            <Badge variant="info">
-                                Peak {formatCurrency(maxTrendValue)}
-                            </Badge>
-                        </CardHeader>
-                        <CardContent>
-                            {report.dailyTrend.length === 0 ? (
-                                <div className="h-40 flex items-center justify-center text-sm text-gray-500">
-                                    No completed sales in this window.
-                                </div>
-                            ) : (
-                                <div className="h-40 flex items-end gap-2">
-                                    {report.dailyTrend.map((point) => {
-                                        const height = maxTrendValue
-                                            ? Math.max((point.sales / maxTrendValue) * 100, 4)
-                                            : 0;
-
-                                        return (
-                                            <div key={point.date} className="flex-1 flex flex-col items-center group">
-                                                <div
-                                                    className="w-full rounded-t-xl bg-gradient-to-t from-purple-600/70 via-indigo-500/70 to-blue-400/70 shadow-lg shadow-purple-500/20 transition-all duration-150 group-hover:brightness-110"
-                                                    style={{ height: `${height}%` }}
-                                                />
-                                                <span className="mt-2 text-[10px] text-gray-500">
-                                                    {formatShortDate(point.date)}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                            <div className="mt-3 text-sm text-gray-400">
-                                Net change: {formatCurrency(report.dailyTrend[report.dailyTrend.length - 1]?.sales || 0)} today
-                            </div>
-                        </CardContent>
-                    </Card>
-                    </div>
-
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                        <Card variant="glass" className="xl:col-span-2">
-                            <CardHeader className="flex items-center justify-between">
-                                <CardTitle>Branch Performance</CardTitle>
-                                <Badge variant="info">
-                                    {report.branchBreakdown.length} active branch{report.branchBreakdown.length === 1 ? '' : 'es'}
-                                </Badge>
-                            </CardHeader>
-                            <CardContent className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="text-gray-400 border-b border-gray-800">
-                                            <th className="py-3 text-left font-medium">Branch</th>
-                                            <th className="py-3 text-right font-medium">Sales</th>
-                                            <th className="py-3 text-right font-medium">Net</th>
-                                            <th className="py-3 text-right font-medium">Orders</th>
-                                            <th className="py-3 text-right font-medium">Avg Ticket</th>
-                                            <th className="py-3 text-right font-medium">Loss</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {report.branchBreakdown.length === 0 && (
-                                            <tr>
-                                                <td colSpan={6} className="py-4 text-center text-gray-500">
-                                                    No branch data in this range.
-                                                </td>
-                                            </tr>
-                                        )}
-                                        {report.branchBreakdown.map((branch) => {
-                                            const share = report.totals.totalSales
-                                                ? Math.round((branch.totalSales / report.totals.totalSales) * 100)
-                                                : 0;
-
-                                            return (
-                                                <tr key={branch.branchId} className="border-b border-gray-900/60 hover:bg-white/5 transition-colors">
-                                                    <td className="py-3 pr-3">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-white font-semibold">
-                                                                {branch.branchName}
-                                                            </span>
-                                                            <span className="text-xs text-gray-500">{branch.location}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-3 text-right text-gray-100">
-                                                        {formatCurrency(branch.totalSales)}
-                                                        <span className="block text-xs text-gray-500">{share}% of total</span>
-                                                    </td>
-                                                    <td className="py-3 text-right text-emerald-300 font-semibold">
-                                                        {formatCurrency(branch.netSales)}
-                                                    </td>
-                                                    <td className="py-3 text-right text-gray-100">
-                                                        {branch.totalOrders}
-                                                        <span className="block text-xs text-gray-500">
-                                                            {branch.cancelledOrders} cancelled
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-3 text-right text-gray-100">
-                                                        {formatCurrency(branch.averageOrderValue)}
-                                                    </td>
-                                                    <td className="py-3 text-right text-rose-300">
-                                                        {formatCurrency(branch.cancellationLoss)}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </CardContent>
-                        </Card>
-
-                        <Card variant="glass" className="xl:col-span-1">
-                            <CardHeader>
-                                <CardTitle>Overall Top Sellers</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {report.topItems.length === 0 && (
-                                    <div className="text-sm text-gray-500">No items sold in this range.</div>
-                                )}
-                                {report.topItems.map((item, index) => {
-                                    const share = report.totals.totalSales
-                                        ? ((item.revenue / report.totals.totalSales) * 100).toFixed(1)
-                                        : '0.0';
-
-                                    return (
-                                        <div key={item.menuItemId} className="flex items-center justify-between rounded-xl bg-white/5 p-3 border border-white/10">
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-500/30 to-indigo-500/30 flex items-center justify-center text-white font-bold">
-                                                    {index + 1}
-                                                </div>
-                                                <div>
-                                                    <p className="text-white font-semibold">{item.name}</p>
-                                                    <p className="text-xs text-gray-500">{item.quantity} sold</p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-sm text-white font-semibold">{formatCurrency(item.revenue)}</p>
-                                                <p className="text-xs text-gray-500">{share}% of sales</p>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                        <Card variant="glass" className="xl:col-span-1">
-                            <CardHeader className="flex items-center justify-between">
-                                <CardTitle>Top Sellers by Branch</CardTitle>
-                                <Badge variant="info">
-                                    {report.branchTopItems.length} branch{report.branchTopItems.length === 1 ? '' : 'es'}
-                                </Badge>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <Select
-                                    value={selectedBranchForTop || ''}
-                                    onChange={(e) => setSelectedBranchForTop(e.target.value)}
-                                    options={
-                                        report.branchTopItems.map((branch) => ({
-                                            value: branch.branchId,
-                                            label: branch.branchName || 'Branch',
-                                        }))
-                                    }
-                                    className="bg-gray-900"
-                                />
-                                {(!report.branchTopItems.length || !selectedBranchForTop) && (
-                                    <div className="text-sm text-gray-500">No branch-level sales in this range.</div>
-                                )}
-                                {selectedBranchForTop && (
-                                    <BranchTopList
-                                        branch={report.branchTopItems.find((b) => b.branchId === selectedBranchForTop)}
-                                        totalSales={report.branchBreakdown.find((b) => b.branchId === selectedBranchForTop)?.totalSales || 0}
-                                    />
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-function MetricCard({
-    title,
-    value,
-    sub,
-    accent = 'from-purple-500 to-indigo-500',
-}: {
-    title: string;
-    value: string;
-    sub?: string;
-    accent?: string;
-}) {
-    return (
-        <Card variant="glass" hover>
-            <CardContent className="space-y-3">
-                <p className="text-sm text-gray-400">{title}</p>
-                <div className={`text-3xl font-bold bg-gradient-to-r ${accent} bg-clip-text text-transparent`}>
-                    {value}
-                </div>
-                {sub && <p className="text-xs text-gray-500">{sub}</p>}
-            </CardContent>
-        </Card>
-    );
-}
-
-function BranchTopList({
-    branch,
-    totalSales,
-}: {
-    branch?: { branchId: string; branchName: string; items: { menuItemId: string; name: string; quantity: number; revenue: number; }[] };
-    totalSales: number;
-}) {
-    if (!branch || branch.items.length === 0) {
-        return <div className="text-sm text-gray-500">No items sold for this branch in this range.</div>;
-    }
-
-    return (
-        <div className="space-y-3">
-            {branch.items.map((item, index) => {
-                const share = totalSales ? ((item.revenue / totalSales) * 100).toFixed(1) : '0.0';
-                return (
-                    <div key={item.menuItemId} className="flex items-center justify-between rounded-xl bg-white/5 p-3 border border-white/10">
-                        <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-500/30 to-cyan-500/30 flex items-center justify-center text-white font-semibold">
-                                {index + 1}
-                            </div>
-                            <div>
-                                <p className="text-white font-semibold">{item.name}</p>
-                                <p className="text-xs text-gray-500">{item.quantity} sold</p>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-sm text-white font-semibold">{formatCurrency(item.revenue)}</p>
-                            <p className="text-xs text-gray-500">{share}% of branch sales</p>
-                        </div>
-                    </div>
-                );
-            })}
         </div>
     );
 }

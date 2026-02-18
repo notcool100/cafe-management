@@ -7,9 +7,26 @@ export type OrderWithItems = Order & {
     })[];
 };
 
+const PT_PER_MM = 72 / 25.4;
+const PAPER_WIDTH_MM = 80;
+const PAPER_HEIGHT_MM = 265; // 26.5 cm
+const RECEIPT_PAGE_SIZE: [number, number] = [PAPER_WIDTH_MM * PT_PER_MM, PAPER_HEIGHT_MM * PT_PER_MM];
+const PAGE_MARGIN = 10;
+const CONTENT_LEFT_X = PAGE_MARGIN;
+const CONTENT_RIGHT_X = RECEIPT_PAGE_SIZE[0] - PAGE_MARGIN;
+const CONTENT_WIDTH = CONTENT_RIGHT_X - CONTENT_LEFT_X;
+const ITEM_COL_WIDTH = CONTENT_WIDTH * 0.46;
+const QTY_COL_WIDTH = CONTENT_WIDTH * 0.12;
+const PRICE_COL_WIDTH = CONTENT_WIDTH * 0.2;
+const TOTAL_COL_WIDTH = CONTENT_WIDTH * 0.22;
+const ITEM_COL_X = CONTENT_LEFT_X;
+const QTY_COL_X = ITEM_COL_X + ITEM_COL_WIDTH;
+const PRICE_COL_X = QTY_COL_X + QTY_COL_WIDTH;
+const TOTAL_COL_X = PRICE_COL_X + PRICE_COL_WIDTH;
+
 export async function generateKOT(order: OrderWithItems): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-        const doc = new PDFDocument({ size: 'A4', margin: 50 });
+        const doc = new PDFDocument({ size: RECEIPT_PAGE_SIZE, margin: PAGE_MARGIN });
         const buffers: Buffer[] = [];
 // doc.registerFont('Regular', 'fonts/Roboto-Regular.ttf');
 // doc.registerFont('Bold', '');
@@ -21,7 +38,7 @@ export async function generateKOT(order: OrderWithItems): Promise<Buffer> {
         doc.on('error', reject);
 
         // Header (use bill layout but keep KOT title)
-        doc.fontSize(24).text('KITCHEN ORDER TICKET (KOT)', { align: 'center' });
+        doc.fontSize(11).text('KITCHEN ORDER TICKET (KOT)', { align: 'center' });
         doc.moveDown();
 
         // Token Number
@@ -33,7 +50,7 @@ export async function generateKOT(order: OrderWithItems): Promise<Buffer> {
         }
 
         // Order Details
-        doc.fontSize(12);
+        doc.fontSize(8);
         doc.text(`Order ID: ${order.id}`);
         doc.text(`Date: ${order.createdAt.toLocaleString()}`);
         if (order.customerName) {
@@ -45,47 +62,47 @@ export async function generateKOT(order: OrderWithItems): Promise<Buffer> {
         doc.moveDown();
 
         // Line separator
-        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveTo(CONTENT_LEFT_X, doc.y).lineTo(CONTENT_RIGHT_X, doc.y).stroke();
         doc.moveDown();
 
         // Items Header
-        doc.fontSize(11);
+        doc.fontSize(8);
         const headerY = doc.y;
-        doc.text('Item', 50, headerY, { width: 250 });
-        doc.text('Qty', 300, headerY, { width: 50, align: 'center' });
-        doc.text('Price', 350, headerY, { width: 100, align: 'right' });
-        doc.text('Total', 450, headerY, { width: 100, align: 'right' });
+        doc.text('Item', ITEM_COL_X, headerY, { width: ITEM_COL_WIDTH });
+        doc.text('Qty', QTY_COL_X, headerY, { width: QTY_COL_WIDTH, align: 'center' });
+        doc.text('Price', PRICE_COL_X, headerY, { width: PRICE_COL_WIDTH, align: 'right' });
+        doc.text('Total', TOTAL_COL_X, headerY, { width: TOTAL_COL_WIDTH, align: 'right' });
         doc.moveDown();
 
-        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveTo(CONTENT_LEFT_X, doc.y).lineTo(CONTENT_RIGHT_X, doc.y).stroke();
         doc.moveDown(0.5);
 
         // Items
         order.orderItems.forEach((item) => {
             const itemTotal = Number(item.price) * item.quantity;
             const rowY = doc.y;
-            doc.text(item.menuItem.name, 50, rowY, { width: 250 });
-            doc.text(item.quantity.toString(), 300, rowY, { width: 50, align: 'center' });
-            doc.text(`Rs. ${Number(item.price).toFixed(2)}`, 350, rowY, { width: 100, align: 'right' });
-            doc.text(`Rs. ${itemTotal.toFixed(2)}`, 450, rowY, { width: 100, align: 'right' });
+            doc.text(item.menuItem.name, ITEM_COL_X, rowY, { width: ITEM_COL_WIDTH });
+            doc.text(item.quantity.toString(), QTY_COL_X, rowY, { width: QTY_COL_WIDTH, align: 'center' });
+            doc.text(`${Number(item.price).toFixed(2)}`, PRICE_COL_X, rowY, { width: PRICE_COL_WIDTH, align: 'right' });
+            doc.text(`${itemTotal.toFixed(2)}`, TOTAL_COL_X, rowY, { width: TOTAL_COL_WIDTH, align: 'right' });
             doc.moveDown();
         });
 
         // Line separator
-        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveTo(CONTENT_LEFT_X, doc.y).lineTo(CONTENT_RIGHT_X, doc.y).stroke();
         doc.moveDown();
 
         // Total (if available)
-        doc.fontSize(14);
+        doc.fontSize(9);
         const totalY = doc.y;
-        doc.font('fonts/Roboto-Bold.ttf').text('Total Amount:', 350, totalY, { width: 100, align: 'right' });
-        doc.text(`Rs. ${Number(order.totalAmount || 0).toFixed(2)}`, 450, totalY, {
-            width: 100,
+        doc.font('fonts/Roboto-Bold.ttf').text('Total:', PRICE_COL_X, totalY, { width: PRICE_COL_WIDTH, align: 'right' });
+        doc.text(`${Number(order.totalAmount || 0).toFixed(2)}`, TOTAL_COL_X, totalY, {
+            width: TOTAL_COL_WIDTH,
             align: 'right',
         });
 
         doc.moveDown(2);
-        doc.fontSize(10).text('Thank you for your order!', { align: 'center' });
+        doc.fontSize(8).text('Thank you for your order!', { align: 'center' });
 
         doc.end();
     });
@@ -93,7 +110,7 @@ export async function generateKOT(order: OrderWithItems): Promise<Buffer> {
 
 export async function generateBill(order: OrderWithItems): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-        const doc = new PDFDocument({ size: 'A4', margin: 50 });
+        const doc = new PDFDocument({ size: RECEIPT_PAGE_SIZE, margin: PAGE_MARGIN });
         const buffers: Buffer[] = [];
 
         doc.on('data', buffers.push.bind(buffers));
@@ -104,7 +121,7 @@ export async function generateBill(order: OrderWithItems): Promise<Buffer> {
         doc.on('error', reject);
 
         // Header
-        doc.fontSize(24).text('BILL', { align: 'center' });
+        doc.fontSize(13).text('BILL', { align: 'center' });
         doc.moveDown();
 
         // Token Number
@@ -116,7 +133,7 @@ export async function generateBill(order: OrderWithItems): Promise<Buffer> {
         }
 
         // Order Details
-        doc.fontSize(12);
+        doc.fontSize(8);
         doc.text(`Order ID: ${order.id}`);
         doc.text(`Date: ${order.createdAt.toLocaleString()}`);
         if (order.customerName) {
@@ -128,47 +145,47 @@ export async function generateBill(order: OrderWithItems): Promise<Buffer> {
         doc.moveDown();
 
         // Line separator
-        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveTo(CONTENT_LEFT_X, doc.y).lineTo(CONTENT_RIGHT_X, doc.y).stroke();
         doc.moveDown();
 
         // Items Header
-        doc.fontSize(11);
+        doc.fontSize(8);
         const billHeaderY = doc.y;
-        doc.text('Item', 50, billHeaderY, { width: 250 });
-        doc.text('Qty', 300, billHeaderY, { width: 50, align: 'center' });
-        doc.text('Price', 350, billHeaderY, { width: 100, align: 'right' });
-        doc.text('Total', 450, billHeaderY, { width: 100, align: 'right' });
+        doc.text('Item', ITEM_COL_X, billHeaderY, { width: ITEM_COL_WIDTH });
+        doc.text('Qty', QTY_COL_X, billHeaderY, { width: QTY_COL_WIDTH, align: 'center' });
+        doc.text('Price', PRICE_COL_X, billHeaderY, { width: PRICE_COL_WIDTH, align: 'right' });
+        doc.text('Total', TOTAL_COL_X, billHeaderY, { width: TOTAL_COL_WIDTH, align: 'right' });
         doc.moveDown();
 
-        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveTo(CONTENT_LEFT_X, doc.y).lineTo(CONTENT_RIGHT_X, doc.y).stroke();
         doc.moveDown(0.5);
 
         // Items
         order.orderItems.forEach((item) => {
             const itemTotal = Number(item.price) * item.quantity;
             const billRowY = doc.y;
-            doc.text(item.menuItem.name, 50, billRowY, { width: 250 });
-            doc.text(item.quantity.toString(), 300, billRowY, { width: 50, align: 'center' });
-            doc.text(`Rs. ${Number(item.price).toFixed(2)}`, 350, billRowY, { width: 100, align: 'right' });
-            doc.text(`Rs. ${itemTotal.toFixed(2)}`, 450, billRowY, { width: 100, align: 'right' });
+            doc.text(item.menuItem.name, ITEM_COL_X, billRowY, { width: ITEM_COL_WIDTH });
+            doc.text(item.quantity.toString(), QTY_COL_X, billRowY, { width: QTY_COL_WIDTH, align: 'center' });
+            doc.text(`${Number(item.price).toFixed(2)}`, PRICE_COL_X, billRowY, { width: PRICE_COL_WIDTH, align: 'right' });
+            doc.text(`${itemTotal.toFixed(2)}`, TOTAL_COL_X, billRowY, { width: TOTAL_COL_WIDTH, align: 'right' });
             doc.moveDown();
         });
 
         // Line separator
-        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+        doc.moveTo(CONTENT_LEFT_X, doc.y).lineTo(CONTENT_RIGHT_X, doc.y).stroke();
         doc.moveDown();
 
         // Total
-        doc.fontSize(14);
+        doc.fontSize(9);
         const billTotalY = doc.y;
-        doc.font('fonts/Roboto-Bold.ttf').text('Total Amount:', 350, billTotalY, { width: 100, align: 'right' });
-        doc.text(`Rs. ${Number(order.totalAmount).toFixed(2)}`, 450, billTotalY, {
-            width: 100,
+        doc.font('fonts/Roboto-Bold.ttf').text('Total:', PRICE_COL_X, billTotalY, { width: PRICE_COL_WIDTH, align: 'right' });
+        doc.text(`${Number(order.totalAmount).toFixed(2)}`, TOTAL_COL_X, billTotalY, {
+            width: TOTAL_COL_WIDTH,
             align: 'right',
         });
 
         doc.moveDown(2);
-        doc.fontSize(10).text('Thank you for your order!', { align: 'center' });
+        doc.fontSize(8).text('Thank you for your order!', { align: 'center' });
 
         doc.end();
     });

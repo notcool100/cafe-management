@@ -43,6 +43,11 @@ const DATE_FILTERS: { key: DateFilter; label: string }[] = [
     { key: 'ALL', label: 'All' },
 ];
 
+const staffOrdersTextTheme = {
+    '--text-primary': '#000000',
+    '--text-muted': '#111111',
+} as React.CSSProperties;
+
 const statusTone: Record<OrderStatus, { badge: string; chip: string; text: string; border: string }> = {
     [OrderStatus.PENDING]: {
         badge: 'bg-amber-500/15 text-amber-200 border border-amber-400/30',
@@ -321,7 +326,7 @@ export default function ActiveOrdersPage() {
     const hasCart = cartItems.length > 0;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6" style={staffOrdersTextTheme}>
             <Toast
                 message={toast.message}
                 type={toast.type}
@@ -416,12 +421,15 @@ export default function ActiveOrdersPage() {
                                                         </div>
                                                     )}
                                                     <div className="absolute top-3 left-3">
-                                                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-black/60 text-white border border-white/10 backdrop-blur-sm">
+                                                        <span
+                                                            className="px-3 py-1 text-xs font-semibold rounded-full bg-black/60 border border-white/10 backdrop-blur-sm"
+                                                            style={{ color: '#ffffff' }}
+                                                        >
                                                             Rs. {item.price.toFixed(2)}
                                                         </span>
                                                     </div>
                                                     <div className="absolute top-3 right-3">
-                                                        <Badge variant="default" size="sm">
+                                                        <Badge variant="default" size="sm" style={{ color: '#ffffff' }}>
                                                             {categoryLabel[item.category]}
                                                         </Badge>
                                                     </div>

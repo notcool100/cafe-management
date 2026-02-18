@@ -5,18 +5,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { branchService } from '@/lib/api/branch-service';
 import { Branch } from '@/lib/types';
-import { Card, CardContent } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
-import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Toast from '@/components/ui/Toast';
-import Input from '@/components/ui/Input';
 
 export default function BranchesPage() {
     const [branches, setBranches] = useState<Branch[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; isVisible: boolean }>({
         message: '',
@@ -48,7 +44,7 @@ export default function BranchesPage() {
     const handleDelete = async (id: string) => {
         try {
             await branchService.deleteBranch(id);
-            setBranches(branches.filter(branch => branch.id !== id));
+            setBranches(branches.filter((branch) => branch.id !== id));
             setDeleteConfirm(null);
             setToast({
                 message: 'Branch deleted successfully',
@@ -68,30 +64,30 @@ export default function BranchesPage() {
     const handleDownloadQR = (branch: Branch) => {
         if (branch.qrCode) {
             branchService.downloadQRCode(branch.qrCode, branch.name);
-        } else {
-            setToast({
-                message: 'No QR code available for this branch',
-                type: 'error',
-                isVisible: true,
-            });
+            return;
         }
-    };
 
-    const filteredBranches = branches.filter(branch =>
-        branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        branch.location.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+        setToast({
+            message: 'No QR code available for this branch',
+            type: 'error',
+            isVisible: true,
+        });
+    };
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <Spinner size="lg" />
+            <div className="min-h-[70vh] bg-[#efe8cf] px-4 py-6">
+                <div className="mx-auto max-w-7xl rounded-md border border-[#e3dcc4] bg-[#efe8cf] p-5">
+                    <div className="flex h-64 items-center justify-center">
+                        <Spinner size="lg" />
+                    </div>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="animate-fade-in">
+        <div className="min-h-[70vh] bg-[#efe8cf] px-4 py-6">
             <Toast
                 message={toast.message}
                 type={toast.type}
@@ -99,155 +95,88 @@ export default function BranchesPage() {
                 onClose={() => setToast({ ...toast, isVisible: false })}
             />
 
-            {/* Enhanced Header */}
-            <div className="mb-10">
-                <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">
-                    <span className="gradient-text">Branches</span>
-                </h1>
-                <p className="text-lg text-gray-400">Manage cafe locations and QR codes</p>
-            </div>
-
-            {/* Search and Add */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                <div className="flex-1">
-                    <Input
-                        type="text"
-                        placeholder="🔍 Search branches..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full"
-                    />
+            <div className="mx-auto max-w-7xl rounded-md border border-[#e3dcc4] bg-[#efe8cf] p-3 sm:p-5">
+                <div className="mb-6 flex items-start justify-between gap-3">
+                    <div>
+                        <p className="text-xl font-semibold leading-tight text-[#1f1c17]">Dashboard</p>
+                        <h1 className="mt-2 text-3xl font-bold leading-tight text-[#15120f]">Select a Branch</h1>
+                    </div>
+                    <Link href="/admin/branches/new">
+                        <Button className="bg-[#6b3b2f] text-[#f7f3e6] hover:bg-[#5d3127]">
+                            <PlusIcon className="mr-2 h-5 w-5" />
+                            Add Branch
+                        </Button>
+                    </Link>
                 </div>
-                <Link href="/admin/branches/new">
-                    <Button>
-                        <PlusIcon className="h-5 w-5 mr-2" />
-                        Add Branch
-                    </Button>
-                </Link>
-            </div>
 
-            {/* Branch Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredBranches.map((branch) => (
-                    <Card key={branch.id} variant="glass" hover className="stagger-item overflow-hidden">
-                        <CardContent className="p-0">
-                            {/* Branch Header with Gradient Background */}
-                            <div className="relative p-6 pb-4 bg-gradient-to-br from-purple-600/10 via-transparent to-indigo-600/10">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="flex-1">
-                                        <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">{branch.name}</h3>
-                                        <p className="text-gray-300 text-sm flex items-center gap-1.5">
-                                            <LocationIcon className="h-4 w-4 text-purple-400" />
-                                            <span>{branch.location}</span>
-                                        </p>
-                                    </div>
-                                    <Badge variant={branch.tokenSystemEnabled ? 'success' : 'default'} size="sm">
-                                        {branch.tokenSystemEnabled ? '🎫 Token' : '📋 Standard'}
-                                    </Badge>
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                    {branches.map((branch) => (
+                        <div key={branch.id} className="rounded-lg bg-[#643427] p-4 shadow-[0_1px_6px_rgba(0,0,0,0.22)]">
+                            <Link href={`/admin/branches/${branch.id}`} className="block">
+                                <div className="mb-4 rounded-md bg-[#f4f3ef] p-8 text-center shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
+                                    {branch.qrCode ? (
+                                        <Image
+                                            src={branch.qrCode}
+                                            alt={`${branch.name} QR Code`}
+                                            width={104}
+                                            height={104}
+                                            className="mx-auto h-[104px] w-[104px] rounded object-contain"
+                                        />
+                                    ) : (
+                                        <p className="truncate text-xl font-semibold text-[#1d1a16]">{branch.name}</p>
+                                    )}
                                 </div>
+                            </Link>
 
-                                {branch.tokenSystemEnabled && (
-                                    <div className="mt-4 text-xs bg-gradient-to-r from-emerald-500/10 to-green-500/10 border border-emerald-500/20 p-3 rounded-xl backdrop-blur-sm">
-                                        <div className="flex items-center justify-between text-emerald-300">
-                                            <span className="font-medium">Token Range:</span>
-                                            <span className="font-bold text-emerald-200">{branch.tokenRangeStart} - {branch.tokenRangeEnd}</span>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                            <p className="truncate px-1 text-2xl font-semibold text-[#f1e8d6]">{branch.location}</p>
 
-                            {/* QR Section with Enhanced Styling */}
-                            <div className="relative bg-gradient-to-br from-white/5 to-white/[0.02] p-6 flex flex-col items-center justify-center border-y border-white/10">
-                                {branch.qrCode ? (
-                                    <div className="relative group">
-                                        <div className="w-36 h-36 bg-white p-3 rounded-2xl shadow-2xl transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-purple-500/20">
-                                            <Image
-                                                src={branch.qrCode}
-                                                alt={`${branch.name} QR Code`}
-                                                width={144}
-                                                height={144}
-                                                className="w-full h-full object-contain"
-                                            />
-                                        </div>
-                                        <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl backdrop-blur-sm">
-                                            <Button
-                                                size="sm"
-                                                onClick={() => handleDownloadQR(branch)}
-                                                className="bg-white text-purple-900 hover:bg-gray-100 shadow-xl"
-                                            >
-                                                <DownloadIcon className="h-4 w-4 mr-2" />
-                                                Download
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="w-36 h-36 bg-gradient-to-br from-gray-800/50 to-gray-900/50 border-2 border-dashed border-gray-700 rounded-2xl flex items-center justify-center text-gray-500 text-xs text-center p-4 backdrop-blur-sm">
-                                        <div>
-                                            <div className="text-3xl mb-2">📱</div>
-                                            <div className="font-medium">No QR Code</div>
-                                            <div className="text-[10px] text-gray-600 mt-1">Generated</div>
-                                        </div>
-                                    </div>
-                                )}
-                                <p className="text-xs text-gray-500 mt-4 font-medium">Scan to view menu</p>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="p-5 flex gap-3 bg-white/[0.02]">
-                                <Link href={`/admin/branches/${branch.id}`} className="flex-1">
-                                    <Button variant="outline" size="sm" fullWidth>
-                                        <EditIcon className="h-4 w-4 mr-2" />
-                                        Edit
-                                    </Button>
-                                </Link>
+                            <div className="mt-4 flex gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 border-[#eadcc7] text-[#f1e8d6] hover:bg-[#73463a]"
+                                    onClick={() => handleDownloadQR(branch)}
+                                >
+                                    <DownloadIcon className="mr-1.5 h-4 w-4" />
+                                    QR
+                                </Button>
                                 <Button
                                     variant="danger"
                                     size="sm"
+                                    className="px-3"
                                     onClick={() => setDeleteConfirm(branch.id)}
-                                    className="px-4"
                                 >
                                     <TrashIcon className="h-4 w-4" />
                                 </Button>
                             </div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
+                        </div>
+                    ))}
+                </div>
 
-            {/* Empty State */}
-            {filteredBranches.length === 0 && (
-                <Card variant="glass" className="animate-scale-in">
-                    <CardContent className="py-16 text-center">
-                        <div className="text-6xl mb-4">🏪</div>
-                        <p className="text-xl text-gray-300 mb-2 font-semibold">No branches found</p>
-                        <p className="text-gray-500 mb-6">Get started by adding your first branch location</p>
+                {branches.length === 0 && (
+                    <div className="rounded-lg border border-[#d4c9ab] bg-[#f3ebd2] py-16 text-center">
+                        <p className="text-2xl font-semibold text-[#2a241d]">No branches found</p>
+                        <p className="mt-2 text-[#56473a]">Create your first branch to get started.</p>
                         <Link href="/admin/branches/new">
-                            <Button>
-                                <PlusIcon className="h-5 w-5 mr-2" />
-                                Add First Branch
+                            <Button className="mt-6 bg-[#6b3b2f] text-[#f7f3e6] hover:bg-[#5d3127]">
+                                <PlusIcon className="mr-2 h-5 w-5" />
+                                Add Branch
                             </Button>
                         </Link>
-                    </CardContent>
-                </Card>
-            )}
+                    </div>
+                )}
+            </div>
 
-            {/* Delete Confirmation Modal */}
-            <Modal
-                isOpen={deleteConfirm !== null}
-                onClose={() => setDeleteConfirm(null)}
-                title="Delete Branch"
-            >
-                <p className="text-gray-300 mb-6 leading-relaxed">
-                    Are you sure you want to delete this branch? All associated employees, menu items, and orders data may be affected.
+            <Modal isOpen={deleteConfirm !== null} onClose={() => setDeleteConfirm(null)} title="Delete Branch">
+                <p className="mb-6 leading-relaxed text-gray-300">
+                    Are you sure you want to delete this branch? All associated employees, menu items, and orders data
+                    may be affected.
                 </p>
-                <div className="flex gap-3 justify-end">
+                <div className="flex justify-end gap-3">
                     <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>
                         Cancel
                     </Button>
-                    <Button
-                        variant="danger"
-                        onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
-                    >
+                    <Button variant="danger" onClick={() => deleteConfirm && handleDelete(deleteConfirm)}>
                         Delete Branch
                     </Button>
                 </div>
@@ -264,15 +193,6 @@ function PlusIcon({ className }: { className?: string }) {
     );
 }
 
-function LocationIcon({ className }: { className?: string }) {
-    return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-    );
-}
-
 function DownloadIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -285,14 +205,6 @@ function TrashIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
-    );
-}
-
-function EditIcon({ className }: { className?: string }) {
-    return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
         </svg>
     );
 }

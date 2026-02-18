@@ -29,6 +29,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const visibleNavigation = isStaffManager
         ? navigation.filter((item) => staffAllowed.includes(item.href))
         : navigation;
+    const isNavItemActive = (href: string) =>
+        href === '/admin'
+            ? pathname === href
+            : pathname === href || pathname.startsWith(href + '/');
 
     const handleLogout = () => {
         logout();
@@ -62,25 +66,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     return (
         <ProtectedRoute requiredRole={['ADMIN', 'MANAGER', 'SUPER_ADMIN']}>
-            <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
+            <div className="min-h-screen bg-[#fbf5e8] text-[#5a3a2e]">
                 {/* Sidebar for desktop - Fixed position */}
                 <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:flex lg:flex-col lg:z-50">
-                    <div className="flex flex-col flex-grow border-r-2 border-gray-800 shadow-2xl" style={{ background: 'var(--nav-bg)', color: 'var(--nav-text)' }}>
+                    <div className="flex flex-col flex-grow border-r border-[#e4d7c2] shadow-[6px_0_24px_rgba(90,58,46,0.08)] bg-[#f3e7d2] text-[#5a3a2e]">
                         {/* Logo */}
-                        <div className="flex items-center flex-shrink-0 px-6 py-6 border-b border-gray-800">
-                            <h1 className="text-xl font-bold" style={{ color: 'var(--nav-text)' }}>
-                                <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent">
-                                    ☕ Cafe Admin
-                                </span>
-                            </h1>
+                        <div className="flex items-center flex-shrink-0 px-6 py-6 border-b border-[#e4d7c2]">
+                            <h1 className="text-xl font-semibold tracking-tight text-[#5a3a2e]">Cafe Admin</h1>
                         </div>
 
                         {/* Navigation */}
                         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
                             {visibleNavigation.map((item) => {
-                                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                                const isActive = isNavItemActive(item.href);
                                 const Icon = item.icon;
-                                const iconColor = isActive ? '#ffffff' : 'var(--nav-text)';
+                                const iconColor = isActive ? '#fffaf0' : '#5a3a2e';
 
                                 return (
                                     <Link
@@ -89,12 +89,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         className={cn(
                                             'group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200',
                                             isActive
-                                                ? 'shadow-lg shadow-purple-500/30'
-                                                : 'hover:bg-gray-800'
+                                                ? 'shadow-[0_8px_20px_rgba(90,58,46,0.25)]'
+                                                : 'hover:bg-[#efe2cd]'
                                         )}
                                         style={{
-                                            backgroundImage: isActive ? 'var(--gradient-primary)' : undefined,
-                                            color: 'var(--nav-text)',
+                                            backgroundColor: isActive ? '#5a3a2e' : undefined,
+                                            color: isActive ? '#fffaf0' : '#5a3a2e',
                                         }}
                                     >
                                         <span style={{ color: iconColor }}>
@@ -111,20 +111,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         </nav>
 
                         {/* User section */}
-                        <div className="flex-shrink-0 p-4 border-t border-gray-800">
+                        <div className="flex-shrink-0 p-4 border-t border-[#e4d7c2]">
                             <div className="flex items-center gap-3">
                                 <div className="flex-shrink-0">
-                                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg">
+                                    <div className="h-10 w-10 rounded-full bg-[#5a3a2e] flex items-center justify-center text-[#fffaf0] font-bold shadow-[0_6px_16px_rgba(90,58,46,0.25)]">
                                         {user?.name?.charAt(0).toUpperCase()}
                                     </div>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-white truncate">{user?.name}</p>
-                                    <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                                    <p className="text-sm font-medium text-[#3e2a21] truncate">{user?.name}</p>
+                                    <p className="text-xs text-[#8b6f5f] truncate">{user?.email}</p>
                                 </div>
                                 <button
                                     onClick={handleLogout}
-                                    className="flex-shrink-0 p-2 text-gray-500 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10"
+                                    className="flex-shrink-0 p-2 text-[#8b6f5f] hover:text-[#c5533a] transition-colors rounded-lg hover:bg-[#f3ddd4]"
                                     title="Logout"
                                 >
                                     <LogoutIcon className="h-5 w-5" />
@@ -153,21 +153,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         />
                         <aside
                             className={cn(
-                                'absolute left-0 top-0 h-full w-72 max-w-[85vw] transform border-r border-gray-800 shadow-2xl transition-transform duration-300',
+                                'absolute left-0 top-0 h-full w-72 max-w-[85vw] transform border-r border-[#e4d7c2] shadow-[6px_0_24px_rgba(90,58,46,0.08)] transition-transform duration-300 bg-[#f3e7d2] text-[#5a3a2e]',
                                 sidebarOpen ? 'translate-x-0' : '-translate-x-full'
                             )}
-                            style={{ background: 'var(--nav-bg)', color: 'var(--nav-text)' }}
                         >
                             <div className="flex h-full flex-col">
-                                <div className="flex items-center justify-between px-6 py-5 border-b border-gray-800">
-                                    <h2 className="text-lg font-bold">
-                                        <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent">
-                                            ☕ Cafe Admin
-                                        </span>
-                                    </h2>
+                                <div className="flex items-center justify-between px-6 py-5 border-b border-[#e4d7c2]">
+                                    <h2 className="text-lg font-semibold tracking-tight text-[#5a3a2e]">Cafe Admin</h2>
                                     <button
                                         type="button"
-                                        className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors"
+                                        className="text-[#8b6f5f] hover:text-[#5a3a2e] p-2 rounded-lg hover:bg-[#efe2cd] transition-colors"
                                         onClick={() => setSidebarOpen(false)}
                                         aria-label="Close menu"
                                     >
@@ -177,9 +172,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                                 <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
                                     {visibleNavigation.map((item) => {
-                                        const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                                        const isActive = isNavItemActive(item.href);
                                         const Icon = item.icon;
-                                        const iconColor = isActive ? '#ffffff' : 'var(--nav-text)';
+                                        const iconColor = isActive ? '#fffaf0' : '#5a3a2e';
 
                                         return (
                                             <Link
@@ -189,12 +184,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                                 className={cn(
                                                     'group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200',
                                                     isActive
-                                                        ? 'shadow-lg shadow-purple-500/30'
-                                                        : 'hover:bg-gray-800'
+                                                        ? 'shadow-[0_8px_20px_rgba(90,58,46,0.25)]'
+                                                        : 'hover:bg-[#efe2cd]'
                                                 )}
                                                 style={{
-                                                    backgroundImage: isActive ? 'var(--gradient-primary)' : undefined,
-                                                    color: 'var(--nav-text)',
+                                                    backgroundColor: isActive ? '#5a3a2e' : undefined,
+                                                    color: isActive ? '#fffaf0' : '#5a3a2e',
                                                 }}
                                             >
                                                 <span style={{ color: iconColor }}>
@@ -210,20 +205,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     })}
                                 </nav>
 
-                                <div className="flex-shrink-0 p-4 border-t border-gray-800">
+                                <div className="flex-shrink-0 p-4 border-t border-[#e4d7c2]">
                                     <div className="flex items-center gap-3">
                                         <div className="flex-shrink-0">
-                                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg">
+                                            <div className="h-10 w-10 rounded-full bg-[#5a3a2e] flex items-center justify-center text-[#fffaf0] font-bold shadow-[0_6px_16px_rgba(90,58,46,0.25)]">
                                                 {user?.name?.charAt(0).toUpperCase()}
                                             </div>
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-white truncate">{user?.name}</p>
-                                            <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                                            <p className="text-sm font-medium text-[#3e2a21] truncate">{user?.name}</p>
+                                            <p className="text-xs text-[#8b6f5f] truncate">{user?.email}</p>
                                         </div>
                                         <button
                                             onClick={handleLogout}
-                                            className="flex-shrink-0 p-2 text-gray-500 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10"
+                                            className="flex-shrink-0 p-2 text-[#8b6f5f] hover:text-[#c5533a] transition-colors rounded-lg hover:bg-[#f3ddd4]"
                                             title="Logout"
                                         >
                                             <LogoutIcon className="h-5 w-5" />
@@ -235,16 +230,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </div>
 
                     {/* Top bar for mobile */}
-                    <div className="sticky top-0 z-40 lg:hidden border-b border-gray-800 px-4 py-4 shadow-lg" style={{ background: 'var(--nav-bg)', color: 'var(--nav-text)' }}>
+                    <div className="sticky top-0 z-40 lg:hidden border-b border-[#e4d7c2] px-4 py-4 shadow-[0_10px_30px_rgba(90,58,46,0.08)] bg-[#f3e7d2] text-[#5a3a2e]">
                         <div className="flex items-center justify-between">
-                            <h1 className="text-lg font-bold">
-                                <span className="bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
-                                    ☕ Cafe Admin
-                                </span>
-                            </h1>
+                            <h1 className="text-lg font-semibold tracking-tight text-[#5a3a2e]">Cafe Admin</h1>
                             <button
                                 type="button"
-                                className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors"
+                                className="text-[#8b6f5f] hover:text-[#5a3a2e] p-2 rounded-lg hover:bg-[#efe2cd] transition-colors"
                                 onClick={() => setSidebarOpen(!sidebarOpen)}
                             >
                                 <MenuIcon className="h-6 w-6" />
@@ -253,7 +244,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </div>
 
                     {/* Page content */}
-                    <main className="bg-gray-950 p-6 lg:p-8">
+                    <main className="bg-[#fbf5e8] p-6 lg:p-8">
                         <div className="max-w-7xl mx-auto">
                             {children}
                         </div>
