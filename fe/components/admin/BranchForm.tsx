@@ -87,7 +87,7 @@ export default function BranchForm({ initialData, onSubmit, isLoading, isEdit = 
                 </div>
 
                 {tokenSystemEnabled && (
-                    <div className="grid grid-cols-2 gap-4 pl-7 border-l-2 border-gray-800 ml-2">
+                    <div className="ml-2 grid grid-cols-1 gap-4 border-l-2 border-gray-800 pl-7 sm:grid-cols-2">
                         <Input
                             label="Start Token"
                             type="number"

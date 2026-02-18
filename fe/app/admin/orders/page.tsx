@@ -204,7 +204,7 @@ export default function AdminOrdersPage() {
     }, [selectedOrder]);
 
     return (
-        <div className="space-y-5 bg-[#efe6d0] p-4 md:p-5 rounded-2xl border border-[#d2c4aa]">
+        <div className="space-y-5 rounded-2xl border border-[#d2c4aa] bg-[#efe6d0] p-3 sm:p-4 md:p-5">
             <Toast
                 message={toast.message}
                 type={toast.type}
@@ -213,7 +213,7 @@ export default function AdminOrdersPage() {
             />
 
             <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-[#4e2f27] mb-1">Orders</h1>
+                <h1 className="mb-1 text-2xl font-bold text-[#4e2f27] sm:text-3xl">Orders</h1>
                 <p className="text-[#6f584f]">All Orders</p>
             </div>
 
@@ -224,7 +224,7 @@ export default function AdminOrdersPage() {
                 <div className="flex flex-col lg:flex-row lg:items-center gap-3 w-full xl:w-auto">
                     <div className="flex flex-col gap-1">
                         <span className="text-xs uppercase tracking-wide text-[#6f584f]">Branch</span>
-                        <div className="min-w-[220px]">
+                        <div className="w-full min-w-0 sm:min-w-[220px]">
                             <Select
                                 value={branchFilter}
                                 onChange={(e) => setBranchFilter(e.target.value)}
@@ -274,7 +274,7 @@ export default function AdminOrdersPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => loadOrders()}
-                        className="self-end border-[#8a7d6a] text-[#4f4a40]"
+                        className="w-full self-start border-[#8a7d6a] text-[#4f4a40] sm:w-auto lg:self-end"
                     >
                         Refresh
                     </Button>
@@ -292,8 +292,8 @@ export default function AdminOrdersPage() {
                     </CardContent>
                 </Card>
             ) : (
-                <div className="grid grid-cols-1 xl:grid-cols-[300px_1fr] gap-6">
-                    <div className="rounded-2xl border-2 border-[#2f8fff] bg-[#efe7d2] p-3 max-h-[70vh] overflow-y-auto">
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[300px_1fr]">
+                    <div className="max-h-[60vh] overflow-y-auto rounded-2xl border-2 border-[#2f8fff] bg-[#efe7d2] p-3 xl:max-h-[70vh]">
                         <div className="space-y-3">
                             {Object.entries(groupedByDate).map(([dateLabel, items]) => (
                                 <div key={dateLabel} className="space-y-2">
@@ -323,7 +323,7 @@ export default function AdminOrdersPage() {
                                             <span>{format(new Date(selectedOrder.createdAt), 'hh:mm a')}</span>
                                             <span>{format(new Date(selectedOrder.createdAt), 'dd MMM yyyy')}</span>
                                         </div>
-                                        <h2 className="mt-2 text-3xl font-semibold leading-tight">
+                                        <h2 className="mt-2 text-2xl font-semibold leading-tight sm:text-3xl">
                                             {selectedOrder.customerName || 'Guest Customer'}
                                         </h2>
                                         <p className="mt-1 text-sm text-[#f1e6db]">{selectedOrder.branch?.name || 'No branch'}</p>
@@ -347,7 +347,7 @@ export default function AdminOrdersPage() {
 
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                                 <div>
-                                    <h3 className="mb-2 text-3xl font-semibold text-[#313f7f]">Order Details</h3>
+                                    <h3 className="mb-2 text-2xl font-semibold text-[#313f7f] sm:text-3xl">Order Details</h3>
                                     <div className="rounded-xl bg-[#633225] p-4 text-white shadow-lg">
                                         <p className="text-xl font-semibold">Bill Details</p>
                                         <div className="mt-4">
@@ -380,12 +380,12 @@ export default function AdminOrdersPage() {
                                 </div>
 
                                 <div>
-                                    <h3 className="mb-2 text-3xl font-semibold text-[#313f7f]">Billing Details</h3>
+                                    <h3 className="mb-2 text-2xl font-semibold text-[#313f7f] sm:text-3xl">Billing Details</h3>
                                     <div className="flex flex-wrap gap-3">
                                         <Button
                                             variant="outline"
                                             size="lg"
-                                            className="w-full max-w-[190px] border-[#7d7a6a] bg-[#848374] text-white hover:bg-[#716f62]"
+                                            className="w-full border-[#7d7a6a] bg-[#848374] text-white hover:bg-[#716f62] sm:w-auto"
                                             onClick={handlePrint}
                                         >
                                             Print
@@ -393,7 +393,7 @@ export default function AdminOrdersPage() {
                                         <Button
                                             variant="outline"
                                             size="lg"
-                                            className="w-full max-w-[190px] border-[#633225] bg-[#633225] text-white hover:bg-[#4f291f]"
+                                            className="w-full border-[#633225] bg-[#633225] text-white hover:bg-[#4f291f] sm:w-auto"
                                             onClick={() => setModalOrderId(selectedOrder.id)}
                                         >
                                             Manage Order
@@ -431,7 +431,7 @@ function OrderCard({ order, selected, onSelect }: { order: Order; selected: bool
         >
             <div className="space-y-3">
                 <div className="flex items-start justify-between gap-2">
-                    <div>
+                    <div className="min-w-0">
                         <p className="text-xs font-semibold text-[#f2ddca]">Order ID #{order.id.slice(-6)}</p>
                         <p className="mt-1 text-[11px] text-[#e7d5c8]">
                             {format(new Date(order.createdAt), 'hh:mm a')} | {format(new Date(order.createdAt), 'dd MMM yyyy')}
@@ -441,7 +441,7 @@ function OrderCard({ order, selected, onSelect }: { order: Order; selected: bool
                 </div>
 
                 <div>
-                    <p className="text-3xl font-semibold leading-tight text-white">{order.customerName || 'Guest'}</p>
+                    <p className="text-2xl font-semibold leading-tight text-white sm:text-3xl">{order.customerName || 'Guest'}</p>
                 </div>
 
                 <div className="rounded-md bg-[#8b6654]/50 px-2 py-1">

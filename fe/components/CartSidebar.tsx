@@ -35,7 +35,7 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
             >
                 <div className="flex flex-col h-full">
                     {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+                    <div className="flex items-center justify-between border-b border-gray-800 px-4 py-4 sm:px-6">
                         <h2 className="text-xl font-bold text-white">Your Order</h2>
                         <button
                             onClick={onClose}
@@ -46,7 +46,7 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                     </div>
 
                     {/* Cart Items */}
-                    <div className="flex-1 overflow-y-auto px-6 py-4">
+                    <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
                         {items.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-center">
                                 <ShoppingBagIcon className="h-16 w-16 text-gray-700 mb-4" />
@@ -63,7 +63,7 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                         ) : (
                             <div className="space-y-6">
                                 {items.map((item) => (
-                                    <div key={item.menuItem.id} className="flex gap-4">
+                                    <div key={item.menuItem.id} className="flex gap-3 sm:gap-4">
                                         {/* Item Image */}
                                         <div className="relative h-20 w-20 flex-shrink-0 rounded-lg bg-gray-800 overflow-hidden">
                                             {resolveImageUrl(item.menuItem.imageUrl) ? (
@@ -129,7 +129,7 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
 
                     {/* Footer */}
                     {items.length > 0 && (
-                        <div className="p-6 bg-gray-900 border-t border-gray-800 space-y-4">
+                        <div className="space-y-4 border-t border-gray-800 bg-gray-900 p-4 sm:p-6">
                             <div className="flex justify-between items-center text-lg font-bold text-white">
                                 <span>Total</span>
                                 <span>Rs. {total.toFixed(2)}</span>

@@ -182,6 +182,16 @@ body::before {
   background: linear-gradient(180deg, #764ba2 0%, #667eea 100%);
 }
 
+/* Hide horizontal scrollbars for tab rails on mobile */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {

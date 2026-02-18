@@ -60,13 +60,13 @@ export default function NewEmployeePage() {
                 onClose={() => setToast({ ...toast, isVisible: false })}
             />
 
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Add Employee</h1>
+                    <h1 className="mb-2 text-2xl font-bold text-white sm:text-3xl">Add Employee</h1>
                     <p className="text-gray-400">Create a new staff member account</p>
                 </div>
-                <Link href="/admin/employees">
-                    <Button variant="ghost">Back to List</Button>
+                <Link href="/admin/employees" className="w-full sm:w-auto">
+                    <Button variant="ghost" className="w-full sm:w-auto">Back to List</Button>
                 </Link>
             </div>
 

@@ -72,7 +72,7 @@ export default function CheckoutPage() {
     if (items.length === 0) return null;
 
     return (
-        <div className="min-h-screen bg-gray-950 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gray-950 px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
             <Toast
                 message={toast.message}
                 type={toast.type}
@@ -81,7 +81,7 @@ export default function CheckoutPage() {
             />
 
             <div className="max-w-3xl mx-auto">
-                <h1 className="text-3xl font-bold text-white mb-8">Checkout</h1>
+                <h1 className="mb-6 text-2xl font-bold text-white sm:mb-8 sm:text-3xl">Checkout</h1>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Order Summary */}
@@ -92,12 +92,12 @@ export default function CheckoutPage() {
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {items.map((item) => (
-                                    <div key={item.menuItem.id} className="flex justify-between items-center py-2 border-b border-gray-800 last:border-0">
-                                        <div className="flex-1">
-                                            <h4 className="font-medium text-white">{item.menuItem.name}</h4>
+                                    <div key={item.menuItem.id} className="flex items-center justify-between gap-3 py-2 border-b border-gray-800 last:border-0">
+                                        <div className="min-w-0 flex-1">
+                                            <h4 className="truncate font-medium text-white">{item.menuItem.name}</h4>
                                             <p className="text-sm text-gray-400">Rs. {item.menuItem.price.toFixed(2)} x {item.quantity}</p>
                                         </div>
-                                        <p className="font-bold text-white">Rs. {(item.menuItem.price * item.quantity).toFixed(2)}</p>
+                                        <p className="text-right font-bold text-white">Rs. {(item.menuItem.price * item.quantity).toFixed(2)}</p>
                                     </div>
                                 ))}
                                 <div className="pt-4 flex justify-between items-center text-xl font-bold text-white border-t border-gray-800">

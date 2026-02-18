@@ -50,10 +50,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }, [isStaffManager, pathname, router, staffAllowed]);
 
     useEffect(() => {
-        setSidebarOpen(false);
-    }, [pathname]);
-
-    useEffect(() => {
         const originalOverflow = document.body.style.overflow;
         if (sidebarOpen) {
             document.body.style.overflow = 'hidden';
@@ -64,11 +60,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         };
     }, [sidebarOpen]);
 
+    useEffect(() => {
+        const mediaQuery = window.matchMedia('(min-width: 768px)');
+        const handleChange = (event: MediaQueryListEvent | MediaQueryList) => {
+            if (event.matches) {
+                setSidebarOpen(false);
+            }
+        };
+
+        handleChange(mediaQuery);
+        mediaQuery.addEventListener('change', handleChange);
+        return () => mediaQuery.removeEventListener('change', handleChange);
+    }, []);
+
     return (
         <ProtectedRoute requiredRole={['ADMIN', 'MANAGER', 'SUPER_ADMIN']}>
             <div className="min-h-screen bg-[#fbf5e8] text-[#5a3a2e]">
-                {/* Sidebar for desktop - Fixed position */}
-                <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:flex lg:flex-col lg:z-50">
+                {/* Sidebar for tablet/desktop - Fixed position */}
+                <aside className="hidden md:fixed md:inset-y-0 md:left-0 md:w-72 md:flex md:flex-col md:z-50">
                     <div className="flex flex-col flex-grow border-r border-[#e4d7c2] shadow-[6px_0_24px_rgba(90,58,46,0.08)] bg-[#f3e7d2] text-[#5a3a2e]">
                         {/* Logo */}
                         <div className="flex items-center flex-shrink-0 px-6 py-6 border-b border-[#e4d7c2]">
@@ -135,11 +144,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </aside>
 
                 {/* Main content wrapper - Simple margin approach */}
-                <div className="min-h-screen lg:ml-64">
+                <div className="min-h-screen md:ml-72">
                     {/* Mobile sidebar */}
                     <div
                         className={cn(
-                            'fixed inset-0 z-50 lg:hidden',
+                            'fixed inset-0 z-50 md:hidden',
                             sidebarOpen ? 'pointer-events-auto' : 'pointer-events-none'
                         )}
                         aria-hidden={!sidebarOpen}
@@ -230,7 +239,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </div>
 
                     {/* Top bar for mobile */}
-                    <div className="sticky top-0 z-40 lg:hidden border-b border-[#e4d7c2] px-4 py-4 shadow-[0_10px_30px_rgba(90,58,46,0.08)] bg-[#f3e7d2] text-[#5a3a2e]">
+                    <div className="sticky top-0 z-40 md:hidden border-b border-[#e4d7c2] px-4 py-3 shadow-[0_10px_30px_rgba(90,58,46,0.08)] bg-[#f3e7d2] text-[#5a3a2e]">
                         <div className="flex items-center justify-between">
                             <h1 className="text-lg font-semibold tracking-tight text-[#5a3a2e]">Cafe Admin</h1>
                             <button
@@ -244,7 +253,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </div>
 
                     {/* Page content */}
-                    <main className="bg-[#fbf5e8] p-6 lg:p-8">
+                    <main className="bg-[#fbf5e8] p-4 sm:p-6 md:p-7 lg:p-8">
                         <div className="max-w-7xl mx-auto">
                             {children}
                         </div>
