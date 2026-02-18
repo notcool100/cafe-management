@@ -10,21 +10,37 @@ const buildMenuItemFormData = (data: Partial<CreateMenuItemData>) => {
     if (data.category !== undefined) formData.append('category', data.category);
     if (data.branchId !== undefined) formData.append('branchId', data.branchId);
     if (data.available !== undefined) formData.append('isAvailable', String(data.available));
+    if (data.isTransferable !== undefined) formData.append('isTransferable', String(data.isTransferable));
+    if (data.borrowedByBranchIds) {
+        data.borrowedByBranchIds.forEach((branchId) => formData.append('borrowedByBranchIds', branchId));
+    }
     if (data.imageFile) formData.append('image', data.imageFile);
 
     return formData;
 };
 
 const normalizeMenuItem = (
-    item: Partial<MenuItem> & { isAvailable?: boolean; price?: number | string }
+    item: Partial<MenuItem> & {
+        isAvailable?: boolean;
+        price?: number | string;
+        isTransferable?: boolean;
+        borrowedByBranchIds?: string[];
+        borrowedByBranches?: Branch[];
+        sourceBranchId?: string;
+    }
 ): MenuItem => {
     const normalizedPrice = typeof item.price === 'number' ? item.price : Number(item.price ?? 0);
     const availableFlag = item.available ?? item.isAvailable ?? false;
+    const borrowedByBranchIds = (item.borrowedByBranchIds || []).map((id) => String(id));
 
     return {
         ...item,
         price: normalizedPrice,
         available: availableFlag,
+        isTransferable: item.isTransferable ?? false,
+        borrowedByBranchIds,
+        borrowedByBranches: item.borrowedByBranches || [],
+        sourceBranchId: item.sourceBranchId,
     } as MenuItem;
 };
 

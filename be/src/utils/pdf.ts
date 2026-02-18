@@ -1,9 +1,13 @@
 import PDFDocument from 'pdfkit';
-import { Order, OrderItem, MenuItem } from '@prisma/client';
+import { Order, OrderItem, MenuItem, Branch } from '@prisma/client';
+
+type MenuItemWithSourceBranch = MenuItem & {
+    branch?: Branch | null;
+};
 
 export type OrderWithItems = Order & {
     orderItems: (OrderItem & {
-        menuItem: MenuItem;
+        menuItem: MenuItemWithSourceBranch;
     })[];
 };
 
@@ -23,6 +27,15 @@ const ITEM_COL_X = CONTENT_LEFT_X;
 const QTY_COL_X = ITEM_COL_X + ITEM_COL_WIDTH;
 const PRICE_COL_X = QTY_COL_X + QTY_COL_WIDTH;
 const TOTAL_COL_X = PRICE_COL_X + PRICE_COL_WIDTH;
+
+const getBorrowedBranchLabel = (branch?: Branch | null) => {
+    const branchName = branch?.name?.trim();
+    if (!branchName) {
+        return 'another branch';
+    }
+
+    return /branch/i.test(branchName) ? branchName : `${branchName} Branch`;
+};
 
 export async function generateKOT(order: OrderWithItems): Promise<Buffer> {
     return new Promise((resolve, reject) => {
@@ -169,6 +182,17 @@ export async function generateBill(order: OrderWithItems): Promise<Buffer> {
             doc.text(`${Number(item.price).toFixed(2)}`, PRICE_COL_X, billRowY, { width: PRICE_COL_WIDTH, align: 'right' });
             doc.text(`${itemTotal.toFixed(2)}`, TOTAL_COL_X, billRowY, { width: TOTAL_COL_WIDTH, align: 'right' });
             doc.moveDown();
+
+            if (item.menuItem.branchId !== order.branchId) {
+                const borrowedBranchLabel = getBorrowedBranchLabel(item.menuItem.branch);
+                doc
+                    .fontSize(7)
+                    .fillColor('#4b5563')
+                    .text(`Note: Borrowed from ${borrowedBranchLabel}.`, ITEM_COL_X, doc.y, { width: CONTENT_WIDTH });
+                doc.fillColor('black');
+                doc.moveDown(0.3);
+                doc.fontSize(8);
+            }
         });
 
         // Line separator

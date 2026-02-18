@@ -279,6 +279,10 @@ export class AdminService {
                 where: { branchId: id, isActive: true },
                 data: { isActive: false },
             }),
+            // Remove borrowed-menu links where this branch is the borrower
+            prisma.menuItemBorrow.deleteMany({
+                where: { targetBranchId: id },
+            }),
             // Delete all menu items for this branch
             prisma.menuItem.deleteMany({
                 where: { branchId: id },

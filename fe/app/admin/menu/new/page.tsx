@@ -33,6 +33,8 @@ export default function NewMenuItemPage() {
                 branchId: data.branchId,
                 imageFile: data.imageFile || null,
                 available: data.available,
+                isTransferable: data.isTransferable,
+                borrowedByBranchIds: data.borrowedByBranchIds,
             });
 
             setToast({

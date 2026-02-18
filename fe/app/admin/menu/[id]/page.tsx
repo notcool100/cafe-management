@@ -59,6 +59,8 @@ export default function EditMenuItemPage() {
                 branchId: data.branchId,
                 imageFile: data.imageFile || null,
                 available: data.available,
+                isTransferable: data.isTransferable,
+                borrowedByBranchIds: data.borrowedByBranchIds,
             });
 
             setToast({

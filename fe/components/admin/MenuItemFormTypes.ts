@@ -6,4 +6,6 @@ export interface MenuItemFormData {
     branchId: string;
     imageFile: File | null;
     available: boolean;
+    isTransferable?: boolean;
+    borrowedByBranchIds?: string[];
 }

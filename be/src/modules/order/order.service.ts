@@ -1,6 +1,34 @@
 import prisma from '../../config/database';
 import { TokenManager } from '../../utils/token';
 
+const borrowableMenuScope = (branchId: string) => ({
+    OR: [
+        { branchId },
+        {
+            borrowedByBranches: {
+                some: {
+                    targetBranchId: branchId,
+                },
+            },
+        },
+        {
+            // Transferable items can be borrowed from other branches at order time.
+            isTransferable: true,
+            branchId: { not: branchId },
+        },
+    ],
+});
+
+const orderItemsWithMenuBranchInclude = {
+    include: {
+        menuItem: {
+            include: {
+                branch: true,
+            },
+        },
+    },
+};
+
 export class OrderService {
     private static CANCELLATION_GRACE_MS = 60_000; // 1 minute
 
@@ -46,9 +74,9 @@ export class OrderService {
         const menuItems = await prisma.menuItem.findMany({
             where: {
                 id: { in: data.items.map((item) => item.menuItemId) },
-                branchId: data.branchId,
                 tenantId: branch.tenantId,
                 isAvailable: true,
+                ...borrowableMenuScope(data.branchId),
             },
         });
 
@@ -95,11 +123,7 @@ export class OrderService {
                 },
             },
             include: {
-                orderItems: {
-                    include: {
-                        menuItem: true,
-                    },
-                },
+                orderItems: orderItemsWithMenuBranchInclude,
                 branch: true,
             },
         });
@@ -113,11 +137,7 @@ export class OrderService {
         const order = await prisma.order.findFirst({
             where: { id, ...(tenantId ? { tenantId } : {}) },
             include: {
-                orderItems: {
-                    include: {
-                        menuItem: true,
-                    },
-                },
+                orderItems: orderItemsWithMenuBranchInclude,
                 branch: true,
             },
         });
@@ -152,11 +172,7 @@ export class OrderService {
                 }),
             },
             include: {
-                orderItems: {
-                    include: {
-                        menuItem: true,
-                    },
-                },
+                orderItems: orderItemsWithMenuBranchInclude,
                 branch: true,
             },
             orderBy: { createdAt: 'desc' },
@@ -171,7 +187,7 @@ export class OrderService {
         const orders = await prisma.order.findMany({
             where: { deviceId },
             include: {
-                orderItems: { include: { menuItem: true } },
+                orderItems: orderItemsWithMenuBranchInclude,
                 branch: true,
             },
             orderBy: { createdAt: 'desc' },
@@ -226,11 +242,7 @@ export class OrderService {
                 }),
             },
             include: {
-                orderItems: {
-                    include: {
-                        menuItem: true,
-                    },
-                },
+                orderItems: orderItemsWithMenuBranchInclude,
                 branch: true,
             },
         });
@@ -273,7 +285,7 @@ export class OrderService {
                 cancellationPreviousStatus: existing.status as any,
             },
             include: {
-                orderItems: { include: { menuItem: true } },
+                orderItems: orderItemsWithMenuBranchInclude,
                 branch: true,
             },
         });
@@ -327,7 +339,7 @@ export class OrderService {
                 cancellationFinalizedAt: null,
             },
             include: {
-                orderItems: { include: { menuItem: true } },
+                orderItems: orderItemsWithMenuBranchInclude,
                 branch: true,
             },
         });

@@ -16,6 +16,15 @@ interface OrderDetailModalProps {
     onUpdate?: () => void;
 }
 
+const getBorrowedBranchLabel = (branchName?: string) => {
+    const normalized = branchName?.trim();
+    if (!normalized) {
+        return 'another branch';
+    }
+
+    return /branch/i.test(normalized) ? normalized : `${normalized} Branch`;
+};
+
 export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDetailModalProps) {
     const [order, setOrder] = useState<Order | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -224,6 +233,12 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                                     <tr key={item.id} className="border-b border-gray-800 last:border-0">
                                         <td className="px-3 py-3 font-medium text-white">
                                             {item.menuItem?.name || 'Unknown Item'}
+                                            {item.menuItem?.branchId &&
+                                                item.menuItem.branchId !== order.branchId && (
+                                                    <p className="mt-1 text-xs font-normal text-amber-300">
+                                                        Note: Borrowed from {getBorrowedBranchLabel(item.menuItem.branch?.name)}.
+                                                    </p>
+                                                )}
                                         </td>
                                         <td className="px-3 py-3 text-center">{item.quantity}</td>
                                         <td className="px-3 py-3 text-right">Rs. {Number(item.price ?? 0).toFixed(2)}</td>

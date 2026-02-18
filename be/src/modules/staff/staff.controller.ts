@@ -9,15 +9,16 @@ export class StaffController {
         try {
             const branchId = req.user?.branchId;
             const tenantId = req.user?.tenantId;
+            const isAdminUser = req.user?.role === 'ADMIN' || req.user?.role === 'SUPER_ADMIN';
 
             if (!tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
-            if (!branchId) {
+            if (!branchId && !isAdminUser) {
                 return res.status(400).json({ error: 'Staff member not assigned to a branch' });
             }
 
-            const orders = await StaffService.getActiveOrders(branchId, tenantId);
+            const orders = await StaffService.getActiveOrders(isAdminUser ? undefined : branchId, tenantId);
 
             res.json(orders);
         } catch (error) {
@@ -32,15 +33,20 @@ export class StaffController {
             const { status } = req.params as { status: string };
             const branchId = req.user?.branchId;
             const tenantId = req.user?.tenantId;
+            const isAdminUser = req.user?.role === 'ADMIN' || req.user?.role === 'SUPER_ADMIN';
 
             if (!tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
-            if (!branchId) {
+            if (!branchId && !isAdminUser) {
                 return res.status(400).json({ error: 'Staff member not assigned to a branch' });
             }
 
-            const orders = await StaffService.getOrdersByStatus(branchId, status, tenantId);
+            const orders = await StaffService.getOrdersByStatus(
+                isAdminUser ? undefined : branchId,
+                status,
+                tenantId
+            );
 
             res.json(orders);
         } catch (error) {

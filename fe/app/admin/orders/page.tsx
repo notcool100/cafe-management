@@ -62,8 +62,12 @@ export default function AdminOrdersPage() {
             });
             setOrders(data);
         } catch (error) {
-            console.error(error);
-            setToast({ message: 'Failed to load orders', type: 'error', isVisible: true });
+            setOrders([]);
+            setToast({
+                message: extractErrorMessage(error, 'Failed to load orders'),
+                type: 'error',
+                isVisible: true,
+            });
         } finally {
             setIsLoading(false);
         }
@@ -198,8 +202,11 @@ export default function AdminOrdersPage() {
 
             document.body.appendChild(iframe);
         } catch (error) {
-            console.error(error);
-            setToast({ message: 'Failed to print bill', type: 'error', isVisible: true });
+            setToast({
+                message: extractErrorMessage(error, 'Failed to print bill'),
+                type: 'error',
+                isVisible: true,
+            });
         }
     }, [selectedOrder]);
 
@@ -533,4 +540,15 @@ function computeDates(filter: DateFilter) {
         default:
             return {};
     }
+}
+
+function extractErrorMessage(error: unknown, fallback: string) {
+    if (error && typeof error === 'object' && 'message' in error) {
+        const message = (error as { message?: unknown }).message;
+        if (typeof message === 'string' && message.trim()) {
+            return message;
+        }
+    }
+
+    return fallback;
 }

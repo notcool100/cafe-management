@@ -185,6 +185,15 @@ export default function MenuPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3 xl:grid-cols-4">
                 {filteredItems.map((item) => {
                     const imageSrc = resolveImageUrl(item.imageUrl);
+                    const isBorrowedInSelectedBranch = Boolean(
+                        filters.branchId &&
+                        item.branchId !== filters.branchId &&
+                        (
+                            item.borrowedByBranchIds?.includes(filters.branchId) ||
+                            item.isTransferable
+                        )
+                    );
+                    const canManageItem = !(isManager && isBorrowedInSelectedBranch);
 
                     return (
                         <div key={item.id} className="rounded-xl bg-[#5b3629] p-4 shadow-[0_4px_10px_rgba(0,0,0,0.2)]">
@@ -214,24 +223,35 @@ export default function MenuPage() {
                                     {item.name}
                                 </h3>
                                 <p className="mt-1 text-base text-[#e9d8c5]">Rs. {Number(item.price).toFixed(2)}</p>
+                                {isBorrowedInSelectedBranch && (
+                                    <p className="mt-1 text-xs text-amber-200">Borrowed from another branch</p>
+                                )}
                                 <div className="mt-3 flex flex-wrap gap-2">
-                                    <Link href={`/admin/menu/${item.id}`} className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]">
-                                        Edit
-                                    </Link>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleToggleAvailability(item)}
-                                        className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]"
-                                    >
-                                        {item.available ? 'Disable' : 'Enable'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setDeleteConfirm(item.id)}
-                                        className="rounded-md border border-[#f0b8ae] px-3 py-1 text-sm text-[#ffe1dc] hover:bg-[#7f3f34]"
-                                    >
-                                        Delete
-                                    </button>
+                                    {canManageItem ? (
+                                        <>
+                                            <Link href={`/admin/menu/${item.id}`} className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]">
+                                                Edit
+                                            </Link>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleToggleAvailability(item)}
+                                                className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]"
+                                            >
+                                                {item.available ? 'Disable' : 'Enable'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDeleteConfirm(item.id)}
+                                                className="rounded-md border border-[#f0b8ae] px-3 py-1 text-sm text-[#ffe1dc] hover:bg-[#7f3f34]"
+                                            >
+                                                Delete
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <p className="text-xs text-[#f4d7b6]">
+                                            This item is borrowed. Ask admin to edit ownership settings.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
