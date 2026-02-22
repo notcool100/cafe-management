@@ -64,21 +64,12 @@ export interface CreateBranchData {
 }
 
 // Menu Item Types
-export enum MenuCategory {
-    FOOD = 'FOOD',
-    BEVERAGE = 'BEVERAGE',
-    DESSERT = 'DESSERT',
-    APPETIZER = 'APPETIZER',
-    MAIN_COURSE = 'MAIN_COURSE',
-    SNACK = 'SNACK'
-}
-
 export interface MenuItem {
     id: string;
     name: string;
     description?: string;
     price: number;
-    category: MenuCategory;
+    category?: string;
     imageUrl?: string;
     sharedBranchIds?: string[];
     available: boolean;
@@ -92,9 +83,25 @@ export interface CreateMenuItemData {
     name: string;
     description?: string;
     price: number;
-    category: MenuCategory;
+    category: string;
     imageFile?: File | null;
     available: boolean;
+    branchId: string;
+    sharedBranchIds?: string[];
+}
+
+export interface Category {
+    id: string;
+    name: string;
+    branchId: string;
+    branch?: Branch;
+    sharedBranchIds?: string[];
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export interface CreateCategoryData {
+    name: string;
     branchId: string;
     sharedBranchIds?: string[];
 }
@@ -182,7 +189,7 @@ export interface ApiError {
 // Filter Types
 export interface MenuFilters {
     branchId?: string;
-    category?: MenuCategory;
+    category?: string;
     search?: string;
     available?: boolean;
 }
@@ -193,6 +200,14 @@ export interface OrderFilters {
     search?: string;
     startDate?: string;
     endDate?: string;
+}
+
+export interface SharedItemNotification {
+    orderId: string;
+    completedAt: string;
+    orderBranchId: string;
+    orderBranchName?: string;
+    itemNames: string[];
 }
 
 // Reporting Types

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { MenuController } from './menu.controller';
+import { CategoryController } from './category.controller';
 import { authenticate } from '../../middleware/auth';
 import { requireRole } from '../../middleware/rbac';
 import { uploadMenuImage } from '../../middleware/upload';
@@ -43,6 +44,43 @@ router.delete(
     authenticate,
     requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
     MenuController.deleteMenuItem
+);
+
+// Category management
+router.post(
+    '/categories',
+    authenticate,
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
+    CategoryController.createCategoryValidation,
+    CategoryController.createCategory
+);
+
+router.get(
+    '/categories',
+    authenticate,
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN', 'EMPLOYEE'),
+    CategoryController.listCategories
+);
+
+router.get(
+    '/categories/:id',
+    authenticate,
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN', 'EMPLOYEE'),
+    CategoryController.getCategory
+);
+
+router.put(
+    '/categories/:id',
+    authenticate,
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
+    CategoryController.updateCategory
+);
+
+router.delete(
+    '/categories/:id',
+    authenticate,
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
+    CategoryController.deleteCategory
 );
 
 // Public route for customers to view menu

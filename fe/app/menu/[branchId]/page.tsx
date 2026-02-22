@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { menuService } from '@/lib/api/menu-service';
-import { MenuItem, MenuCategory, Branch } from '@/lib/types';
+import { MenuItem, Branch } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
@@ -21,7 +21,7 @@ export default function PublicMenuPage() {
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [branch, setBranch] = useState<Branch | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [selectedCategory, setSelectedCategory] = useState<MenuCategory | 'ALL'>('ALL');
+    const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
     const [isCartOpen, setIsCartOpen] = useState(false);
 
     const { addItem, getItemCount } = useCartStore();
@@ -70,7 +70,24 @@ export default function PublicMenuPage() {
         selectedCategory === 'ALL' || item.category === selectedCategory
     );
 
-    const categories = ['ALL', ...Object.values(MenuCategory)];
+    const categories = useMemo(() => {
+        const unique = new Set<string>();
+        menuItems.forEach((item) => {
+            if (!item.category) return;
+            const value = item.category.trim();
+            if (value) {
+                unique.add(value);
+            }
+        });
+        return ['ALL', ...Array.from(unique)];
+    }, [menuItems]);
+
+    useEffect(() => {
+        if (selectedCategory === 'ALL') return;
+        if (!categories.includes(selectedCategory)) {
+            setSelectedCategory('ALL');
+        }
+    }, [categories, selectedCategory]);
 
     if (isLoading) {
         return (
@@ -128,7 +145,7 @@ export default function PublicMenuPage() {
                         {categories.map((cat) => (
                             <button
                                 key={cat}
-                                onClick={() => setSelectedCategory(cat as MenuCategory | 'ALL')}
+                                onClick={() => setSelectedCategory(cat)}
                                 className={`
                                     whitespace-nowrap px-4 py-2 border-b-2 text-sm font-medium transition-colors
                                     ${selectedCategory === cat
@@ -137,7 +154,7 @@ export default function PublicMenuPage() {
                                     }
                                 `}
                             >
-                                {cat === 'ALL' ? 'All Items' : cat.charAt(0) + cat.slice(1).toLowerCase().replace('_', ' ')}
+                                {cat === 'ALL' ? 'All Items' : formatCategoryLabel(cat)}
                             </button>
                         ))}
                     </div>
@@ -220,4 +237,14 @@ function ImageIcon({ className }: { className?: string }) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
     );
+}
+
+function formatCategoryLabel(value?: string) {
+    if (!value) return 'Item';
+    const trimmed = value.trim();
+    if (!trimmed) return 'Item';
+    const normalized = trimmed.replace(/_/g, ' ');
+    const shouldTitleCase = trimmed === trimmed.toUpperCase() || trimmed.includes('_');
+    if (!shouldTitleCase) return normalized;
+    return normalized.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 }

@@ -5,7 +5,8 @@ import Image from 'next/image';
 import { format, startOfDay, startOfWeek, subHours } from 'date-fns';
 import { orderService } from '@/lib/api/order-service';
 import { menuService } from '@/lib/api/menu-service';
-import { Order, OrderStatus, MenuItem, OrderType, MenuCategory } from '@/lib/types';
+import { categoryService } from '@/lib/api/category-service';
+import { Order, OrderStatus, MenuItem, OrderType, SharedItemNotification, Category } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import Badge from '@/components/ui/Badge';
@@ -16,22 +17,13 @@ import Toast from '@/components/ui/Toast';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { resolveImageUrl } from '@/lib/utils/image';
 
-const categoryLabel: Record<MenuCategory, string> = {
-    [MenuCategory.FOOD]: 'Food',
-    [MenuCategory.BEVERAGE]: 'Beverage',
-    [MenuCategory.DESSERT]: 'Dessert',
-    [MenuCategory.APPETIZER]: 'Appetizer',
-    [MenuCategory.MAIN_COURSE]: 'Main Course',
-    [MenuCategory.SNACK]: 'Snack',
-};
-
 type CartLine = {
     menuItemId: string;
     name: string;
     price: number;
     quantity: number;
     imageUrl?: string;
-    category?: MenuCategory;
+    category?: string;
 };
 
 type DateFilter = 'TODAY' | 'LAST_24H' | 'THIS_WEEK' | 'ALL';
@@ -98,11 +90,16 @@ export default function ActiveOrdersPage() {
     const [filterStatus, setFilterStatus] = useState<OrderStatus | 'ALL'>(OrderStatus.PENDING);
     const [dateFilter, setDateFilter] = useState<DateFilter>('TODAY');
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [customerName, setCustomerName] = useState('');
     const [customerPhone, setCustomerPhone] = useState('');
     const [orderType, setOrderType] = useState<OrderType>(OrderType.DINE_IN);
     const [searchTerm, setSearchTerm] = useState('');
-    const [categoryFilter, setCategoryFilter] = useState<MenuCategory | 'ALL'>('ALL');
+    const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+    const [sharedNotifySince, setSharedNotifySince] = useState<string | null>(null);
+    const [sharedNotifications, setSharedNotifications] = useState<SharedItemNotification[]>([]);
+    const [notifyLastSeenAt, setNotifyLastSeenAt] = useState<string | null>(null);
+    const [isNotifyOpen, setIsNotifyOpen] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; isVisible: boolean }>({
         message: '',
         type: 'info',
@@ -113,6 +110,17 @@ export default function ActiveOrdersPage() {
     const [activeSection, setActiveSection] = useState<'BUILD' | 'ORDERS'>('BUILD');
 
     const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const notifyPanelRef = useRef<HTMLDivElement | null>(null);
+    const sharedNotifyKey = user?.branchId ? `shared-item-notify-since:${user.branchId}` : 'shared-item-notify-since';
+    const sharedNotifyHistoryKey = user?.branchId ? `shared-item-notify-history:${user.branchId}` : 'shared-item-notify-history';
+    const sharedNotifyLastSeenKey = user?.branchId ? `shared-item-notify-last-seen:${user.branchId}` : 'shared-item-notify-last-seen';
+
+    const unreadSharedCount = useMemo(() => {
+        if (!sharedNotifications.length) return 0;
+        if (!notifyLastSeenAt) return sharedNotifications.length;
+        const lastSeen = new Date(notifyLastSeenAt).getTime();
+        return sharedNotifications.filter((notification) => new Date(notification.completedAt).getTime() > lastSeen).length;
+    }, [notifyLastSeenAt, sharedNotifications]);
 
     const loadOrders = useCallback(async (showLoading = true) => {
         try {
@@ -129,6 +137,76 @@ export default function ActiveOrdersPage() {
             if (showLoading) setIsLoading(false);
         }
     }, []);
+
+    const loadSharedNotifications = useCallback(async () => {
+        if (!user?.branchId || !sharedNotifySince) return;
+        try {
+            const notifications = await orderService.getSharedItemNotifications(sharedNotifySince);
+            if (notifications.length === 0) return;
+
+            const latest = notifications.reduce((current, next) => {
+                const currentTime = new Date(current.completedAt).getTime();
+                const nextTime = new Date(next.completedAt).getTime();
+                return nextTime > currentTime ? next : current;
+            });
+
+            const newSince = latest.completedAt;
+            setSharedNotifySince(newSince);
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem(sharedNotifyKey, newSince);
+            }
+
+            setSharedNotifications((prev) => {
+                const combined = [...notifications, ...prev];
+                const seen = new Set<string>();
+                const unique = combined.filter((item) => {
+                    const key = `${item.orderId}-${item.completedAt}-${item.orderBranchId}-${item.itemNames.join('|')}`;
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+                unique.sort(
+                    (a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+                );
+                const trimmed = unique.slice(0, 30);
+                if (typeof window !== 'undefined') {
+                    window.localStorage.setItem(sharedNotifyHistoryKey, JSON.stringify(trimmed));
+                }
+                return trimmed;
+            });
+
+            const latestBranch = latest.orderBranchName || 'another branch';
+            const itemSummary = latest.itemNames.slice(0, 3).join(', ');
+            const extraCount = Math.max(0, latest.itemNames.length - 3);
+            const itemLabel = extraCount > 0 ? `${itemSummary} +${extraCount} more` : itemSummary;
+
+            const message = notifications.length === 1
+                ? `Shared items used at ${latestBranch}: ${itemLabel}`
+                : `${notifications.length} completed orders used your items. Latest: ${latestBranch} (${itemLabel})`;
+
+            setToast({
+                message,
+                type: 'info',
+                isVisible: true,
+            });
+        } catch {
+            // silently ignore notification errors
+        }
+    }, [sharedNotifyHistoryKey, sharedNotifyKey, sharedNotifySince, user?.branchId]);
+
+    const handleToggleNotifications = () => {
+        setIsNotifyOpen((prev) => {
+            const next = !prev;
+            if (next) {
+                const now = new Date().toISOString();
+                setNotifyLastSeenAt(now);
+                if (typeof window !== 'undefined') {
+                    window.localStorage.setItem(sharedNotifyLastSeenKey, now);
+                }
+            }
+            return next;
+        });
+    };
 
     const loadMenuItems = useCallback(async () => {
         if (!user?.branchId) return;
@@ -147,11 +225,69 @@ export default function ActiveOrdersPage() {
         }
     }, [user?.branchId]);
 
+    const loadCategories = useCallback(async () => {
+        if (!user?.branchId) return;
+        try {
+            const data = await categoryService.getCategories(user.branchId);
+            setCategories(data);
+        } catch {
+            // silently ignore category load failures to avoid blocking orders
+            setCategories([]);
+        }
+    }, [user?.branchId]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || !user?.branchId) return;
+
+        const storedSince = window.localStorage.getItem(sharedNotifyKey);
+        if (storedSince) {
+            setSharedNotifySince(storedSince);
+        } else {
+            const now = new Date().toISOString();
+            window.localStorage.setItem(sharedNotifyKey, now);
+            setSharedNotifySince(now);
+        }
+
+        const storedHistory = window.localStorage.getItem(sharedNotifyHistoryKey);
+        if (storedHistory) {
+            try {
+                const parsed = JSON.parse(storedHistory) as SharedItemNotification[];
+                if (Array.isArray(parsed)) {
+                    setSharedNotifications(parsed);
+                }
+            } catch {
+                // ignore corrupted history
+            }
+        }
+
+        const storedLastSeen = window.localStorage.getItem(sharedNotifyLastSeenKey);
+        if (storedLastSeen) {
+            setNotifyLastSeenAt(storedLastSeen);
+        } else {
+            const now = new Date().toISOString();
+            window.localStorage.setItem(sharedNotifyLastSeenKey, now);
+            setNotifyLastSeenAt(now);
+        }
+    }, [sharedNotifyHistoryKey, sharedNotifyKey, sharedNotifyLastSeenKey, user?.branchId]);
+
+    useEffect(() => {
+        if (!isNotifyOpen) return;
+        const handleClickOutside = (event: MouseEvent) => {
+            if (notifyPanelRef.current && !notifyPanelRef.current.contains(event.target as Node)) {
+                setIsNotifyOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isNotifyOpen]);
+
     useEffect(() => {
         loadOrders(true);
+        loadSharedNotifications();
 
         refreshIntervalRef.current = setInterval(() => {
             loadOrders(false);
+            loadSharedNotifications();
         }, 10000);
 
         return () => {
@@ -159,11 +295,15 @@ export default function ActiveOrdersPage() {
                 clearInterval(refreshIntervalRef.current);
             }
         };
-    }, [loadOrders]);
+    }, [loadOrders, loadSharedNotifications]);
 
     useEffect(() => {
         loadMenuItems();
     }, [loadMenuItems]);
+
+    useEffect(() => {
+        loadCategories();
+    }, [loadCategories]);
 
     useEffect(() => {
         const mq = window.matchMedia('(max-width: 1023px)'); // up to lg breakpoint
@@ -286,6 +426,27 @@ export default function ActiveOrdersPage() {
         return lookup;
     }, [menuItems]);
 
+    const availableCategories = useMemo(() => {
+        const unique = new Set<string>();
+        categories.forEach((category) => {
+            const value = category.name?.trim();
+            if (value) unique.add(value);
+        });
+        menuItems.forEach((item) => {
+            if (!item.category) return;
+            const value = item.category.trim();
+            if (value) unique.add(value);
+        });
+        return ['ALL', ...Array.from(unique)];
+    }, [categories, menuItems]);
+
+    useEffect(() => {
+        if (categoryFilter === 'ALL') return;
+        if (!availableCategories.includes(categoryFilter)) {
+            setCategoryFilter('ALL');
+        }
+    }, [availableCategories, categoryFilter]);
+
     const filteredMenuItems = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
         return menuItems.filter((item) => {
@@ -334,9 +495,78 @@ export default function ActiveOrdersPage() {
                 onClose={() => setToast({ ...toast, isVisible: false })}
             />
 
-            <div className="flex flex-col gap-1">
-                <h1 className="text-3xl font-bold text-white">Staff Orders</h1>
-                <p className="text-gray-400">PathoFood-like simple flow for quick walk-in orders.</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex flex-col gap-1">
+                    <h1 className="text-3xl font-bold text-white">Staff Orders</h1>
+                    <p className="text-gray-400">PathoFood-like simple flow for quick walk-in orders.</p>
+                </div>
+                <div className="relative" ref={notifyPanelRef}>
+                    <button
+                        type="button"
+                        onClick={handleToggleNotifications}
+                        aria-label="Shared item notifications"
+                        aria-expanded={isNotifyOpen}
+                        className="relative flex items-center gap-2 rounded-full border border-[#cbbda8] bg-[#fffaf0] px-3 py-2 text-sm font-semibold text-[#4e2f27] shadow-sm hover:bg-[#f8efe1]"
+                    >
+                        <BellIcon className="h-5 w-5 text-[#4e2f27]" />
+                        <span>Notifications</span>
+                        {unreadSharedCount > 0 && (
+                            <span className="absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#b45309] px-1 text-[11px] font-bold text-white">
+                                {unreadSharedCount > 9 ? '9+' : unreadSharedCount}
+                            </span>
+                        )}
+                    </button>
+
+                    {isNotifyOpen && (
+                        <div className="absolute right-0 mt-2 w-[320px] max-w-[calc(100vw-2rem)] rounded-2xl border border-[#e4d7c2] bg-[#fffaf0] p-3 shadow-xl z-30">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-semibold text-[#4e2f27]">Shared Item History</p>
+                                <span className="text-xs text-[#8a6c61]">{sharedNotifications.length} total</span>
+                            </div>
+                            <div className="max-h-[320px] overflow-y-auto space-y-2">
+                                {sharedNotifications.length === 0 ? (
+                                    <div className="rounded-xl border border-dashed border-[#e4d7c2] bg-[#f8efe1] p-3 text-xs text-[#8a6c61]">
+                                        No shared item activity yet.
+                                    </div>
+                                ) : (
+                                    sharedNotifications.map((notification) => {
+                                        const completedAt = new Date(notification.completedAt);
+                                        const timeLabel = isNaN(completedAt.getTime())
+                                            ? ''
+                                            : format(completedAt, 'PP p');
+                                        const branchLabel = notification.orderBranchName || 'another branch';
+                                        const itemsLabel = notification.itemNames.length
+                                            ? notification.itemNames.join(', ')
+                                            : 'Shared item';
+                                        const isUnread = !notifyLastSeenAt
+                                            || new Date(notification.completedAt).getTime() > new Date(notifyLastSeenAt).getTime();
+
+                                        return (
+                                            <div
+                                                key={`${notification.orderId}-${notification.completedAt}`}
+                                                className={`rounded-xl border p-3 text-xs ${
+                                                    isUnread
+                                                        ? 'border-[#b45309] bg-[#fff4d6]'
+                                                        : 'border-[#e4d7c2] bg-[#f8efe1]'
+                                                }`}
+                                            >
+                                                <p className="text-sm font-semibold text-[#4e2f27]" title={itemsLabel}>
+                                                    {itemsLabel}
+                                                </p>
+                                                <p className="mt-1 text-[11px] text-[#7a6a5f]">
+                                                    Used at {branchLabel}
+                                                </p>
+                                                {timeLabel && (
+                                                    <p className="text-[11px] text-[#9a8577]">{timeLabel}</p>
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {isCompact && (
@@ -376,12 +606,12 @@ export default function ActiveOrdersPage() {
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                    {['ALL', ...Object.values(MenuCategory)].map((cat) => (
+                                    {availableCategories.map((cat) => (
                                         <FilterChip
                                             key={cat}
                                             active={categoryFilter === cat}
-                                            label={cat === 'ALL' ? 'All' : categoryLabel[cat as MenuCategory]}
-                                            onClick={() => setCategoryFilter(cat as MenuCategory | 'ALL')}
+                                            label={cat === 'ALL' ? 'All' : formatCategoryLabel(cat)}
+                                            onClick={() => setCategoryFilter(cat)}
                                         />
                                     ))}
                                 </div>
@@ -431,7 +661,7 @@ export default function ActiveOrdersPage() {
                                                     </div>
                                                     <div className="absolute top-3 right-3">
                                                         <Badge variant="default" size="sm" style={{ color: '#ffffff' }}>
-                                                            {categoryLabel[item.category]}
+                                                            {formatCategoryLabel(item.category)}
                                                         </Badge>
                                                     </div>
                                                 </div>
@@ -530,7 +760,7 @@ export default function ActiveOrdersPage() {
                                             <ImageThumb src={resolveImageUrl(item.imageUrl)} label={item.name} />
                                             <div className="flex-1">
                                                 <p className="text-white font-semibold leading-tight">{item.name}</p>
-                                                <p className="text-xs text-gray-400">{item.category ? categoryLabel[item.category] : 'Item'} • Rs. {item.price.toFixed(2)}</p>
+                                                <p className="text-xs text-gray-400">{formatCategoryLabel(item.category)} • Rs. {item.price.toFixed(2)}</p>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <IconButton
@@ -812,6 +1042,19 @@ function RefreshIcon({ className }: { className?: string }) {
     );
 }
 
+function BellIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 01-6 0"
+            />
+        </svg>
+    );
+}
+
 function SearchIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -850,6 +1093,16 @@ function ImageIcon({ className }: { className?: string }) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
     );
+}
+
+function formatCategoryLabel(value?: string) {
+    if (!value) return 'Item';
+    const trimmed = value.trim();
+    if (!trimmed) return 'Item';
+    const normalized = trimmed.replace(/_/g, ' ');
+    const shouldTitleCase = trimmed === trimmed.toUpperCase() || trimmed.includes('_');
+    if (!shouldTitleCase) return normalized;
+    return normalized.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function FilterChip({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {

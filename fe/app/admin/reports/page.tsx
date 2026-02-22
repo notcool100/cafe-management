@@ -242,36 +242,38 @@ export default function ReportsPage() {
             />
 
             <div className="mx-auto w-full max-w-[1240px]">
-                <div className="mb-2 flex items-start justify-between">
+                <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                     <div>
-                        <h1 className="text-[36px] font-semibold leading-tight">Dashboard</h1>
-                        <p className="mt-0.5 text-[32px] font-semibold leading-tight">Revenue</p>
+                        <h1 className="text-2xl sm:text-3xl lg:text-[36px] font-semibold leading-tight">Dashboard</h1>
+                        <p className="mt-0.5 text-xl sm:text-2xl lg:text-[32px] font-semibold leading-tight">Revenue</p>
                     </div>
-                    <p className="pt-1 text-base font-medium">Hi, {user?.name || 'User'}</p>
+                    <p className="pt-1 text-sm sm:text-base font-medium">Hi, {user?.name || 'User'}</p>
                 </div>
 
                 {isLoading ? (
-                    <div className="flex h-72 items-center justify-center rounded-[22px] border-4 border-[#8e7871] bg-[#937f77]">
+                    <div className="flex min-h-[240px] md:h-72 items-center justify-center rounded-[22px] border-4 border-[#8e7871] bg-[#937f77]">
                         <Spinner size="lg" />
                     </div>
                 ) : (
                     <div className="rounded-[22px] border-[6px] border-[#8e7871] bg-[#8f7b76] p-[3px] shadow-[0_8px_18px_rgba(55,39,33,0.22)]">
                         <div className="grid gap-[2px] rounded-[16px] lg:grid-cols-[1fr_1fr]">
-                            <div className="rounded-l-[15px] bg-[#8f7b76] p-4 md:p-5 text-[#f4eee9]">
-                                <div className="mb-2 flex items-start justify-between gap-4">
+                            <div className="rounded-t-[15px] lg:rounded-l-[15px] lg:rounded-tr-none lg:rounded-br-none bg-[#8f7b76] p-4 md:p-5 text-[#f4eee9]">
+                                <div className="mb-2 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                     <div>
-                                        <h2 className="text-[40px] font-semibold leading-none text-[#130e0c]">{branchName}</h2>
-                                        <p className="mt-1 text-sm text-white/80">{selectedRangeLabel}</p>
-                                        <div className="mt-3 flex items-center gap-3">
-                                            <p className="text-[38px] font-semibold leading-none">{formatCurrency(report?.totals.netSales || 0)}</p>
+                                        <h2 className="text-2xl sm:text-3xl lg:text-[40px] font-semibold leading-none text-[#130e0c]">{branchName}</h2>
+                                        <p className="mt-1 text-xs sm:text-sm text-white/80">{selectedRangeLabel}</p>
+                                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                                            <p className="text-2xl sm:text-3xl lg:text-[38px] font-semibold leading-none">
+                                                {formatCurrency(report?.totals.netSales || 0)}
+                                            </p>
                                             <span className="rounded-full border border-black/30 bg-[#2f6547] px-2 py-0.5 text-[13px] font-semibold text-white">
                                                 {formatPercent(growth)}
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="flex flex-col items-end gap-2">
+                                    <div className="flex w-full flex-col gap-2 lg:w-auto lg:items-end">
                                         <select
-                                            className="rounded-lg border border-[#6a4a3d] bg-[#4c3026] px-3 py-2 text-[16px] font-semibold leading-none text-[#f3e9dd] outline-none"
+                                            className="w-full rounded-lg border border-[#6a4a3d] bg-[#4c3026] px-3 py-2 text-sm sm:text-base font-semibold leading-none text-[#f3e9dd] outline-none lg:min-w-[200px]"
                                             value={filters.branchId}
                                             onChange={(e) => onBranchChange(e.target.value)}
                                             disabled={isManager}
@@ -284,7 +286,7 @@ export default function ReportsPage() {
                                             ))}
                                         </select>
                                         <select
-                                            className="rounded-lg border border-[#6a4a3d] bg-[#4c3026] px-3 py-2 text-[18px] font-semibold leading-none text-[#f3e9dd] outline-none"
+                                            className="w-full rounded-lg border border-[#6a4a3d] bg-[#4c3026] px-3 py-2 text-sm sm:text-base font-semibold leading-none text-[#f3e9dd] outline-none lg:min-w-[200px]"
                                             value={filters.range}
                                             onChange={(e) => {
                                                 if (e.target.value === 'custom') {
@@ -299,18 +301,18 @@ export default function ReportsPage() {
                                             <option value="90">Last 90 days</option>
                                             <option value="custom">Custom</option>
                                         </select>
-                                        <div className="flex items-center gap-1 text-xs text-[#f3e9dd]">
+                                        <div className="flex flex-wrap items-center gap-2 text-xs text-[#f3e9dd]">
                                             <input
                                                 type="date"
-                                                className="rounded border border-[#6a4a3d] bg-[#4c3026] px-2 py-1 outline-none"
+                                                className="w-full rounded border border-[#6a4a3d] bg-[#4c3026] px-2 py-1 outline-none sm:w-auto"
                                                 value={filters.startDate}
                                                 onChange={(e) => onDateChange('startDate', e.target.value)}
                                                 max={filters.endDate}
                                             />
-                                            <span>to</span>
+                                            <span className="hidden sm:inline">to</span>
                                             <input
                                                 type="date"
-                                                className="rounded border border-[#6a4a3d] bg-[#4c3026] px-2 py-1 outline-none"
+                                                className="w-full rounded border border-[#6a4a3d] bg-[#4c3026] px-2 py-1 outline-none sm:w-auto"
                                                 value={filters.endDate}
                                                 onChange={(e) => onDateChange('endDate', e.target.value)}
                                                 min={filters.startDate}
@@ -320,7 +322,7 @@ export default function ReportsPage() {
                                 </div>
 
                                 <div className="mt-7 rounded border border-white/20 p-2">
-                                    <svg viewBox="0 0 430 230" className="h-[214px] w-full" preserveAspectRatio="none">
+                                    <svg viewBox="0 0 430 230" className="h-[160px] sm:h-[200px] lg:h-[214px] w-full" preserveAspectRatio="none">
                                         <rect x="24" y="24" width="382" height="182" fill="none" stroke="rgba(255,255,255,0.28)" strokeDasharray="3 4" />
                                         {[1, 2, 3, 4].map((i) => (
                                             <line
@@ -372,16 +374,16 @@ export default function ReportsPage() {
                                         ))}
                                     </svg>
                                 </div>
-                                <p className="mt-1 text-center text-[20px] font-semibold">Date</p>
+                                <p className="mt-1 text-center text-base sm:text-lg font-semibold">Date</p>
                             </div>
 
-                            <div className="relative rounded-r-[15px] border-l border-[#604f48] bg-[linear-gradient(135deg,#ece8d9,#e2dbc9_45%,#e9e3d5)] p-4 md:p-5 text-[#17120f]">
-                                <div className="grid h-full grid-cols-[1.1fr_0.9fr] gap-5">
-                                    <div className="space-y-4 border-r border-[#7a7068] pr-5">
+                            <div className="relative rounded-b-[15px] lg:rounded-r-[15px] lg:rounded-tl-none lg:rounded-bl-none border-t lg:border-t-0 lg:border-l border-[#604f48] bg-[linear-gradient(135deg,#ece8d9,#e2dbc9_45%,#e9e3d5)] p-4 md:p-5 text-[#17120f]">
+                                <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                                    <div className="space-y-4 border-b lg:border-b-0 lg:border-r border-[#7a7068] pb-4 lg:pb-0 lg:pr-5">
                                         <div>
-                                            <span className="inline-block rounded-lg bg-black px-3 py-1 text-[18px] font-semibold leading-none text-white">Growth</span>
-                                            <p className="mt-3 text-[28px] font-semibold leading-tight">{formatPercent(growth)} growth</p>
-                                            <p className="mt-4 text-[25px] leading-tight">
+                                            <span className="inline-block rounded-lg bg-black px-3 py-1 text-sm sm:text-base font-semibold leading-none text-white">Growth</span>
+                                            <p className="mt-3 text-xl sm:text-2xl lg:text-[28px] font-semibold leading-tight">{formatPercent(growth)} growth</p>
+                                            <p className="mt-4 text-base sm:text-lg lg:text-[25px] leading-tight">
                                                 Peak Day:
                                                 <br />
                                                 Peak Orders:
@@ -391,8 +393,8 @@ export default function ReportsPage() {
                                         </div>
 
                                         <div>
-                                            <span className="inline-block rounded-lg bg-black px-3 py-1 text-[18px] font-semibold leading-none text-white">Fund Breakdown</span>
-                                            <div className="mt-3 grid grid-cols-[1fr_auto] gap-x-5 gap-y-1 text-[24px] leading-tight">
+                                            <span className="inline-block rounded-lg bg-black px-3 py-1 text-sm sm:text-base font-semibold leading-none text-white">Fund Breakdown</span>
+                                            <div className="mt-3 grid grid-cols-[1fr_auto] gap-x-5 gap-y-1 text-base sm:text-lg lg:text-[24px] leading-tight">
                                                 <span>Total Sales</span>
                                                 <span>{formatCurrency(report?.totals.totalSales || 0)}</span>
                                                 <span>Total Orders</span>
@@ -404,13 +406,13 @@ export default function ReportsPage() {
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-[1fr_auto] text-[26px] font-semibold leading-tight">
+                                        <div className="grid grid-cols-[1fr_auto] text-lg sm:text-xl lg:text-[26px] font-semibold leading-tight">
                                             <span>Net Revenue</span>
                                             <span>{formatCurrency(report?.totals.netSales || 0)}</span>
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col justify-center text-[30px] font-semibold leading-tight">
+                                    <div className="flex flex-col justify-center text-lg sm:text-xl lg:text-[30px] font-semibold leading-tight">
                                         <p>{peak ? new Date(peak.date).toLocaleDateString('en-US', { weekday: 'long' }) : '-'}</p>
                                         <p className="mt-2">{peakOrderDay?.orders || 0} orders</p>
                                         <p className="mt-2">{formatCurrency(report?.totals.averageOrderValue || 0)}</p>

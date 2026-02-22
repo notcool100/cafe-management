@@ -27,4 +27,7 @@ router.get('/orders/:id/kot', StaffController.generateKOT);
 // Generate Bill
 router.get('/orders/:id/bill', StaffController.generateBill);
 
+// Notifications for shared items completed at other branches
+router.get('/notifications/shared-items', StaffController.getSharedItemNotifications);
+
 export default router;

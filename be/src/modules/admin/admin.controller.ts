@@ -238,10 +238,10 @@ export class AdminController {
             if (!req.user?.tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
-            const isBranchScoped = req.user.role === 'MANAGER' || req.user.role === 'EMPLOYEE';
+            const isBranchScoped = req.user.role === 'EMPLOYEE';
             const branchConstraint = isBranchScoped ? req.user.branchId : undefined;
 
-            if (isBranchScoped && !branchConstraint) {
+            if (req.user.role === 'EMPLOYEE' && !branchConstraint) {
                 return res.status(403).json({ error: 'No branch assigned to this user' });
             }
 

@@ -1,6 +1,6 @@
 import axios from 'axios';
 import apiClient from './api-client';
-import { Order, CreateOrderData, OrderStatus, OrderFilters, OrderItem } from '../types';
+import { Order, CreateOrderData, OrderStatus, OrderFilters, OrderItem, SharedItemNotification } from '../types';
 
 const normalizeOrder = (order: Order): Order => {
     const rawItems = ((order as unknown as { items?: OrderItem[]; orderItems?: OrderItem[] }).items ??
@@ -100,6 +100,16 @@ export const orderService = {
         const response = await apiClient.get(`/staff/orders/${id}/bill`, {
             responseType: 'blob',
         });
+        return response.data;
+    },
+
+    async getSharedItemNotifications(since?: string): Promise<SharedItemNotification[]> {
+        const params = new URLSearchParams();
+        if (since) params.append('since', since);
+        const suffix = params.toString();
+        const response = await apiClient.get<SharedItemNotification[]>(
+            `/staff/notifications/shared-items${suffix ? `?${suffix}` : ''}`
+        );
         return response.data;
     },
 

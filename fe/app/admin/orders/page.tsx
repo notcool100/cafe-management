@@ -351,7 +351,7 @@ export default function AdminOrdersPage() {
                                     <div className="rounded-xl bg-[#633225] p-4 text-white shadow-lg">
                                         <p className="text-xl font-semibold">Bill Details</p>
                                         <div className="mt-4">
-                                            <p className="text-xs uppercase tracking-wide text-[#e7d5c7]">Food Items</p>
+                                            <p className="text-xs uppercase tracking-wide text-[#e7d5c7]">Order Items</p>
                                             <div className="mt-2 space-y-2 text-sm">
                                                 {selectedOrder.items.length === 0 ? (
                                                     <p className="text-[#e7d5c7]">No food items</p>

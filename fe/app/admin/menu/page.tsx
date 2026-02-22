@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { menuService } from '@/lib/api/menu-service';
 import { branchService } from '@/lib/api/branch-service';
-import { MenuItem, MenuCategory, Branch, UserRole } from '@/lib/types';
+import { MenuItem, Branch, UserRole } from '@/lib/types';
 import Spinner from '@/components/ui/Spinner';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
@@ -23,7 +23,7 @@ export default function MenuPage() {
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [filters, setFilters] = useState({
         search: '',
-        category: '' as MenuCategory | '',
+        category: '',
         branchId: managerBranchId || '',
     });
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; isVisible: boolean }>({

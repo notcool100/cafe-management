@@ -19,6 +19,7 @@ model Tenant {
   users       User[]
   branches    Branch[]
   menuItems   MenuItem[]
+  categories  Category[]
   orders      Order[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -98,6 +99,7 @@ model Branch {
   qrCode          String?    @db.Text
   users           User[]
   menuItems       MenuItem[]
+  categories      Category[]
   orders          Order[]
   tenantId        String
   tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -127,6 +129,23 @@ model MenuItem {
   @@index([branchId])
   @@index([category])
   @@index([tenantId])
+}
+
+model Category {
+  id              String   @id @default(uuid())
+  name            String
+  branchId        String
+  branch          Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  sharedBranchIds String[] @default([])
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, branchId, name])
+  @@index([branchId])
+  @@index([tenantId])
+  @@index([name])
 }
 
 model Order {

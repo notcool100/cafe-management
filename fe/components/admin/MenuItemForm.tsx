@@ -3,20 +3,21 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { MenuItem, MenuCategory, Branch, UserRole } from '@/lib/types';
+import { MenuItem, Branch, UserRole, Category } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Checkbox from '@/components/ui/Checkbox';
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { branchService } from '@/lib/api/branch-service';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { categoryService } from '@/lib/api/category-service';
 
 const menuItemSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
     description: z.string().optional(),
     price: z.number().min(0, 'Price must be positive'),
-    category: z.nativeEnum(MenuCategory),
+    category: z.string().min(1, 'Category is required'),
     branchId: z.string().min(1, 'Branch is required'),
     available: z.boolean(),
 });
@@ -42,6 +43,8 @@ export default function MenuItemForm({
     onImagePreview,
 }: MenuItemFormProps) {
     const [branches, setBranches] = useState<Branch[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [categoryLoading, setCategoryLoading] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [sharedBranchIds, setSharedBranchIds] = useState<string[]>(initialData?.sharedBranchIds || []);
     const [isTransferable, setIsTransferable] = useState<boolean>(
@@ -70,7 +73,7 @@ export default function MenuItemForm({
             name: initialData?.name || '',
             description: initialData?.description || '',
             price: initialData?.price || 0,
-            category: initialData?.category || MenuCategory.FOOD,
+            category: initialData?.category || '',
             branchId: initialData?.branchId || lockedBranchId || '',
             available: initialData?.available ?? true,
         },
@@ -78,6 +81,8 @@ export default function MenuItemForm({
 
     // eslint-disable-next-line react-hooks/incompatible-library
     const selectedBranchId = watch('branchId');
+    // eslint-disable-next-line react-hooks/incompatible-library
+    const selectedCategory = watch('category');
     const shareableBranches = selectedBranchId
         ? branches.filter((branch) => branch.id !== selectedBranchId)
         : [];
@@ -115,6 +120,61 @@ export default function MenuItemForm({
         if (!selectedBranchId) return;
         setSharedBranchIds((prev) => prev.filter((id) => id !== selectedBranchId));
     }, [selectedBranchId]);
+
+    useEffect(() => {
+        if (!selectedBranchId) {
+            setCategories([]);
+            return;
+        }
+        let active = true;
+        const loadCategories = async () => {
+            try {
+                setCategoryLoading(true);
+                const data = await categoryService.getCategories(selectedBranchId);
+                if (active) {
+                    setCategories(data);
+                }
+            } catch (error) {
+                console.error('Failed to load categories:', error);
+                if (active) {
+                    setCategories([]);
+                }
+            } finally {
+                if (active) {
+                    setCategoryLoading(false);
+                }
+            }
+        };
+        loadCategories();
+        return () => {
+            active = false;
+        };
+    }, [selectedBranchId]);
+
+    useEffect(() => {
+        if (!selectedBranchId || selectedCategory || categories.length === 0) return;
+        setValue('category', categories[0].name, { shouldValidate: true });
+    }, [categories, selectedBranchId, selectedCategory, setValue]);
+
+    const categoryOptions = useMemo(() => {
+        const seen = new Set<string>();
+        const options = categories.flatMap((cat) => {
+            const name = cat.name?.trim();
+            if (!name) return [];
+            const key = name.toLowerCase();
+            if (seen.has(key)) return [];
+            seen.add(key);
+            return [{ value: name, label: name }];
+        });
+        const selected = selectedCategory?.trim();
+        if (selected) {
+            const key = selected.toLowerCase();
+            if (!seen.has(key)) {
+                options.unshift({ value: selected, label: selected });
+            }
+        }
+        return options;
+    }, [categories, selectedCategory]);
 
     return (
         <form
@@ -161,15 +221,27 @@ export default function MenuItemForm({
                         placeholder="0.00"
                     />
 
-                    <Select
-                        label="Category"
-                        {...register('category')}
-                        error={errors.category?.message}
-                        options={Object.values(MenuCategory).map(cat => ({
-                            value: cat,
-                            label: cat.charAt(0) + cat.slice(1).toLowerCase().replace('_', ' ')
-                        }))}
-                    />
+                    <div className="w-full">
+                        <Input
+                            label="Category"
+                            list="menu-category-options"
+                            {...register('category')}
+                            error={errors.category?.message}
+                            placeholder="e.g. Beverage"
+                            helperText={
+                                categoryLoading
+                                    ? 'Loading categories...'
+                                    : categoryOptions.length > 0
+                                        ? 'Pick an existing category or type a new one.'
+                                        : 'Type a category name to create a new one.'
+                            }
+                        />
+                        <datalist id="menu-category-options">
+                            {categoryOptions.map((option) => (
+                                <option key={option.value} value={option.value} />
+                            ))}
+                        </datalist>
+                    </div>
                 </div>
 
                 <Select

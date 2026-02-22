@@ -31,12 +31,21 @@ export class MenuService {
             sharedBranchIds: data.sharedBranchIds,
         });
 
+        const categoryName = data.category?.trim();
+        if (categoryName) {
+            await ensureCategoryExists({
+                name: categoryName,
+                branchId: data.branchId,
+                tenantId: branch.tenantId,
+            });
+        }
+
         const menuItem = await prisma.menuItem.create({
             data: {
                 name: data.name,
                 description: data.description,
                 price: data.price,
-                category: data.category,
+                category: categoryName,
                 imageUrl: data.imageUrl,
                 branchId: data.branchId,
                 tenantId: branch.tenantId,
@@ -110,10 +119,20 @@ export class MenuService {
             })
             : undefined;
 
+        const categoryName = data.category?.trim();
+        if (categoryName) {
+            await ensureCategoryExists({
+                name: categoryName,
+                branchId: existing.branchId,
+                tenantId: existing.tenantId,
+            });
+        }
+
         const menuItem = await prisma.menuItem.update({
             where: { id },
             data: {
                 ...data,
+                ...(data.category !== undefined ? { category: categoryName } : {}),
                 ...(sharedBranchIds !== undefined ? { sharedBranchIds } : {}),
             },
             include: { branch: true },
@@ -207,4 +226,36 @@ const resolveSharedBranchIds = async ({
     });
 
     return branches.map((branch) => branch.id);
+};
+
+const ensureCategoryExists = async ({
+    name,
+    branchId,
+    tenantId,
+}: {
+    name: string;
+    branchId: string;
+    tenantId: string;
+}) => {
+    const existing = await prisma.category.findFirst({
+        where: {
+            tenantId,
+            name,
+            OR: [
+                { branchId },
+                { sharedBranchIds: { has: branchId } },
+            ],
+        },
+        select: { id: true },
+    });
+
+    if (existing) return;
+
+    await prisma.category.create({
+        data: {
+            name,
+            branchId,
+            tenantId,
+        },
+    });
 };

@@ -16,8 +16,11 @@ const navigation = [
     { name: 'Employees', href: '/admin/employees', icon: UsersIcon },
     { name: 'Branches', href: '/admin/branches', icon: BuildingIcon },
     { name: 'Menu Items', href: '/admin/menu', icon: MenuIcon },
+    { name: 'Categories', href: '/admin/category', icon: TagIcon },
     // { name: 'Theme', href: '/admin/theme', icon: PaletteIcon },
 ];
+
+const managerNavigation = [{ name: 'Create Order', href: '/staff/orders', icon: ClipboardIcon }];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -25,9 +28,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const { user, logout } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const isStaffManager = user?.role === UserRole.MANAGER || user?.role === UserRole.EMPLOYEE;
-    const staffAllowed = useMemo(() => ['/admin/reports', '/admin/orders', '/admin/employees', '/admin/menu'], []);
+    const staffAllowed = useMemo(
+        () => ['/admin/reports', '/admin/orders', '/admin/employees', '/admin/menu', '/admin/category'],
+        []
+    );
     const visibleNavigation = isStaffManager
-        ? navigation.filter((item) => staffAllowed.includes(item.href))
+        ? [...managerNavigation, ...navigation.filter((item) => staffAllowed.includes(item.href))]
         : navigation;
     const isNavItemActive = (href: string) =>
         href === '/admin'
@@ -284,6 +290,19 @@ function MenuIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+    );
+}
+
+function TagIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M7 7h.01M3 7a4 4 0 014-4h5.586a2 2 0 011.414.586l7.414 7.414a2 2 0 010 2.828l-5.586 5.586a2 2 0 01-2.828 0L4.586 11A2 2 0 014 9.586V7z"
+            />
         </svg>
     );
 }

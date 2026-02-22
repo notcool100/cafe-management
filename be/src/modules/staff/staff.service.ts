@@ -81,4 +81,46 @@ export class StaffService {
 
         return order;
     }
+
+    static async getSharedItemNotifications(branchId: string, tenantId: string, since?: Date) {
+        const orders = await prisma.order.findMany({
+            where: {
+                tenantId,
+                status: 'COMPLETED',
+                branchId: { not: branchId },
+                ...(since ? { completedAt: { gte: since } } : {}),
+                orderItems: {
+                    some: {
+                        menuItem: {
+                            branchId,
+                        },
+                    },
+                },
+            },
+            include: {
+                orderItems: {
+                    include: {
+                        menuItem: true,
+                    },
+                },
+                branch: true,
+            },
+            orderBy: { completedAt: 'desc' },
+            take: 15,
+        });
+
+        return orders.map((order) => {
+            const sharedItems = order.orderItems.filter(
+                (item) => item.menuItem?.branchId === branchId
+            );
+
+            return {
+                orderId: order.id,
+                completedAt: order.completedAt ?? order.updatedAt,
+                orderBranchId: order.branchId,
+                orderBranchName: order.branch?.name,
+                itemNames: sharedItems.map((item) => item.menuItem?.name || 'Item'),
+            };
+        });
+    }
 }

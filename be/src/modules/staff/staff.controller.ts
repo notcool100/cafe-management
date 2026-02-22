@@ -127,4 +127,34 @@ export class StaffController {
             });
         }
     }
+
+    static async getSharedItemNotifications(req: AuthRequest, res: Response) {
+        try {
+            const branchId = req.user?.branchId;
+            const tenantId = req.user?.tenantId;
+            const sinceRaw = req.query?.since as string | undefined;
+
+            if (!tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
+            if (!branchId) {
+                return res.status(400).json({ error: 'Staff member not assigned to a branch' });
+            }
+
+            const since = sinceRaw ? new Date(sinceRaw) : undefined;
+            const sinceDate = since && !isNaN(since.getTime()) ? since : undefined;
+
+            const notifications = await StaffService.getSharedItemNotifications(
+                branchId,
+                tenantId,
+                sinceDate
+            );
+
+            res.json(notifications);
+        } catch (error) {
+            res.status(500).json({
+                error: error instanceof Error ? error.message : 'Failed to fetch shared item notifications',
+            });
+        }
+    }
 }

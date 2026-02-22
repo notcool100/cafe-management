@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UserRole, MenuCategory } from '../types';
+import { UserRole } from '../types';
 
 // Auth Schemas
 export const loginSchema = z.object({
@@ -51,7 +51,7 @@ export const menuItemSchema = z.object({
     name: z.string().min(2, 'Item name must be at least 2 characters'),
     description: z.string().optional(),
     price: z.number().min(0, 'Price must be a positive number'),
-    category: z.nativeEnum(MenuCategory),
+    category: z.string().min(1, 'Category is required'),
     available: z.boolean().default(true),
     branchId: z.string().min(1, 'Branch is required'),
 });

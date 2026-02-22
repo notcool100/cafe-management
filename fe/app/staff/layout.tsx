@@ -13,11 +13,19 @@ const navigation = [
     { name: 'Active Orders', href: '/staff/orders', icon: ClipboardListIcon },
 ];
 
+const managerNavigation = [
+    { name: 'Reports', href: '/admin/reports', icon: ChartIcon },
+    { name: 'Menu Items', href: '/admin/menu', icon: ClipboardListIcon },
+    { name: 'Categories', href: '/admin/category', icon: TagIcon },
+    { name: 'Employees', href: '/admin/employees', icon: UsersIcon },
+];
+
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
     const { user, logout } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const isManager = user?.role === 'MANAGER';
     const isNavItemActive = (href: string) =>
         href === '/staff' ? pathname === href : pathname === href || pathname.startsWith(href + '/');
 
@@ -72,6 +80,41 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                                     </Link>
                                 );
                             })}
+
+                            {isManager && (
+                                <div className="mt-6 pt-4 border-t border-[#e4d7c2] space-y-1">
+                                    <p className="px-3 text-xs font-semibold uppercase tracking-wider text-[#8b6f5f]">
+                                        Manager Tools
+                                    </p>
+                                    {managerNavigation.map((item) => {
+                                        const isActive = isNavItemActive(item.href);
+                                        const Icon = item.icon;
+                                        const iconColor = isActive ? '#fffaf0' : '#5a3a2e';
+
+                                        return (
+                                            <Link
+                                                key={item.name}
+                                                href={item.href}
+                                                className={cn(
+                                                    'group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200',
+                                                    isActive
+                                                        ? 'shadow-[0_8px_20px_rgba(90,58,46,0.25)]'
+                                                        : 'hover:bg-[#efe2cd]'
+                                                )}
+                                                style={{
+                                                    backgroundColor: isActive ? '#5a3a2e' : undefined,
+                                                    color: isActive ? '#fffaf0' : '#5a3a2e',
+                                                }}
+                                            >
+                                                <span style={{ color: iconColor }}>
+                                                    <Icon className="mr-3 h-5 w-5 flex-shrink-0 transition-transform duration-200" />
+                                                </span>
+                                                <span>{item.name}</span>
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </nav>
 
                         <div className="flex-shrink-0 p-4 border-t border-[#e4d7c2]">
@@ -234,10 +277,44 @@ function ClipboardListIcon({ className }: { className?: string }) {
     );
 }
 
+function ChartIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3v18m-6-6v6m12-10v10m6-14v14" />
+        </svg>
+    );
+}
+
+function UsersIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m3-4a4 4 0 110-8 4 4 0 010 8zm6 4a3 3 0 10-6 0"
+            />
+        </svg>
+    );
+}
+
 function MenuIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+    );
+}
+
+function TagIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M7 7h.01M3 7a4 4 0 014-4h5.586a2 2 0 011.414.586l7.414 7.414a2 2 0 010 2.828l-5.586 5.586a2 2 0 01-2.828 0L4.586 11A2 2 0 014 9.586V7z"
+            />
         </svg>
     );
 }
