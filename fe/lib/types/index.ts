@@ -80,6 +80,7 @@ export interface MenuItem {
     price: number;
     category: MenuCategory;
     imageUrl?: string;
+    sharedBranchIds?: string[];
     available: boolean;
     branchId: string;
     branch?: Branch;
@@ -95,6 +96,7 @@ export interface CreateMenuItemData {
     imageFile?: File | null;
     available: boolean;
     branchId: string;
+    sharedBranchIds?: string[];
 }
 
 // Order Types

@@ -95,7 +95,7 @@ export default function ActiveOrdersPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [menuLoading, setMenuLoading] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
-    const [filterStatus, setFilterStatus] = useState<OrderStatus | 'ALL'>('ALL');
+    const [filterStatus, setFilterStatus] = useState<OrderStatus | 'ALL'>(OrderStatus.PENDING);
     const [dateFilter, setDateFilter] = useState<DateFilter>('TODAY');
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [customerName, setCustomerName] = useState('');
@@ -609,7 +609,7 @@ export default function ActiveOrdersPage() {
                                     label="All"
                                     onClick={() => setFilterStatus('ALL')}
                                 />
-                                {[OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.CANCELLATION_PENDING, OrderStatus.COMPLETED, OrderStatus.CANCELLED].map((status) => (
+                                {[OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.COMPLETED, OrderStatus.CANCELLED].map((status) => (
                                     <FilterChip
                                         key={status}
                                         active={filterStatus === status}
@@ -677,7 +677,8 @@ function OrderCard({ order, onClick, lookup }: { order: Order; onClick: () => vo
     const tone = statusTone[order.status] || statusTone[OrderStatus.PENDING];
     const itemCount = order.items.reduce((acc, item) => acc + item.quantity, 0);
     const thumbnails = order.items.slice(0, 3).map((item) => {
-        const menuItem = item.menuItem ?? lookup[item.menuItemId];
+        const menuItem =
+            item.menuItem?.imageUrl ? item.menuItem : lookup[item.menuItemId] ?? item.menuItem;
         return resolveImageUrl(menuItem?.imageUrl);
     });
     const overflow = Math.max(0, order.items.length - 3);

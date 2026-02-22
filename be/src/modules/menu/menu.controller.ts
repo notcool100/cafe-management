@@ -8,6 +8,23 @@ const isManager = (req: AuthRequest) =>
     req.user?.role === 'MANAGER' || req.user?.role === 'EMPLOYEE';
 const managerBranchId = (req: AuthRequest) => req.user?.branchId;
 
+const parseSharedBranchIds = (value: unknown) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map(String);
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) return parsed.map(String);
+        } catch {
+            return value
+                .split(',')
+                .map((id) => id.trim())
+                .filter(Boolean);
+        }
+    }
+    return [];
+};
+
 export class MenuController {
     static createMenuItemValidation = [
         body('name').notEmpty().withMessage('Name is required'),
@@ -23,6 +40,7 @@ export class MenuController {
             }
 
             const { name, description, price, category, branchId } = req.body;
+            const sharedBranchIds = parseSharedBranchIds(req.body.sharedBranchIds);
             if (isManager(req)) {
                 if (!managerBranchId(req)) {
                     return res.status(400).json({ error: 'Manager is not assigned to a branch' });
@@ -44,6 +62,7 @@ export class MenuController {
                 category,
                 imageUrl,
                 branchId,
+                sharedBranchIds,
             }, req.user.tenantId);
 
             res.status(201).json(menuItem);
@@ -96,6 +115,8 @@ export class MenuController {
             const { id } = req.params;
             const { name, description, price, category, branchId } = req.body;
             const file = (req as AuthRequest & { file?: Express.Multer.File }).file;
+            const hasSharedBranchIds = Object.prototype.hasOwnProperty.call(req.body, 'sharedBranchIds');
+            const sharedBranchIds = hasSharedBranchIds ? parseSharedBranchIds(req.body.sharedBranchIds) : undefined;
             if (!req.user?.tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
@@ -124,6 +145,7 @@ export class MenuController {
                 category,
                 imageUrl,
                 isAvailable,
+                ...(sharedBranchIds !== undefined ? { sharedBranchIds } : {}),
             }, req.user.tenantId);
 
             res.json(menuItem);

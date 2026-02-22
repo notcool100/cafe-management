@@ -21,6 +21,7 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
     const [isLoading, setIsLoading] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
     const [newStatus, setNewStatus] = useState<OrderStatus>(OrderStatus.PENDING);
+    const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; isVisible: boolean }>({
         message: '',
         type: 'success',
@@ -65,6 +66,11 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
     const handleStatusUpdate = async () => {
         if (!order || !newStatus || newStatus === order.status || isTerminal(order.status)) return;
 
+        if (newStatus === OrderStatus.CANCELLED) {
+            setShowCancelConfirm(true);
+            return;
+        }
+
         setIsUpdating(true);
         try {
             await orderService.updateOrderStatus(order.id, newStatus);
@@ -86,13 +92,13 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
         }
     };
 
-    const handleUndoCancellation = async () => {
-        if (!order || order.status !== OrderStatus.CANCELLATION_PENDING) return;
+    const confirmCancelOrder = async () => {
+        if (!order || isTerminal(order.status)) return;
         setIsUpdating(true);
         try {
-            await orderService.undoCancellation(order.id);
+            await orderService.updateOrderStatus(order.id, OrderStatus.CANCELLED);
             setToast({
-                message: 'Cancellation undone',
+                message: 'Order cancelled successfully',
                 type: 'success',
                 isVisible: true,
             });
@@ -100,12 +106,13 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
             if (onUpdate) onUpdate();
         } catch {
             setToast({
-                message: 'Unable to undo cancellation (window may have expired)',
+                message: 'Failed to cancel order',
                 type: 'error',
                 isVisible: true,
             });
         } finally {
             setIsUpdating(false);
+            setShowCancelConfirm(false);
         }
     };
 
@@ -238,12 +245,6 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
 
                     {/* Footer Actions */}
                     <div className="p-4 bg-gray-800/50 border-t border-gray-700">
-                        {order.status === OrderStatus.CANCELLATION_PENDING && (
-                            <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-                                Cancellation is pending for 1 minute. You can undo before it finalizes.
-                            </div>
-                        )}
-
                         <div className="flex justify-between items-center mb-6">
                             <span className="text-gray-400">Total Amount</span>
                             <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
@@ -284,18 +285,6 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                                 </div>
                             )}
 
-                            {order.status === OrderStatus.CANCELLATION_PENDING && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleUndoCancellation}
-                                    disabled={isUpdating}
-                                    fullWidth
-                                >
-                                    Undo Cancellation
-                                </Button>
-                            )}
-
                             <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-700">
                                 <Button variant="outline" size="sm" onClick={handleGenerateKOT}>
                                     <DocumentIcon className="mr-2 h-4 w-4" />
@@ -310,6 +299,25 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                     </div>
                 </div>
             )}
+
+            <Modal
+                isOpen={showCancelConfirm}
+                onClose={() => setShowCancelConfirm(false)}
+                title="Cancel Order?"
+                size="sm"
+            >
+                <p className="text-sm text-gray-300">
+                    Do you want to cancel this order? This action cannot be undone.
+                </p>
+                <div className="mt-6 flex gap-3 justify-end">
+                    <Button variant="ghost" onClick={() => setShowCancelConfirm(false)} disabled={isUpdating}>
+                        Keep Order
+                    </Button>
+                    <Button variant="danger" onClick={confirmCancelOrder} isLoading={isUpdating}>
+                        Yes, Cancel
+                    </Button>
+                </div>
+            </Modal>
         </Modal>
     );
 }

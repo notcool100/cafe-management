@@ -24,7 +24,7 @@ export default function AdminOrdersPage() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
     const [branchFilter, setBranchFilter] = useState<string>(managerBranchId ?? 'all');
-    const [statusFilter, setStatusFilter] = useState<OrderStatus | 'ALL'>('ALL');
+    const [statusFilter, setStatusFilter] = useState<OrderStatus | 'ALL'>(OrderStatus.PENDING);
     const [dateFilter, setDateFilter] = useState<DateFilter>('TODAY');
     const [isLoading, setIsLoading] = useState(true);
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -250,7 +250,7 @@ export default function AdminOrdersPage() {
                         <span className="text-xs uppercase tracking-wide text-[#6f584f]">Status</span>
                         <div className="flex flex-wrap gap-2">
                             <FilterChip active={statusFilter === 'ALL'} label="All" onClick={() => setStatusFilter('ALL')} />
-                            {[OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.CANCELLATION_PENDING, OrderStatus.COMPLETED, OrderStatus.CANCELLED].map((status) => (
+                            {[OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.COMPLETED, OrderStatus.CANCELLED].map((status) => (
                                 <FilterChip key={status} active={statusFilter === status} label={status} onClick={() => setStatusFilter(status)} />
                             ))}
                         </div>

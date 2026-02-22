@@ -58,7 +58,7 @@ export default function PublicMenuPage() {
     }, [loadData]);
 
     const handleAddToCart = (item: MenuItem) => {
-        addItem(item);
+        addItem({ ...item, branchId });
         setToast({
             message: `Added ${item.name} to cart`,
             type: 'success',

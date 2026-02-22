@@ -10,6 +10,7 @@ export class MenuService {
             category?: string;
             imageUrl?: string;
             branchId: string;
+            sharedBranchIds?: string[];
         },
         tenantId?: string
     ) {
@@ -24,6 +25,12 @@ export class MenuService {
 
         await assertMenuItemEntitlement(branch.tenantId);
 
+        const sharedBranchIds = await resolveSharedBranchIds({
+            branchId: data.branchId,
+            tenantId: branch.tenantId,
+            sharedBranchIds: data.sharedBranchIds,
+        });
+
         const menuItem = await prisma.menuItem.create({
             data: {
                 name: data.name,
@@ -33,6 +40,7 @@ export class MenuService {
                 imageUrl: data.imageUrl,
                 branchId: data.branchId,
                 tenantId: branch.tenantId,
+                sharedBranchIds,
             },
             include: { branch: true },
         });
@@ -44,7 +52,12 @@ export class MenuService {
         const menuItems = await prisma.menuItem.findMany({
             where: {
                 ...(tenantId ? { tenantId } : {}),
-                ...(branchId && { branchId }),
+                ...(branchId && {
+                    OR: [
+                        { branchId },
+                        { sharedBranchIds: { has: branchId } },
+                    ],
+                }),
                 ...(category && { category }),
             },
             include: { branch: true },
@@ -76,21 +89,33 @@ export class MenuService {
             category?: string;
             imageUrl?: string;
             isAvailable?: boolean;
+            sharedBranchIds?: string[];
         },
         tenantId?: string
     ) {
         const existing = await prisma.menuItem.findFirst({
             where: { id, ...(tenantId ? { tenantId } : {}) },
-            select: { tenantId: true },
+            select: { tenantId: true, branchId: true },
         });
 
         if (!existing) {
             throw new Error('Menu item not found');
         }
 
+        const sharedBranchIds = data.sharedBranchIds !== undefined
+            ? await resolveSharedBranchIds({
+                branchId: existing.branchId,
+                tenantId: existing.tenantId,
+                sharedBranchIds: data.sharedBranchIds,
+            })
+            : undefined;
+
         const menuItem = await prisma.menuItem.update({
             where: { id },
-            data,
+            data: {
+                ...data,
+                ...(sharedBranchIds !== undefined ? { sharedBranchIds } : {}),
+            },
             include: { branch: true },
         });
 
@@ -126,8 +151,12 @@ export class MenuService {
 
         const menuItems = await prisma.menuItem.findMany({
             where: {
-                branchId,
+                tenantId: branch.tenantId,
                 isAvailable: true,
+                OR: [
+                    { branchId },
+                    { sharedBranchIds: { has: branchId } },
+                ],
             },
             orderBy: [{ category: 'asc' }, { name: 'asc' }],
         });
@@ -146,4 +175,36 @@ export class MenuService {
 const normalizeMenuItem = (menuItem: any) => ({
     ...menuItem,
     available: menuItem.isAvailable,
+    sharedBranchIds: menuItem.sharedBranchIds || [],
 });
+
+const resolveSharedBranchIds = async ({
+    branchId,
+    tenantId,
+    sharedBranchIds,
+}: {
+    branchId: string;
+    tenantId: string;
+    sharedBranchIds?: string[];
+}) => {
+    if (!sharedBranchIds || sharedBranchIds.length === 0) {
+        return [];
+    }
+
+    const uniqueIds = Array.from(new Set(sharedBranchIds.filter(Boolean)));
+    const filteredIds = uniqueIds.filter((id) => id !== branchId);
+
+    if (filteredIds.length === 0) {
+        return [];
+    }
+
+    const branches = await prisma.branch.findMany({
+        where: {
+            id: { in: filteredIds },
+            tenantId,
+        },
+        select: { id: true },
+    });
+
+    return branches.map((branch) => branch.id);
+};

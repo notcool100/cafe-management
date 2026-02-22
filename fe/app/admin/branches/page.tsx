@@ -128,7 +128,9 @@ export default function BranchesPage() {
                                 </div>
                             </Link>
 
-                            <p className="truncate px-1 text-2xl font-semibold text-[#f1e8d6]">{branch.location}</p>
+                            <p className="truncate px-1 text-2xl font-semibold text-[#f1e8d6]">
+                                {branch.name}, {branch.location}
+                            </p>
 
                             <div className="mt-4 flex gap-2">
                                 <Button

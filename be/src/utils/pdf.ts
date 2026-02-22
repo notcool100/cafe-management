@@ -1,9 +1,9 @@
 import PDFDocument from 'pdfkit';
-import { Order, OrderItem, MenuItem } from '@prisma/client';
+import { Order, OrderItem, MenuItem, Branch } from '@prisma/client';
 
 export type OrderWithItems = Order & {
     orderItems: (OrderItem & {
-        menuItem: MenuItem;
+        menuItem: MenuItem & { branch?: Branch | null };
     })[];
 };
 
@@ -85,7 +85,18 @@ export async function generateKOT(order: OrderWithItems): Promise<Buffer> {
             doc.text(item.quantity.toString(), QTY_COL_X, rowY, { width: QTY_COL_WIDTH, align: 'center' });
             doc.text(`${Number(item.price).toFixed(2)}`, PRICE_COL_X, rowY, { width: PRICE_COL_WIDTH, align: 'right' });
             doc.text(`${itemTotal.toFixed(2)}`, TOTAL_COL_X, rowY, { width: TOTAL_COL_WIDTH, align: 'right' });
-            doc.moveDown();
+            doc.moveDown(0.5);
+
+            if (item.menuItem.branchId !== order.branchId) {
+                const sharedBranchName = item.menuItem.branch?.name;
+                const noteText = sharedBranchName
+                    ? `From another branch: ${sharedBranchName}`
+                    : 'From another branch';
+                doc.fontSize(7);
+                doc.text(noteText, ITEM_COL_X, doc.y, { width: ITEM_COL_WIDTH });
+                doc.fontSize(8);
+                doc.moveDown(0.4);
+            }
         });
 
         // Line separator
@@ -168,7 +179,18 @@ export async function generateBill(order: OrderWithItems): Promise<Buffer> {
             doc.text(item.quantity.toString(), QTY_COL_X, billRowY, { width: QTY_COL_WIDTH, align: 'center' });
             doc.text(`${Number(item.price).toFixed(2)}`, PRICE_COL_X, billRowY, { width: PRICE_COL_WIDTH, align: 'right' });
             doc.text(`${itemTotal.toFixed(2)}`, TOTAL_COL_X, billRowY, { width: TOTAL_COL_WIDTH, align: 'right' });
-            doc.moveDown();
+            doc.moveDown(0.5);
+
+            if (item.menuItem.branchId !== order.branchId) {
+                const sharedBranchName = item.menuItem.branch?.name;
+                const noteText = sharedBranchName
+                    ? `From another branch: ${sharedBranchName}`
+                    : 'From another branch';
+                doc.fontSize(7);
+                doc.text(noteText, ITEM_COL_X, doc.y, { width: ITEM_COL_WIDTH });
+                doc.fontSize(8);
+                doc.moveDown(0.4);
+            }
         });
 
         // Line separator

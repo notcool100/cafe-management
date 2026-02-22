@@ -23,6 +23,7 @@ const menuItemSchema = z.object({
 
 export interface MenuItemFormData extends z.infer<typeof menuItemSchema> {
     imageFile?: File | null;
+    sharedBranchIds?: string[];
 }
 
 interface MenuItemFormProps {
@@ -42,6 +43,10 @@ export default function MenuItemForm({
 }: MenuItemFormProps) {
     const [branches, setBranches] = useState<Branch[]>([]);
     const [imageFile, setImageFile] = useState<File | null>(null);
+    const [sharedBranchIds, setSharedBranchIds] = useState<string[]>(initialData?.sharedBranchIds || []);
+    const [isTransferable, setIsTransferable] = useState<boolean>(
+        (initialData?.sharedBranchIds?.length || 0) > 0
+    );
     const { user } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
     const lockedBranchId = isManager ? user?.branchId : undefined;
@@ -58,6 +63,7 @@ export default function MenuItemForm({
         handleSubmit,
         formState: { errors },
         setValue,
+        watch,
     } = useForm<MenuItemFormData>({
         resolver: zodResolver(menuItemSchema),
         defaultValues: {
@@ -69,6 +75,12 @@ export default function MenuItemForm({
             available: initialData?.available ?? true,
         },
     });
+
+    // eslint-disable-next-line react-hooks/incompatible-library
+    const selectedBranchId = watch('branchId');
+    const shareableBranches = selectedBranchId
+        ? branches.filter((branch) => branch.id !== selectedBranchId)
+        : [];
 
     useEffect(() => {
         const loadBranches = async () => {
@@ -92,9 +104,27 @@ export default function MenuItemForm({
         loadBranches();
     }, [initialData?.branchId, lockedBranchId, setValue]);
 
+    useEffect(() => {
+        if (initialData?.sharedBranchIds) {
+            setSharedBranchIds(initialData.sharedBranchIds);
+            setIsTransferable(initialData.sharedBranchIds.length > 0);
+        }
+    }, [initialData?.id, initialData?.sharedBranchIds]);
+
+    useEffect(() => {
+        if (!selectedBranchId) return;
+        setSharedBranchIds((prev) => prev.filter((id) => id !== selectedBranchId));
+    }, [selectedBranchId]);
+
     return (
         <form
-            onSubmit={handleSubmit((data) => onSubmit({ ...data, imageFile }))}
+            onSubmit={handleSubmit((data) =>
+                onSubmit({
+                    ...data,
+                    imageFile,
+                    sharedBranchIds: isTransferable ? sharedBranchIds : [],
+                })
+            )}
             className="space-y-6"
         >
             <div className="space-y-4">
@@ -162,6 +192,68 @@ export default function MenuItemForm({
                     <p className="text-xs text-amber-300 mt-1">
                         Branch is locked to your assignment.
                     </p>
+                )}
+
+                <div className="pt-2">
+                    <Checkbox
+                        label="Transferable to other branches"
+                        id="transferable"
+                        checked={isTransferable}
+                        onChange={(event) => {
+                            const checked = event.target.checked;
+                            setIsTransferable(checked);
+                            if (!checked) {
+                                setSharedBranchIds([]);
+                            }
+                        }}
+                    />
+                    <p className="mt-1 text-sm text-gray-500 ml-7">
+                        Enable this to share the item with selected branches in the same organization.
+                    </p>
+                </div>
+
+                {isTransferable && (
+                    <div className="grid gap-2 pl-7 border-l-2 border-gray-800 ml-2">
+                        {!selectedBranchId && (
+                            <p className="text-xs text-gray-500">
+                                Select a branch to choose sharing targets.
+                            </p>
+                        )}
+                        {selectedBranchId && shareableBranches.length === 0 && (
+                            <p className="text-xs text-gray-500">
+                                No other branches available to share with.
+                            </p>
+                        )}
+                        {selectedBranchId && shareableBranches.length > 0 && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {shareableBranches.map((branch) => {
+                                    const checked = sharedBranchIds.includes(branch.id);
+                                    return (
+                                        <label key={branch.id} className="flex items-center gap-2 text-sm text-gray-200">
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4 rounded border-gray-700 bg-gray-900/50 text-purple-600 focus:ring-purple-500/20 focus:ring-2 transition-colors cursor-pointer"
+                                                checked={checked}
+                                                onChange={() => {
+                                                    setSharedBranchIds((prev) =>
+                                                        prev.includes(branch.id)
+                                                            ? prev.filter((id) => id !== branch.id)
+                                                            : [...prev, branch.id]
+                                                    );
+                                                }}
+                                            />
+                                            <span>{branch.name}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        )}
+                        {selectedBranchId && shareableBranches.length > 0 && sharedBranchIds.length === 0 && (
+                            <p className="text-xs text-amber-300">
+                                Select at least one branch to enable sharing.
+                            </p>
+                        )}
+                    </div>
                 )}
 
                 <div className="w-full">

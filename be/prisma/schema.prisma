@@ -116,6 +116,7 @@ model MenuItem {
   imageUrl    String?
   isAvailable Boolean     @default(true)
   branchId    String
+  sharedBranchIds String[] @default([])
   branch      Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
   tenantId    String
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)

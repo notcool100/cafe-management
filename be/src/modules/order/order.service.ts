@@ -2,8 +2,6 @@ import prisma from '../../config/database';
 import { TokenManager } from '../../utils/token';
 
 export class OrderService {
-    private static CANCELLATION_GRACE_MS = 60_000; // 1 minute
-
     static async finalizeExpiredCancellations() {
         const now = new Date();
         await prisma.order.updateMany({
@@ -46,9 +44,12 @@ export class OrderService {
         const menuItems = await prisma.menuItem.findMany({
             where: {
                 id: { in: data.items.map((item) => item.menuItemId) },
-                branchId: data.branchId,
                 tenantId: branch.tenantId,
                 isAvailable: true,
+                OR: [
+                    { branchId: data.branchId },
+                    { sharedBranchIds: { has: data.branchId } },
+                ],
             },
         });
 
@@ -97,7 +98,11 @@ export class OrderService {
             include: {
                 orderItems: {
                     include: {
-                        menuItem: true,
+                        menuItem: {
+                            include: {
+                                branch: true,
+                            },
+                        },
                     },
                 },
                 branch: true,
@@ -261,16 +266,17 @@ export class OrderService {
             throw new Error('Order already cancelled');
         }
 
-        const expiresAt = new Date(Date.now() + this.CANCELLATION_GRACE_MS);
+        const now = new Date();
 
         return prisma.order.update({
             where: { id: orderId },
             data: {
-                status: 'CANCELLATION_PENDING',
-                cancellationRequestedAt: new Date(),
+                status: 'CANCELLED',
+                cancellationRequestedAt: now,
                 cancellationRequestedBy: userId,
-                cancellationExpiresAt: expiresAt,
+                cancellationExpiresAt: null,
                 cancellationPreviousStatus: existing.status as any,
+                cancellationFinalizedAt: now,
             },
             include: {
                 orderItems: { include: { menuItem: true } },

@@ -48,8 +48,8 @@ export default function LoginPage() {
                 console.log('🔀 [Login] Redirecting to /admin');
                 router.push('/admin');
             } else if (response.user.role === 'MANAGER' || response.user.role === 'EMPLOYEE') {
-                console.log('🔀 [Login] Redirecting to /admin/reports');
-                router.push('/admin/reports');
+                console.log('🔀 [Login] Redirecting to /staff/orders');
+                router.push('/staff/orders');
             } else {
                 console.log('🔀 [Login] Redirecting to /');
                 router.push('/');
@@ -64,7 +64,7 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 relative overflow-hidden">
+        <div className="min-h-screen flex items-center justify-center p-4 bg-white relative overflow-hidden">
             {/* Animated background elements */}
             <div className="absolute inset-0 overflow-hidden">
                 <div className="absolute -inset-[10px] opacity-50">
@@ -82,7 +82,7 @@ export default function LoginPage() {
                         <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent mb-2">
                             Welcome Back
                         </h1>
-                        <p className="text-gray-400">Sign in to your account</p>
+                        <p className="text-black-400">Sign in to your account</p>
                     </div>
 
                     {/* Error message */}
@@ -120,7 +120,7 @@ export default function LoginPage() {
                 </div>
 
                 {/* Footer */}
-                <p className="text-center text-gray-500 text-sm mt-6">
+                <p className="text-center text-black-500 text-sm mt-6">
                     Cafe Management System © 2026
                 </p>
             </div>
