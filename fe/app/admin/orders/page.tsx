@@ -385,7 +385,7 @@ export default function AdminOrdersPage() {
                                         <Button
                                             variant="outline"
                                             size="lg"
-                                            className="w-full max-w-[190px] border-[#7d7a6a] bg-[#848374] text-white hover:bg-[#716f62]"
+                                            className="w-full max-w-[190px] border-[#7d7a6a] bg-[#848374] text-black hover:bg-[#716f62]"
                                             onClick={handlePrint}
                                         >
                                             Print
@@ -393,7 +393,7 @@ export default function AdminOrdersPage() {
                                         <Button
                                             variant="outline"
                                             size="lg"
-                                            className="w-full max-w-[190px] border-[#633225] bg-[#633225] text-white hover:bg-[#4f291f]"
+                                            className="w-full max-w-[190px] border-[#633225] bg-[#633225] text-black hover:bg-[#4f291f]"
                                             onClick={() => setModalOrderId(selectedOrder.id)}
                                         >
                                             Manage Order

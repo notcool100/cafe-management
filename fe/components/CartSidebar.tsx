@@ -73,6 +73,7 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                                                     fill
                                                     sizes="80px"
                                                     className="object-cover"
+                                                    unoptimized
                                                 />
                                             ) : (
                                                 <div className="h-full w-full flex items-center justify-center text-gray-600">

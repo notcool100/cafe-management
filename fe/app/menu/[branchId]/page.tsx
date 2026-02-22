@@ -163,6 +163,7 @@ export default function PublicMenuPage() {
                                             sizes="(max-width: 1280px) 50vw, 25vw"
                                             className="object-cover"
                                             priority={false}
+                                            unoptimized
                                         />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-gray-600">

@@ -366,11 +366,11 @@ export default function ActiveOrdersPage() {
                             <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                                 <div className="flex-1">
                                     <div className="relative">
-                                        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                                        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white-500" />
                                         <input
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="w-full rounded-xl border border-gray-800 bg-gray-900/60 pl-9 pr-4 py-3 text-sm text-white placeholder:text-gray-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 outline-none"
+                                            className="w-full rounded-xl border border-gray-800 bg-gray-900/60 pl-9 pr-4 py-3 text-sm text-white placeholder:text-white-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 outline-none"
                                             placeholder="Search menu or notes"
                                         />
                                     </div>
@@ -403,9 +403,9 @@ export default function ActiveOrdersPage() {
                                         return (
                                             <div
                                                 key={item.id}
-                                                className="group rounded-2xl border border-gray-800 bg-gray-900/50 overflow-hidden flex flex-col shadow-sm hover:border-purple-500/50 transition-all"
+                                                className="group rounded-2xl border border-white-800 bg-white-900/50 overflow-hidden flex flex-col shadow-sm hover:border-red-500/50 transition-all"
                                             >
-                                                <div className="aspect-[4/3] relative bg-gray-800">
+                                                <div className="aspect-[4/3] relative bg-white-800">
                                                     {resolveImageUrl(item.imageUrl) ? (
                                                         <Image
                                                             src={resolveImageUrl(item.imageUrl) as string}
@@ -414,6 +414,7 @@ export default function ActiveOrdersPage() {
                                                             sizes="(max-width: 1280px) 50vw, 33vw"
                                                             className="object-cover"
                                                             priority={false}
+                                                            unoptimized
                                                         />
                                                     ) : (
                                                         <div className="w-full h-full flex items-center justify-center text-gray-600">
@@ -446,7 +447,7 @@ export default function ActiveOrdersPage() {
                                                         <p className="text-sm text-gray-400 line-clamp-2 flex-1">{item.description}</p>
                                                     )}
                                                     <div className="flex items-center justify-between pt-1">
-                                                        <span className="text-sm text-gray-400">Tap to add to order</span>
+                                                        {/* <span className="text-sm text-gray-400">Tap to add to order</span> */}
                                                         {existing ? (
                                                             <div className="inline-flex items-center gap-2 rounded-full bg-purple-500/10 border border-purple-500/30 px-2 py-1">
                                                                 <IconButton
@@ -504,20 +505,20 @@ export default function ActiveOrdersPage() {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <Input
-                                    label="Customer name (optional)"
+                                    label="Customer name"
                                     value={customerName}
                                     onChange={(e) => setCustomerName(e.target.value)}
                                     placeholder="Walk-in guest"
                                 />
                                 <Input
-                                    label="Customer phone (optional)"
+                                    label="Customer phone"
                                     value={customerPhone}
                                     onChange={(e) => setCustomerPhone(e.target.value)}
                                     placeholder="For pickup updates"
                                 />
                             </div>
 
-                            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 divide-y divide-gray-800 max-h-[360px] overflow-y-auto">
+                            <div className="rounded-2xl border border-gray-800 bg-white-900/60 divide-y divide-gray-800 max-h-[360px] overflow-y-auto">
                                 {!hasCart ? (
                                     <div className="p-6 text-center text-gray-500">
                                         <p className="text-base">Add items from the menu to start an order.</p>
@@ -552,7 +553,7 @@ export default function ActiveOrdersPage() {
                                             </div>
                                             <button
                                                 onClick={() => handleRemoveItem(item.menuItemId)}
-                                                className="text-gray-500 hover:text-red-400 transition"
+                                                className="text-red-500 hover:text-red-400 transition"
                                                 aria-label="Remove"
                                             >
                                                 <TrashIcon className="h-4 w-4" />
@@ -684,7 +685,7 @@ function OrderCard({ order, onClick, lookup }: { order: Order; onClick: () => vo
     return (
         <button
             onClick={onClick}
-            className={`text-left rounded-2xl border bg-gray-900/60 hover:border-purple-500/50 transition-all shadow-sm p-4 flex flex-col gap-3 ${tone.border}`}
+            className={`text-left rounded-2xl border bg-#f3e7d2 hover:border-red-500/50 transition-all shadow-lg p-4 flex flex-col gap-3 ${tone.border}`}
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -741,6 +742,7 @@ function ImageThumb({ src, label, size = 'md' }: { src?: string; label?: string;
                 sizes="64px"
                 className="object-cover"
                 priority={false}
+                unoptimized
             />
         </div>
     );

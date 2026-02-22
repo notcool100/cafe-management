@@ -5,8 +5,14 @@ export const resolveImageUrl = (imageUrl?: string | null) => {
     if (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('data:')) {
         return imageUrl;
     }
-    if (imageUrl.startsWith('/')) {
-        return `${API_BASE_URL}${imageUrl}`;
+    try {
+        const baseOrigin = new URL(API_BASE_URL).origin;
+        const normalized = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+        return `${baseOrigin}${normalized}`;
+    } catch {
+        if (imageUrl.startsWith('/')) {
+            return `${API_BASE_URL}${imageUrl}`;
+        }
+        return `${API_BASE_URL}/${imageUrl}`;
     }
-    return `${API_BASE_URL}/${imageUrl}`;
 };

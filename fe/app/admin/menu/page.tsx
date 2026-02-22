@@ -139,7 +139,7 @@ export default function MenuPage() {
             />
 
             <div className="mb-8 rounded-xl border border-[#d7c5a8] bg-[#f7efdf] p-6 lg:p-8">
-                <h1 className="text-3xl font-semibold text-[#5b3629] mb-8">MENU ITEAM</h1>
+                {/* <h1 className="text-3xl font-semibold text-[#5b3629] mb-8">MENU ITEAM</h1> */}
                 <h2 className="text-center text-3xl font-semibold tracking-wide text-[#20110b] mb-8">MENU</h2>
 
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -196,6 +196,7 @@ export default function MenuPage() {
                                         fill
                                         sizes="(max-width: 1024px) 100vw, 25vw"
                                         className="object-cover"
+                                        unoptimized
                                     />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-[#808080]">

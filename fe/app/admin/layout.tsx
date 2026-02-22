@@ -16,7 +16,7 @@ const navigation = [
     { name: 'Employees', href: '/admin/employees', icon: UsersIcon },
     { name: 'Branches', href: '/admin/branches', icon: BuildingIcon },
     { name: 'Menu Items', href: '/admin/menu', icon: MenuIcon },
-    { name: 'Theme', href: '/admin/theme', icon: PaletteIcon },
+    // { name: 'Theme', href: '/admin/theme', icon: PaletteIcon },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

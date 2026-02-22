@@ -146,7 +146,7 @@ body::before {
 }
 .btn-outline {
   border: 2px solid color-mix(in srgb, var(--color-primary) 70%, #ffffff 10%);
-  color: white;
+  color: black;
   background: transparent;
 }
 .btn-outline:hover {

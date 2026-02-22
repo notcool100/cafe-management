@@ -103,11 +103,11 @@ export default function EditMenuItemPage() {
 
             <div className="mb-6 flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Edit Menu Item</h1>
-                    <p className="text-gray-400">Update item details</p>
+                    <h1 className="text-3xl font-bold text-black mb-2">Edit Menu Item</h1>
+                    <p className="text-black-400">Update item details</p>
                 </div>
                 <Link href="/admin/menu">
-                    <Button variant="ghost">Back to List</Button>
+                    <Button  className='text-black'>Back to List</Button>
                 </Link>
             </div>
 

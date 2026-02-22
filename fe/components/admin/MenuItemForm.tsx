@@ -8,7 +8,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Checkbox from '@/components/ui/Checkbox';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { branchService } from '@/lib/api/branch-service';
 import { useAuthStore } from '@/lib/store/auth-store';
 
@@ -30,14 +30,28 @@ interface MenuItemFormProps {
     onSubmit: (data: MenuItemFormData) => Promise<void>;
     isLoading: boolean;
     isEdit?: boolean;
+    onImagePreview?: (file: File | null) => void;
 }
 
-export default function MenuItemForm({ initialData, onSubmit, isLoading, isEdit = false }: MenuItemFormProps) {
+export default function MenuItemForm({
+    initialData,
+    onSubmit,
+    isLoading,
+    isEdit = false,
+    onImagePreview,
+}: MenuItemFormProps) {
     const [branches, setBranches] = useState<Branch[]>([]);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const { user } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
     const lockedBranchId = isManager ? user?.branchId : undefined;
+    const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0] || null;
+        setImageFile(file);
+        if (onImagePreview) {
+            onImagePreview(file);
+        }
+    };
 
     const {
         register,
@@ -86,13 +100,14 @@ export default function MenuItemForm({ initialData, onSubmit, isLoading, isEdit 
             <div className="space-y-4">
                 <Input
                     label="Item Name"
+                    
                     {...register('name')}
                     error={errors.name?.message}
                     placeholder="Cheeseburger"
                 />
 
                 <div className="w-full">
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-black-300 mb-1">
                         Description
                     </label>
                     <textarea
@@ -150,17 +165,17 @@ export default function MenuItemForm({ initialData, onSubmit, isLoading, isEdit 
                 )}
 
                 <div className="w-full">
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-black-300 mb-1">
                         Item Image (Optional)
                     </label>
                     <input
                         type="file"
                         accept="image/*"
-                        onChange={(event) => setImageFile(event.target.files?.[0] || null)}
+                        onChange={handleImageChange}
                         className="block w-full rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2 text-white shadow-sm transition-colors file:mr-4 file:rounded file:border-0 file:bg-gray-700 file:px-3 file:py-1 file:text-sm file:font-medium file:text-white hover:file:bg-gray-600 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
                     />
                     {initialData?.imageUrl && (
-                        <p className="mt-1 text-xs text-gray-500">
+                        <p className="mt-1 text-xs text-black-500">
                             Current image is set. Upload a new file to replace it.
                         </p>
                     )}
