@@ -286,11 +286,11 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                             )}
 
                             <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-700">
-                                <Button variant="outline" size="sm" onClick={handleGenerateKOT}>
+                                <Button variant="outline" size="sm" onClick={handleGenerateKOT} className="text-white">
                                     <DocumentIcon className="mr-2 h-4 w-4" />
                                     Generate KOT
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={handleGenerateBill}>
+                                <Button variant="outline" size="sm" onClick={handleGenerateBill} className="text-white">
                                     <ReceiptIcon className="mr-2 h-4 w-4" />
                                     Generate Bill
                                 </Button>

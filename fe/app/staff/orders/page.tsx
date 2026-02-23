@@ -497,7 +497,7 @@ export default function ActiveOrdersPage() {
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex flex-col gap-1">
-                    <h1 className="text-3xl font-bold text-white">Staff Orders</h1>
+                    <h1 className="text-3xl font-bold text-black">Staff Orders</h1>
                     {/* <p className="text-gray-400">PathoFood-like simple flow for quick walk-in orders.</p> */}
                 </div>
                 <div className="relative" ref={notifyPanelRef}>
@@ -511,7 +511,7 @@ export default function ActiveOrdersPage() {
                         <BellIcon className="h-5 w-5 text-[#4e2f27]" />
                         <span>Notifications</span>
                         {unreadSharedCount > 0 && (
-                            <span className="absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#b45309] px-1 text-[11px] font-bold text-white">
+                            <span className="absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#b45309] px-1 text-[11px] font-bold text-black">
                                 {unreadSharedCount > 9 ? '9+' : unreadSharedCount}
                             </span>
                         )}
@@ -590,17 +590,17 @@ export default function ActiveOrdersPage() {
                     <Card id="build-section" variant="glass" className="shadow-xl border border-gray-800/60">
                         <CardHeader className="flex flex-col gap-1">
                             <CardTitle>Build Order</CardTitle>
-                            <p className="text-sm text-gray-500">Tap an item to add, keep the cart on the right in view.</p>
+                            <p className="text-sm text-black">Tap an item to add, keep the cart on the right in view.</p>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                                 <div className="flex-1">
                                     <div className="relative">
-                                        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white-500" />
+                                        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black" />
                                         <input
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="w-full rounded-xl border border-gray-800 bg-gray-900/60 pl-9 pr-4 py-3 text-sm text-white placeholder:text-white-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 outline-none"
+                                            className="w-full rounded-xl border border-gray-800 bg-gray-900/60 pl-9 pr-4 py-3 text-sm text-black placeholder:text-gray-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 outline-none"
                                             placeholder="Search menu or notes"
                                         />
                                     </div>
@@ -654,13 +654,13 @@ export default function ActiveOrdersPage() {
                                                     <div className="absolute top-3 left-3">
                                                         <span
                                                             className="px-3 py-1 text-xs font-semibold rounded-full bg-black/60 border border-white/10 backdrop-blur-sm"
-                                                            style={{ color: '#ffffff' }}
+                                                            style={{ color: '#000000' }}
                                                         >
                                                             Rs. {item.price.toFixed(2)}
                                                         </span>
                                                     </div>
                                                     <div className="absolute top-3 right-3">
-                                                        <Badge variant="default" size="sm" style={{ color: '#ffffff' }}>
+                                                        <Badge variant="default" size="sm" style={{ color: '#000000' }}>
                                                             {formatCategoryLabel(item.category)}
                                                         </Badge>
                                                     </div>
@@ -668,13 +668,13 @@ export default function ActiveOrdersPage() {
 
                                                 <div className="p-4 flex flex-col gap-2 flex-1">
                                                     <div className="flex items-start justify-between gap-3">
-                                                        <h3 className="text-white font-semibold leading-tight line-clamp-1">{item.name}</h3>
+                                                        <h3 className="text-black font-semibold leading-tight line-clamp-1">{item.name}</h3>
                                                         {!item.available && (
                                                             <Badge variant="danger" size="sm">Sold Out</Badge>
                                                         )}
                                                     </div>
                                                     {item.description && (
-                                                        <p className="text-sm text-gray-400 line-clamp-2 flex-1">{item.description}</p>
+                                                        <p className="text-sm text-black line-clamp-2 flex-1">{item.description}</p>
                                                     )}
                                                     <div className="flex items-center justify-between pt-1">
                                                         {/* <span className="text-sm text-gray-400">Tap to add to order</span> */}
@@ -686,7 +686,7 @@ export default function ActiveOrdersPage() {
                                                                 >
                                                                     <MinusIcon className="h-4 w-4" />
                                                                 </IconButton>
-                                                                <span className="text-white font-semibold text-sm min-w-[1.5rem] text-center">{existing.quantity}</span>
+                                                                <span className="text-black font-semibold text-sm min-w-[1.5rem] text-center">{existing.quantity}</span>
                                                                 <IconButton
                                                                     ariaLabel="Increase"
                                                                     onClick={() => handleAddItem(item, 1)}
@@ -759,7 +759,7 @@ export default function ActiveOrdersPage() {
                                         <div key={item.menuItemId} className="p-3 flex items-center gap-3">
                                             <ImageThumb src={resolveImageUrl(item.imageUrl)} label={item.name} />
                                             <div className="flex-1">
-                                                <p className="text-white font-semibold leading-tight">{item.name}</p>
+                                                <p className="text-black font-semibold leading-tight">{item.name}</p>
                                                 <p className="text-xs text-gray-400">{formatCategoryLabel(item.category)} • Rs. {item.price.toFixed(2)}</p>
                                             </div>
                                             <div className="flex items-center gap-2">
@@ -769,7 +769,7 @@ export default function ActiveOrdersPage() {
                                                 >
                                                     <MinusIcon className="h-4 w-4" />
                                                 </IconButton>
-                                                <span className="text-white font-semibold min-w-[1.5rem] text-center">{item.quantity}</span>
+                                                <span className="text-black font-semibold min-w-[1.5rem] text-center">{item.quantity}</span>
                                                 <IconButton
                                                     ariaLabel="Increase"
                                                     onClick={() => handleUpdateQuantity(item.menuItemId, item.quantity + 1)}
@@ -779,7 +779,7 @@ export default function ActiveOrdersPage() {
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-sm text-gray-300">Rs. {item.price.toFixed(2)}</p>
-                                                <p className="text-base font-semibold text-white">Rs. {(item.price * item.quantity).toFixed(2)}</p>
+                                                <p className="text-base font-semibold text-black">Rs. {(item.price * item.quantity).toFixed(2)}</p>
                                             </div>
                                             <button
                                                 onClick={() => handleRemoveItem(item.menuItemId)}
@@ -798,7 +798,7 @@ export default function ActiveOrdersPage() {
                                     {totalItems} item{totalItems === 1 ? '' : 's'} • {orderType === OrderType.TAKEAWAY ? 'No token needed' : 'Token will be generated'}
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <div className="text-2xl font-bold text-white">
+                                    <div className="text-2xl font-bold text-black">
                                         Total: <span className="text-purple-400">Rs. {totalAmount.toFixed(2)}</span>
                                     </div>
                                     <Button
@@ -829,7 +829,7 @@ export default function ActiveOrdersPage() {
                 <div className="space-y-4" id="orders-section">
                     <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
                         <div>
-                            <h2 className="text-xl font-semibold text-white">Live Orders</h2>
+                            <h2 className="text-xl font-semibold text-black">Live Orders</h2>
                             <p className="text-sm text-gray-500">Tap a card to update or print. Keeps refreshing every 10s.</p>
                         </div>
                         <div className="flex flex-col lg:flex-row lg:items-center gap-3 w-full xl:w-auto">
@@ -932,7 +932,7 @@ function OrderCard({ order, onClick, lookup }: { order: Order; onClick: () => vo
             </div>
 
             <div className="flex items-center gap-2">
-                <div className="text-4xl font-black text-white tracking-tight">
+                <div className="text-4xl font-black text-black tracking-tight">
                     {order.tokenNumber ?? (order.orderType === OrderType.TAKEAWAY ? '—' : 'N/A')}
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
@@ -951,7 +951,7 @@ function OrderCard({ order, onClick, lookup }: { order: Order; onClick: () => vo
 
             <div className="flex items-center justify-between text-sm text-gray-300">
                 <span>{itemCount} item{itemCount === 1 ? '' : 's'}</span>
-                <span className="text-white font-semibold">Rs. {order.totalAmount.toFixed(2)}</span>
+                <span className="text-black font-semibold">Rs. {order.totalAmount.toFixed(2)}</span>
             </div>
         </button>
     );
@@ -1004,7 +1004,7 @@ function MobileFooterBar({
                     size="sm"
                     variant="outline"
                     onClick={onViewOrders}
-                    className="whitespace-nowrap"
+                    className="whitespace-nowrap text-white"
                 >
                     View Orders
                 </Button>
@@ -1027,7 +1027,7 @@ function IconButton({ children, onClick, ariaLabel }: { children: React.ReactNod
             type="button"
             onClick={onClick}
             aria-label={ariaLabel}
-            className="h-8 w-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10"
+            className="h-8 w-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-black hover:bg-white/10"
         >
             {children}
         </button>
