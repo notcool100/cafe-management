@@ -498,7 +498,7 @@ export default function ActiveOrdersPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-3xl font-bold text-white">Staff Orders</h1>
-                    <p className="text-gray-400">PathoFood-like simple flow for quick walk-in orders.</p>
+                    {/* <p className="text-gray-400">PathoFood-like simple flow for quick walk-in orders.</p> */}
                 </div>
                 <div className="relative" ref={notifyPanelRef}>
                     <button
