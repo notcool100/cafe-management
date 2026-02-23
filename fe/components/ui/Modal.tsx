@@ -8,9 +8,10 @@ export interface ModalProps {
     children: React.ReactNode;
     size?: 'sm' | 'md' | 'lg' | 'xl';
     fullContent?: boolean;
+    theme?: 'dark' | 'light';
 }
 
-export default function Modal({ isOpen, onClose, title, children, size = 'md', fullContent = false }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, size = 'md', fullContent = false, theme = 'dark' }: ModalProps) {
     useEffect(() => {
         const handleEscape = (e: KeyboardEvent) => {
             if (e.key === 'Escape') onClose();
@@ -36,6 +37,23 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md', f
         xl: 'max-w-4xl',
     };
 
+    const themeStyles = {
+        dark: {
+            container: 'bg-gray-900 border-gray-700',
+            header: 'border-gray-700',
+            title: 'text-white',
+            close: 'text-gray-400 hover:text-white',
+        },
+        light: {
+            container: 'bg-white border-gray-200',
+            header: 'border-gray-200',
+            title: 'text-gray-900',
+            close: 'text-gray-500 hover:text-gray-900',
+        },
+    };
+
+    const styles = themeStyles[theme];
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop */}
@@ -47,17 +65,18 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md', f
             {/* Modal */}
             <div
                 className={cn(
-                    'relative w-full bg-gray-900 rounded-xl border border-gray-700 shadow-2xl animate-in zoom-in-95 duration-200',
+                    'relative w-full rounded-xl border shadow-2xl animate-in zoom-in-95 duration-200',
+                    styles.container,
                     sizes[size]
                 )}
             >
                 {/* Header */}
                 {title && (
-                    <div className="flex items-center justify-between p-6 border-b border-gray-700">
-                        <h2 className="text-xl font-semibold text-white">{title}</h2>
+                    <div className={cn('flex items-center justify-between p-6 border-b', styles.header)}>
+                        <h2 className={cn('text-xl font-semibold', styles.title)}>{title}</h2>
                         <button
                             onClick={onClose}
-                            className="text-gray-400 hover:text-white transition-colors"
+                            className={cn('transition-colors', styles.close)}
                         >
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
