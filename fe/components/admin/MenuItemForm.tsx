@@ -53,6 +53,7 @@ export default function MenuItemForm({
     const { user } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
     const lockedBranchId = isManager ? user?.branchId : undefined;
+    const initialBranchId = initialData?.branchId || initialData?.branch?.id || lockedBranchId || '';
     const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0] || null;
         setImageFile(file);
@@ -75,16 +76,14 @@ export default function MenuItemForm({
             description: initialData?.description || '',
             price: initialData?.price || 0,
             category: initialData?.category || '',
-            branchId: initialData?.branchId || lockedBranchId || '',
+            branchId: initialBranchId,
             available: initialData?.available ?? true,
         },
     });
 
-    // eslint-disable-next-line react-hooks/incompatible-library
     const selectedBranchId = watch('branchId');
-    // eslint-disable-next-line react-hooks/incompatible-library
     const selectedCategory = watch('category');
-    const previousBranchIdRef = useRef<string | null>(initialData?.branchId || lockedBranchId || null);
+    const previousBranchIdRef = useRef<string | null>(initialBranchId || null);
     const shareableBranches = selectedBranchId
         ? branches.filter((branch) => branch.id !== selectedBranchId)
         : [];
@@ -97,8 +96,7 @@ export default function MenuItemForm({
 
                 // Auto-select branch for managers or when only one branch is available
                 const preferredBranch =
-                    initialData?.branchId ||
-                    lockedBranchId ||
+                    initialBranchId ||
                     (data.length === 1 ? data[0].id : '');
 
                 if (preferredBranch) {
@@ -109,7 +107,7 @@ export default function MenuItemForm({
             }
         };
         loadBranches();
-    }, [initialData?.branchId, lockedBranchId, setValue]);
+    }, [initialBranchId, setValue]);
 
     useEffect(() => {
         if (initialData?.sharedBranchIds) {

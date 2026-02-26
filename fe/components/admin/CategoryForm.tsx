@@ -42,6 +42,7 @@ export default function CategoryForm({
     const { user } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
     const lockedBranchId = isManager ? user?.branchId : undefined;
+    const initialBranchId = initialData?.branchId || initialData?.branch?.id || lockedBranchId || '';
 
     const {
         register,
@@ -53,7 +54,7 @@ export default function CategoryForm({
         resolver: zodResolver(categorySchema),
         defaultValues: {
             name: initialData?.name || '',
-            branchId: initialData?.branchId || lockedBranchId || '',
+            branchId: initialBranchId,
         },
     });
 
@@ -70,8 +71,7 @@ export default function CategoryForm({
                 setBranches(data);
 
                 const preferredBranch =
-                    initialData?.branchId ||
-                    lockedBranchId ||
+                    initialBranchId ||
                     (data.length === 1 ? data[0].id : '');
 
                 if (preferredBranch) {
@@ -82,7 +82,7 @@ export default function CategoryForm({
             }
         };
         loadBranches();
-    }, [initialData?.branchId, lockedBranchId, setValue]);
+    }, [initialBranchId, setValue]);
 
     useEffect(() => {
         if (initialData?.sharedBranchIds) {

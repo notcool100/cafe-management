@@ -81,6 +81,7 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
             });
             await loadOrder(order.id);
             if (onUpdate) onUpdate();
+            onClose();
         } catch {
             setToast({
                 message: 'Failed to update order status',
@@ -104,6 +105,7 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
             });
             await loadOrder(order.id);
             if (onUpdate) onUpdate();
+            onClose();
         } catch {
             setToast({
                 message: 'Failed to cancel order',

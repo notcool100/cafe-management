@@ -15,6 +15,20 @@ import OrderDetailModal from '@/components/staff/OrderDetailModal';
 import { useAuthStore } from '@/lib/store/auth-store';
 
 type DateFilter = 'TODAY' | 'LAST_24H' | 'THIS_WEEK' | 'ALL';
+type OrderView = 'LIVE' | 'COMPLETED' | 'CANCELLED';
+type LiveStatusFilter =
+    | 'ALL'
+    | OrderStatus.PENDING
+    | OrderStatus.PREPARING
+    | OrderStatus.READY
+    | OrderStatus.CANCELLATION_PENDING;
+
+const LIVE_ORDER_STATUSES: OrderStatus[] = [
+    OrderStatus.PENDING,
+    OrderStatus.PREPARING,
+    OrderStatus.READY,
+    OrderStatus.CANCELLATION_PENDING,
+];
 
 export default function AdminOrdersPage() {
     const { user } = useAuthStore();
@@ -24,7 +38,8 @@ export default function AdminOrdersPage() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
     const [branchFilter, setBranchFilter] = useState<string>(managerBranchId ?? 'all');
-    const [statusFilter, setStatusFilter] = useState<OrderStatus | 'ALL'>(OrderStatus.PENDING);
+    const [orderView, setOrderView] = useState<OrderView>('LIVE');
+    const [statusFilter, setStatusFilter] = useState<LiveStatusFilter>('ALL');
     const [dateFilter, setDateFilter] = useState<DateFilter>('TODAY');
     const [isLoading, setIsLoading] = useState(true);
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -54,8 +69,16 @@ export default function AdminOrdersPage() {
         setIsLoading(true);
         try {
             const { startDate, endDate } = computeDates(dateFilter);
+            const apiStatus =
+                orderView === 'COMPLETED'
+                    ? OrderStatus.COMPLETED
+                    : orderView === 'CANCELLED'
+                        ? OrderStatus.CANCELLED
+                        : statusFilter === 'ALL'
+                            ? undefined
+                            : statusFilter;
             const data = await orderService.getOrders({
-                status: statusFilter === 'ALL' ? undefined : statusFilter,
+                status: apiStatus,
                 branchId: branchFilter === 'all' ? managerBranchId || undefined : branchFilter,
                 startDate,
                 endDate,
@@ -67,7 +90,7 @@ export default function AdminOrdersPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [branchFilter, dateFilter, managerBranchId, statusFilter]);
+    }, [branchFilter, dateFilter, managerBranchId, orderView, statusFilter]);
 
     useEffect(() => {
         void loadBranches();
@@ -78,8 +101,21 @@ export default function AdminOrdersPage() {
     }, [loadOrders]);
 
     const filteredOrders = useMemo(() => {
-        return [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }, [orders]);
+        const scopedOrders = orders.filter((order) => {
+            if (orderView === 'COMPLETED') return order.status === OrderStatus.COMPLETED;
+            if (orderView === 'CANCELLED') return order.status === OrderStatus.CANCELLED;
+            if (!LIVE_ORDER_STATUSES.includes(order.status)) return false;
+            return statusFilter === 'ALL' || order.status === statusFilter;
+        });
+
+        return [...scopedOrders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [orderView, orders, statusFilter]);
+
+    const viewTitle = orderView === 'LIVE'
+        ? 'Live Orders'
+        : orderView === 'COMPLETED'
+            ? 'Completed Orders'
+            : 'Cancelled Orders';
 
     const groupedByDate = useMemo(() => {
         const buckets: Record<string, Order[]> = {};
@@ -214,11 +250,28 @@ export default function AdminOrdersPage() {
 
             <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-[#4e2f27] mb-1">Orders</h1>
-                <p className="text-[#6f584f]">All Orders</p>
+                <p className="text-[#6f584f]">{viewTitle}</p>
             </div>
 
             <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-3 rounded-2xl border border-[#d7ccb2] bg-[#f3ebd8] p-3">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-3 w-full xl:w-auto">
+                    <div className="flex flex-col gap-1">
+                        <span className="text-xs uppercase tracking-wide text-[#6f584f]">View</span>
+                        <div className="flex flex-wrap gap-2">
+                            <FilterChip active={orderView === 'LIVE'} label="Live" onClick={() => setOrderView('LIVE')} />
+                            <FilterChip
+                                active={orderView === 'COMPLETED'}
+                                label="Completed"
+                                onClick={() => setOrderView('COMPLETED')}
+                            />
+                            <FilterChip
+                                active={orderView === 'CANCELLED'}
+                                label="Cancelled"
+                                onClick={() => setOrderView('CANCELLED')}
+                            />
+                        </div>
+                    </div>
+
                     <div className="flex flex-col gap-1">
                         <span className="text-xs uppercase tracking-wide text-[#6f584f]">Branch</span>
                         <div className="min-w-[220px]">
@@ -243,15 +296,17 @@ export default function AdminOrdersPage() {
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-1">
-                        <span className="text-xs uppercase tracking-wide text-[#6f584f]">Status</span>
-                        <div className="flex flex-wrap gap-2">
-                            <FilterChip active={statusFilter === 'ALL'} label="All" onClick={() => setStatusFilter('ALL')} />
-                            {[OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.COMPLETED, OrderStatus.CANCELLED].map((status) => (
-                                <FilterChip key={status} active={statusFilter === status} label={status} onClick={() => setStatusFilter(status)} />
-                            ))}
+                    {orderView === 'LIVE' && (
+                        <div className="flex flex-col gap-1">
+                            <span className="text-xs uppercase tracking-wide text-[#6f584f]">Status</span>
+                            <div className="flex flex-wrap gap-2">
+                                <FilterChip active={statusFilter === 'ALL'} label="All" onClick={() => setStatusFilter('ALL')} />
+                                {[OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.CANCELLATION_PENDING].map((status) => (
+                                    <FilterChip key={status} active={statusFilter === status} label={status} onClick={() => setStatusFilter(status)} />
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="flex flex-col gap-1">
                         <span className="text-xs uppercase tracking-wide text-[#6f584f]">Date</span>
@@ -285,7 +340,7 @@ export default function AdminOrdersPage() {
             ) : filteredOrders.length === 0 ? (
                 <Card className="border border-[#d7ccb2] bg-[#efe7d2] shadow-sm">
                     <CardContent className="py-16 text-center">
-                        <p className="text-[#6f584f] text-lg">No orders match these filters.</p>
+                        <p className="text-[#6f584f] text-lg">No {viewTitle.toLowerCase()} match these filters.</p>
                     </CardContent>
                 </Card>
             ) : (
@@ -489,6 +544,7 @@ function FilterChip({ active, label, onClick }: { active: boolean; label: string
 function statusLabel(status: OrderStatus) {
     switch (status) {
         case OrderStatus.READY:
+            return 'Ready';
         case OrderStatus.COMPLETED:
             return 'Order Completed';
         case OrderStatus.CANCELLED:

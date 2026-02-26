@@ -27,6 +27,20 @@ type CartLine = {
 };
 
 type DateFilter = 'TODAY' | 'LAST_24H' | 'THIS_WEEK' | 'ALL';
+type OrdersTab = 'LIVE' | 'COMPLETED' | 'CANCELLED';
+type LiveStatusFilter =
+    | 'ALL'
+    | OrderStatus.PENDING
+    | OrderStatus.PREPARING
+    | OrderStatus.READY
+    | OrderStatus.CANCELLATION_PENDING;
+
+const LIVE_ORDER_STATUSES: OrderStatus[] = [
+    OrderStatus.PENDING,
+    OrderStatus.PREPARING,
+    OrderStatus.READY,
+    OrderStatus.CANCELLATION_PENDING,
+];
 
 const DATE_FILTERS: { key: DateFilter; label: string }[] = [
     { key: 'TODAY', label: 'Today' },
@@ -87,7 +101,8 @@ export default function ActiveOrdersPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [menuLoading, setMenuLoading] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
-    const [filterStatus, setFilterStatus] = useState<OrderStatus | 'ALL'>(OrderStatus.PENDING);
+    const [ordersTab, setOrdersTab] = useState<OrdersTab>('LIVE');
+    const [filterStatus, setFilterStatus] = useState<LiveStatusFilter>('ALL');
     const [dateFilter, setDateFilter] = useState<DateFilter>('TODAY');
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -113,18 +128,18 @@ export default function ActiveOrdersPage() {
     const loadOrders = useCallback(async (showLoading = true) => {
         try {
             if (showLoading) setIsLoading(true);
-            const [activeOrders, completedOrders, cancelledOrders] = await Promise.all([
-                orderService.getActiveOrders(),
-                orderService.getOrdersByStatus(OrderStatus.COMPLETED),
-                orderService.getOrdersByStatus(OrderStatus.CANCELLED),
-            ]);
-            setOrders([...activeOrders, ...completedOrders, ...cancelledOrders]);
+            const data = ordersTab === 'LIVE'
+                ? await orderService.getActiveOrders()
+                : ordersTab === 'COMPLETED'
+                    ? await orderService.getOrdersByStatus(OrderStatus.COMPLETED)
+                    : await orderService.getOrdersByStatus(OrderStatus.CANCELLED);
+            setOrders(data);
         } catch {
             // intentionally silent for kiosk friendliness
         } finally {
             if (showLoading) setIsLoading(false);
         }
-    }, []);
+    }, [ordersTab]);
 
     const loadSharedNotifications = useCallback(async () => {
         if (!user?.branchId || !sharedNotifySince) return;
@@ -429,11 +444,21 @@ export default function ActiveOrdersPage() {
 
     const filteredOrders = useMemo(() => (
         orders
-            .filter(order => filterStatus === 'ALL' || order.status === filterStatus)
+            .filter((order) => {
+                if (ordersTab === 'COMPLETED') return order.status === OrderStatus.COMPLETED;
+                if (ordersTab === 'CANCELLED') return order.status === OrderStatus.CANCELLED;
+                if (!LIVE_ORDER_STATUSES.includes(order.status)) return false;
+                return filterStatus === 'ALL' || order.status === filterStatus;
+            })
             .filter(isWithinDateFilter)
-    ), [orders, filterStatus, isWithinDateFilter]);
+    ), [orders, ordersTab, filterStatus, isWithinDateFilter]);
 
     const hasCart = cartItems.length > 0;
+    const ordersTitle = ordersTab === 'LIVE'
+        ? 'Live Orders'
+        : ordersTab === 'COMPLETED'
+            ? 'Completed Orders'
+            : 'Cancelled Orders';
 
     return (
         <div className="space-y-6" style={staffOrdersTextTheme}>
@@ -461,7 +486,7 @@ export default function ActiveOrdersPage() {
                             className="flex-1"
                             onClick={() => setActiveSection(tab)}
                         >
-                            {tab === 'BUILD' ? 'New Order' : 'Live Orders'}
+                            {tab === 'BUILD' ? 'New Order' : 'Orders'}
                         </Button>
                     ))}
                 </div>
@@ -711,24 +736,41 @@ export default function ActiveOrdersPage() {
                 <div className="space-y-4" id="orders-section">
                     <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
                         <div>
-                            <h2 className="text-xl font-semibold text-black">Live Orders</h2>
+                            <h2 className="text-xl font-semibold text-black">{ordersTitle}</h2>
                             <p className="text-sm text-gray-500">Tap a card to update or print. Keeps refreshing every 10s.</p>
                         </div>
                         <div className="flex flex-col lg:flex-row lg:items-center gap-3 w-full xl:w-auto">
                             <div className="flex flex-wrap gap-2">
+                                <FilterChip active={ordersTab === 'LIVE'} label="Live" onClick={() => setOrdersTab('LIVE')} />
                                 <FilterChip
-                                    active={filterStatus === 'ALL'}
-                                    label="All"
-                                    onClick={() => setFilterStatus('ALL')}
+                                    active={ordersTab === 'COMPLETED'}
+                                    label="Completed"
+                                    onClick={() => setOrdersTab('COMPLETED')}
                                 />
-                                {[OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.COMPLETED, OrderStatus.CANCELLED].map((status) => (
+                                <FilterChip
+                                    active={ordersTab === 'CANCELLED'}
+                                    label="Cancelled"
+                                    onClick={() => setOrdersTab('CANCELLED')}
+                                />
+                            </div>
+                            {ordersTab === 'LIVE' && (
+                                <div className="flex flex-wrap gap-2">
                                     <FilterChip
-                                        key={status}
-                                        active={filterStatus === status}
-                                        label={status}
-                                        onClick={() => setFilterStatus(status)}
+                                        active={filterStatus === 'ALL'}
+                                        label="All"
+                                        onClick={() => setFilterStatus('ALL')}
                                     />
-                                ))}
+                                    {[OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.CANCELLATION_PENDING].map((status) => (
+                                        <FilterChip
+                                            key={status}
+                                            active={filterStatus === status}
+                                            label={status}
+                                            onClick={() => setFilterStatus(status)}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                            <div className="flex flex-wrap gap-2">
                                 <Button
                                     size="sm"
                                     variant="ghost"

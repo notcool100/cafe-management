@@ -3,9 +3,11 @@ import { Category, CreateCategoryData } from '../types';
 
 const normalizeCategory = (category: Partial<Category> & { sharedBranchIds?: string[] }) => {
     const sharedBranchIds = Array.isArray(category.sharedBranchIds) ? category.sharedBranchIds : [];
+    const branchId = category.branchId ?? category.branch?.id ?? '';
 
     return {
         ...category,
+        branchId,
         sharedBranchIds,
     } as Category;
 };

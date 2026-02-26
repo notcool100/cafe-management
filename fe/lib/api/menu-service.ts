@@ -24,9 +24,11 @@ const normalizeMenuItem = (
     const normalizedPrice = typeof item.price === 'number' ? item.price : Number(item.price ?? 0);
     const availableFlag = item.available ?? item.isAvailable ?? false;
     const sharedBranchIds = Array.isArray(item.sharedBranchIds) ? item.sharedBranchIds : [];
+    const branchId = item.branchId ?? item.branch?.id ?? '';
 
     return {
         ...item,
+        branchId,
         price: normalizedPrice,
         available: availableFlag,
         sharedBranchIds,
