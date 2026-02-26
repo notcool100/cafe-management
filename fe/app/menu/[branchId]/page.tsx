@@ -195,9 +195,9 @@ export default function PublicMenuPage() {
                                 </div>
 
                                 <CardContent className="p-4 flex flex-col flex-1">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h3 className="font-bold text-white text-lg line-clamp-1">{item.name}</h3>
-                                        <span className="font-bold text-purple-400">Rs. {item.price.toFixed(2)}</span>
+                                    <div className="mb-2 flex items-start justify-between gap-2">
+                                        <h3 className="font-bold text-white text-lg leading-tight break-words">{item.name}</h3>
+                                        <span className="shrink-0 whitespace-nowrap font-bold text-purple-400">Rs. {item.price.toFixed(2)}</span>
                                     </div>
                                     <p className="text-gray-400 text-sm mb-4 line-clamp-2 flex-1">
                                         {item.description}

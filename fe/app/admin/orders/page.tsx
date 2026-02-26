@@ -357,11 +357,11 @@ export default function AdminOrdersPage() {
                                                     <p className="text-[#e7d5c7]">No food items</p>
                                                 ) : (
                                                     selectedOrder.items.map((item) => (
-                                                        <div key={item.id} className="flex items-center justify-between gap-3">
-                                                            <span className="truncate">
-                                                                {item.menuItem?.name || 'Item'} x{item.quantity}
+                                                        <div key={item.id} className="flex items-start justify-between gap-3">
+                                                            <span className="min-w-0 flex-1 break-words">
+                                                                {item.menuItem?.name || 'Item'} <span className="whitespace-nowrap">x{item.quantity}</span>
                                                             </span>
-                                                            <span>{formatCurrency(item.price * item.quantity)}</span>
+                                                            <span className="shrink-0">{formatCurrency(item.price * item.quantity)}</span>
                                                         </div>
                                                     ))
                                                 )}
@@ -446,9 +446,9 @@ function OrderCard({ order, selected, onSelect }: { order: Order; selected: bool
                 <div className="rounded-md bg-[#8b6654]/50 px-2 py-1">
                     <div className="space-y-1">
                         {lineItems.map((item) => (
-                            <div key={item.id} className="flex items-center justify-between text-xs text-[#f4e8de]">
-                                <span className="truncate max-w-[140px]">{item.menuItem?.name || 'Item'}</span>
-                                <span>x{item.quantity}</span>
+                            <div key={item.id} className="flex items-start justify-between gap-2 text-xs text-[#f4e8de]">
+                                <span className="min-w-0 flex-1 break-words leading-tight">{item.menuItem?.name || 'Item'}</span>
+                                <span className="shrink-0">x{item.quantity}</span>
                             </div>
                         ))}
                         {extraItemsCount > 0 && (

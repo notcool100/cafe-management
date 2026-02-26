@@ -97,9 +97,6 @@ export default function ActiveOrdersPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
     const [sharedNotifySince, setSharedNotifySince] = useState<string | null>(null);
-    const [sharedNotifications, setSharedNotifications] = useState<SharedItemNotification[]>([]);
-    const [notifyLastSeenAt, setNotifyLastSeenAt] = useState<string | null>(null);
-    const [isNotifyOpen, setIsNotifyOpen] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; isVisible: boolean }>({
         message: '',
         type: 'info',
@@ -110,17 +107,8 @@ export default function ActiveOrdersPage() {
     const [activeSection, setActiveSection] = useState<'BUILD' | 'ORDERS'>('BUILD');
 
     const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const notifyPanelRef = useRef<HTMLDivElement | null>(null);
     const sharedNotifyKey = user?.branchId ? `shared-item-notify-since:${user.branchId}` : 'shared-item-notify-since';
     const sharedNotifyHistoryKey = user?.branchId ? `shared-item-notify-history:${user.branchId}` : 'shared-item-notify-history';
-    const sharedNotifyLastSeenKey = user?.branchId ? `shared-item-notify-last-seen:${user.branchId}` : 'shared-item-notify-last-seen';
-
-    const unreadSharedCount = useMemo(() => {
-        if (!sharedNotifications.length) return 0;
-        if (!notifyLastSeenAt) return sharedNotifications.length;
-        const lastSeen = new Date(notifyLastSeenAt).getTime();
-        return sharedNotifications.filter((notification) => new Date(notification.completedAt).getTime() > lastSeen).length;
-    }, [notifyLastSeenAt, sharedNotifications]);
 
     const loadOrders = useCallback(async (showLoading = true) => {
         try {
@@ -154,10 +142,20 @@ export default function ActiveOrdersPage() {
             setSharedNotifySince(newSince);
             if (typeof window !== 'undefined') {
                 window.localStorage.setItem(sharedNotifyKey, newSince);
-            }
+                const storedHistory = window.localStorage.getItem(sharedNotifyHistoryKey);
+                let existingHistory: SharedItemNotification[] = [];
+                if (storedHistory) {
+                    try {
+                        const parsed = JSON.parse(storedHistory) as SharedItemNotification[];
+                        if (Array.isArray(parsed)) {
+                            existingHistory = parsed;
+                        }
+                    } catch {
+                        existingHistory = [];
+                    }
+                }
 
-            setSharedNotifications((prev) => {
-                const combined = [...notifications, ...prev];
+                const combined = [...notifications, ...existingHistory];
                 const seen = new Set<string>();
                 const unique = combined.filter((item) => {
                     const key = `${item.orderId}-${item.completedAt}-${item.orderBranchId}-${item.itemNames.join('|')}`;
@@ -169,11 +167,8 @@ export default function ActiveOrdersPage() {
                     (a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
                 );
                 const trimmed = unique.slice(0, 30);
-                if (typeof window !== 'undefined') {
-                    window.localStorage.setItem(sharedNotifyHistoryKey, JSON.stringify(trimmed));
-                }
-                return trimmed;
-            });
+                window.localStorage.setItem(sharedNotifyHistoryKey, JSON.stringify(trimmed));
+            }
 
             const latestBranch = latest.orderBranchName || 'another branch';
             const itemSummary = latest.itemNames.slice(0, 3).join(', ');
@@ -193,20 +188,6 @@ export default function ActiveOrdersPage() {
             // silently ignore notification errors
         }
     }, [sharedNotifyHistoryKey, sharedNotifyKey, sharedNotifySince, user?.branchId]);
-
-    const handleToggleNotifications = () => {
-        setIsNotifyOpen((prev) => {
-            const next = !prev;
-            if (next) {
-                const now = new Date().toISOString();
-                setNotifyLastSeenAt(now);
-                if (typeof window !== 'undefined') {
-                    window.localStorage.setItem(sharedNotifyLastSeenKey, now);
-                }
-            }
-            return next;
-        });
-    };
 
     const loadMenuItems = useCallback(async () => {
         if (!user?.branchId) return;
@@ -247,39 +228,7 @@ export default function ActiveOrdersPage() {
             window.localStorage.setItem(sharedNotifyKey, now);
             setSharedNotifySince(now);
         }
-
-        const storedHistory = window.localStorage.getItem(sharedNotifyHistoryKey);
-        if (storedHistory) {
-            try {
-                const parsed = JSON.parse(storedHistory) as SharedItemNotification[];
-                if (Array.isArray(parsed)) {
-                    setSharedNotifications(parsed);
-                }
-            } catch {
-                // ignore corrupted history
-            }
-        }
-
-        const storedLastSeen = window.localStorage.getItem(sharedNotifyLastSeenKey);
-        if (storedLastSeen) {
-            setNotifyLastSeenAt(storedLastSeen);
-        } else {
-            const now = new Date().toISOString();
-            window.localStorage.setItem(sharedNotifyLastSeenKey, now);
-            setNotifyLastSeenAt(now);
-        }
-    }, [sharedNotifyHistoryKey, sharedNotifyKey, sharedNotifyLastSeenKey, user?.branchId]);
-
-    useEffect(() => {
-        if (!isNotifyOpen) return;
-        const handleClickOutside = (event: MouseEvent) => {
-            if (notifyPanelRef.current && !notifyPanelRef.current.contains(event.target as Node)) {
-                setIsNotifyOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isNotifyOpen]);
+    }, [sharedNotifyKey, user?.branchId]);
 
     useEffect(() => {
         loadOrders(true);
@@ -495,77 +444,10 @@ export default function ActiveOrdersPage() {
                 onClose={() => setToast({ ...toast, isVisible: false })}
             />
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-3xl font-bold text-black">Staff Orders</h1>
                     {/* <p className="text-gray-400">PathoFood-like simple flow for quick walk-in orders.</p> */}
-                </div>
-                <div className="relative" ref={notifyPanelRef}>
-                    <button
-                        type="button"
-                        onClick={handleToggleNotifications}
-                        aria-label="Shared item notifications"
-                        aria-expanded={isNotifyOpen}
-                        className="relative flex items-center gap-2 rounded-full border border-[#cbbda8] bg-[#fffaf0] px-3 py-2 text-sm font-semibold text-[#4e2f27] shadow-sm hover:bg-[#f8efe1]"
-                    >
-                        <BellIcon className="h-5 w-5 text-[#4e2f27]" />
-                        <span>Notifications</span>
-                        {unreadSharedCount > 0 && (
-                            <span className="absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#b45309] px-1 text-[11px] font-bold text-black">
-                                {unreadSharedCount > 9 ? '9+' : unreadSharedCount}
-                            </span>
-                        )}
-                    </button>
-
-                    {isNotifyOpen && (
-                        <div className="absolute right-0 mt-2 w-[320px] max-w-[calc(100vw-2rem)] rounded-2xl border border-[#e4d7c2] bg-[#fffaf0] p-3 shadow-xl z-30">
-                            <div className="flex items-center justify-between mb-2">
-                                <p className="text-sm font-semibold text-[#4e2f27]">Shared Item History</p>
-                                <span className="text-xs text-[#8a6c61]">{sharedNotifications.length} total</span>
-                            </div>
-                            <div className="max-h-[320px] overflow-y-auto space-y-2">
-                                {sharedNotifications.length === 0 ? (
-                                    <div className="rounded-xl border border-dashed border-[#e4d7c2] bg-[#f8efe1] p-3 text-xs text-[#8a6c61]">
-                                        No shared item activity yet.
-                                    </div>
-                                ) : (
-                                    sharedNotifications.map((notification) => {
-                                        const completedAt = new Date(notification.completedAt);
-                                        const timeLabel = isNaN(completedAt.getTime())
-                                            ? ''
-                                            : format(completedAt, 'PP p');
-                                        const branchLabel = notification.orderBranchName || 'another branch';
-                                        const itemsLabel = notification.itemNames.length
-                                            ? notification.itemNames.join(', ')
-                                            : 'Shared item';
-                                        const isUnread = !notifyLastSeenAt
-                                            || new Date(notification.completedAt).getTime() > new Date(notifyLastSeenAt).getTime();
-
-                                        return (
-                                            <div
-                                                key={`${notification.orderId}-${notification.completedAt}`}
-                                                className={`rounded-xl border p-3 text-xs ${
-                                                    isUnread
-                                                        ? 'border-[#b45309] bg-[#fff4d6]'
-                                                        : 'border-[#e4d7c2] bg-[#f8efe1]'
-                                                }`}
-                                            >
-                                                <p className="text-sm font-semibold text-[#4e2f27]" title={itemsLabel}>
-                                                    {itemsLabel}
-                                                </p>
-                                                <p className="mt-1 text-[11px] text-[#7a6a5f]">
-                                                    Used at {branchLabel}
-                                                </p>
-                                                {timeLabel && (
-                                                    <p className="text-[11px] text-[#9a8577]">{timeLabel}</p>
-                                                )}
-                                            </div>
-                                        );
-                                    })
-                                )}
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
 
@@ -668,7 +550,7 @@ export default function ActiveOrdersPage() {
 
                                                 <div className="p-4 flex flex-col gap-2 flex-1">
                                                     <div className="flex items-start justify-between gap-3">
-                                                        <h3 className="text-black font-semibold leading-tight line-clamp-1">{item.name}</h3>
+                                                        <h3 className="text-black font-semibold leading-tight break-words">{item.name}</h3>
                                                         {!item.available && (
                                                             <Badge variant="danger" size="sm">Sold Out</Badge>
                                                         )}
@@ -1038,19 +920,6 @@ function RefreshIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-    );
-}
-
-function BellIcon({ className }: { className?: string }) {
-    return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 01-6 0"
-            />
         </svg>
     );
 }
