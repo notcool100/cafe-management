@@ -120,7 +120,11 @@ export class OrderService {
             include: {
                 orderItems: {
                     include: {
-                        menuItem: true,
+                        menuItem: {
+                            include: {
+                                branch: true,
+                            },
+                        },
                     },
                 },
                 branch: true,

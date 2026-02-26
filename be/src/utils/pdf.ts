@@ -88,10 +88,8 @@ export async function generateKOT(order: OrderWithItems): Promise<Buffer> {
             doc.moveDown(0.5);
 
             if (item.menuItem.branchId !== order.branchId) {
-                const sharedBranchName = item.menuItem.branch?.name;
-                const noteText = sharedBranchName
-                    ? `From another branch: ${sharedBranchName}`
-                    : 'From another branch';
+                const sourceBranchName = item.menuItem.branch?.name || item.menuItem.branchId;
+                const noteText = `From branch: ${sourceBranchName}`;
                 doc.fontSize(7);
                 doc.text(noteText, ITEM_COL_X, doc.y, { width: ITEM_COL_WIDTH });
                 doc.fontSize(8);
@@ -182,10 +180,8 @@ export async function generateBill(order: OrderWithItems): Promise<Buffer> {
             doc.moveDown(0.5);
 
             if (item.menuItem.branchId !== order.branchId) {
-                const sharedBranchName = item.menuItem.branch?.name;
-                const noteText = sharedBranchName
-                    ? `From another branch: ${sharedBranchName}`
-                    : 'From another branch';
+                const sourceBranchName = item.menuItem.branch?.name || item.menuItem.branchId;
+                const noteText = `From branch: ${sourceBranchName}`;
                 doc.fontSize(7);
                 doc.text(noteText, ITEM_COL_X, doc.y, { width: ITEM_COL_WIDTH });
                 doc.fontSize(8);
