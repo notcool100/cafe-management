@@ -218,9 +218,6 @@ export default function AdminOrdersPage() {
             </div>
 
             <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-3 rounded-2xl border border-[#d7ccb2] bg-[#f3ebd8] p-3">
-                <div>
-                    <h2 className="text-sm font-semibold text-[#5e4338] uppercase tracking-wide">Filters</h2>
-                </div>
                 <div className="flex flex-col lg:flex-row lg:items-center gap-3 w-full xl:w-auto">
                     <div className="flex flex-col gap-1">
                         <span className="text-xs uppercase tracking-wide text-[#6f584f]">Branch</span>
