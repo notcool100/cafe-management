@@ -760,14 +760,14 @@ export default function ActiveOrdersPage() {
                                         label="All"
                                         onClick={() => setFilterStatus('ALL')}
                                     />
-                                    {[OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.CANCELLATION_PENDING].map((status) => (
-                                        <FilterChip
-                                            key={status}
-                                            active={filterStatus === status}
-                                            label={status}
-                                            onClick={() => setFilterStatus(status)}
-                                        />
-                                    ))}
+                                {LIVE_ORDER_STATUSES.map((status) => (
+                                    <FilterChip
+                                        key={status}
+                                        active={filterStatus === status}
+                                        label={status}
+                                        onClick={() => setFilterStatus(status as LiveStatusFilter)}
+                                    />
+                                ))}
                                 </div>
                             )}
                             <div className="flex flex-wrap gap-2">

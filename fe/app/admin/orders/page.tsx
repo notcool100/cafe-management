@@ -301,8 +301,13 @@ export default function AdminOrdersPage() {
                             <span className="text-xs uppercase tracking-wide text-[#6f584f]">Status</span>
                             <div className="flex flex-wrap gap-2">
                                 <FilterChip active={statusFilter === 'ALL'} label="All" onClick={() => setStatusFilter('ALL')} />
-                                {[OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.CANCELLATION_PENDING].map((status) => (
-                                    <FilterChip key={status} active={statusFilter === status} label={status} onClick={() => setStatusFilter(status)} />
+                                {LIVE_ORDER_STATUSES.map((status) => (
+                                    <FilterChip
+                                        key={status}
+                                        active={statusFilter === status}
+                                        label={statusLabel(status)}
+                                        onClick={() => setStatusFilter(status as LiveStatusFilter)}
+                                    />
                                 ))}
                             </div>
                         </div>
