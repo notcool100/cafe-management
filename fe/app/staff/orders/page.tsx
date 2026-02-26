@@ -109,7 +109,7 @@ export default function ActiveOrdersPage() {
     const [isCompact, setIsCompact] = useState(false); // tablets & mobile toggle view
     const [activeSection, setActiveSection] = useState<'BUILD' | 'ORDERS'>('BUILD');
 
-    const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const notifyPanelRef = useRef<HTMLDivElement | null>(null);
     const sharedNotifyKey = user?.branchId ? `shared-item-notify-since:${user.branchId}` : 'shared-item-notify-since';
     const sharedNotifyHistoryKey = user?.branchId ? `shared-item-notify-history:${user.branchId}` : 'shared-item-notify-history';
@@ -633,9 +633,9 @@ export default function ActiveOrdersPage() {
                                         return (
                                             <div
                                                 key={item.id}
-                                                className="group rounded-2xl border border-white-800 bg-white-900/50 overflow-hidden flex flex-col shadow-sm hover:border-red-500/50 transition-all"
+                                                className="group rounded-2xl border border-[#e4d7c2] bg-[#fffaf0] overflow-hidden flex flex-col shadow-sm hover:border-red-500/50 transition-all"
                                             >
-                                                <div className="aspect-[4/3] relative bg-white-800">
+                                                <div className="aspect-[4/3] relative bg-[#f8efe1]">
                                                     {resolveImageUrl(item.imageUrl) ? (
                                                         <Image
                                                             src={resolveImageUrl(item.imageUrl) as string}
@@ -748,7 +748,7 @@ export default function ActiveOrdersPage() {
                                 />
                             </div>
 
-                            <div className="rounded-2xl border border-gray-800 bg-white-900/60 divide-y divide-gray-800 max-h-[360px] overflow-y-auto">
+                            <div className="rounded-2xl border border-gray-800 bg-[#fffaf0]/90 divide-y divide-gray-800 max-h-[360px] overflow-y-auto">
                                 {!hasCart ? (
                                     <div className="p-6 text-center text-gray-500">
                                         <p className="text-base">Add items from the menu to start an order.</p>
@@ -916,7 +916,7 @@ function OrderCard({ order, onClick, lookup }: { order: Order; onClick: () => vo
     return (
         <button
             onClick={onClick}
-            className={`text-left rounded-2xl border bg-#f3e7d2 hover:border-red-500/50 transition-all shadow-lg p-4 flex flex-col gap-3 ${tone.border}`}
+            className={`text-left rounded-2xl border bg-[#f3e7d2] hover:border-red-500/50 transition-all shadow-lg p-4 flex flex-col gap-3 ${tone.border}`}
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -933,7 +933,7 @@ function OrderCard({ order, onClick, lookup }: { order: Order; onClick: () => vo
 
             <div className="flex items-center gap-2">
                 <div className="text-4xl font-black text-black tracking-tight">
-                    {order.tokenNumber ?? (order.orderType === OrderType.TAKEAWAY ? '—' : 'N/A')}
+                    {order.tokenNumber ?? (order.orderType === OrderType.TAKEAWAY ? '-' : 'N/A')}
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
                     <div className="flex -space-x-2">
