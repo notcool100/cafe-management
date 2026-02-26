@@ -231,12 +231,12 @@ export default function AdminOrdersPage() {
                                 options={
                                     isManager && managerBranchId
                                         ? branches
-                                              .filter((b) => b.id === managerBranchId)
-                                              .map((b) => ({ value: b.id, label: b.name }))
+                                            .filter((b) => b.id === managerBranchId)
+                                            .map((b) => ({ value: b.id, label: b.name }))
                                         : [
-                                              { value: 'all', label: 'All branches' },
-                                              ...branches.map((b) => ({ value: b.id, label: b.name })),
-                                          ]
+                                            { value: 'all', label: 'All branches' },
+                                            ...branches.map((b) => ({ value: b.id, label: b.name })),
+                                        ]
                                 }
                                 disabled={isManager}
                             />
@@ -423,11 +423,10 @@ function OrderCard({ order, selected, onSelect }: { order: Order; selected: bool
         <button
             type="button"
             onClick={() => onSelect(order.id)}
-            className={`w-full rounded-xl border p-3 text-left transition ${
-                selected
+            className={`w-full rounded-xl border p-3 text-left transition ${selected
                     ? 'border-[#2f8fff] bg-[#633225] shadow-lg'
                     : 'border-[#cdbfa8] bg-[#6d3a2a] hover:border-[#ab9980]'
-            }`}
+                }`}
         >
             <div className="space-y-3">
                 <div className="flex items-start justify-between gap-2">

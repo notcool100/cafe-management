@@ -203,6 +203,42 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                                             </Link>
                                         );
                                     })}
+
+                                    {isManager && (
+                                        <div className="mt-6 pt-4 border-t border-[#e4d7c2] space-y-1">
+                                            <p className="px-3 text-xs font-semibold uppercase tracking-wider text-[#8b6f5f]">
+                                                Manager Tools
+                                            </p>
+                                            {managerNavigation.map((item) => {
+                                                const isActive = isNavItemActive(item.href);
+                                                const Icon = item.icon;
+                                                const iconColor = isActive ? '#fffaf0' : '#5a3a2e';
+
+                                                return (
+                                                    <Link
+                                                        key={item.name}
+                                                        href={item.href}
+                                                        onClick={() => setSidebarOpen(false)}
+                                                        className={cn(
+                                                            'group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200',
+                                                            isActive
+                                                                ? 'shadow-[0_8px_20px_rgba(90,58,46,0.25)]'
+                                                                : 'hover:bg-[#efe2cd]'
+                                                        )}
+                                                        style={{
+                                                            backgroundColor: isActive ? '#5a3a2e' : undefined,
+                                                            color: isActive ? '#fffaf0' : '#5a3a2e',
+                                                        }}
+                                                    >
+                                                        <span style={{ color: iconColor }}>
+                                                            <Icon className="mr-3 h-5 w-5 flex-shrink-0 transition-transform duration-200" />
+                                                        </span>
+                                                        <span>{item.name}</span>
+                                                    </Link>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </nav>
 
                                 <div className="flex-shrink-0 p-4 border-t border-[#e4d7c2]">

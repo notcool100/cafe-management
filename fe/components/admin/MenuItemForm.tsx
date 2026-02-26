@@ -8,7 +8,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Checkbox from '@/components/ui/Checkbox';
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { branchService } from '@/lib/api/branch-service';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { categoryService } from '@/lib/api/category-service';
@@ -65,6 +65,7 @@ export default function MenuItemForm({
         register,
         handleSubmit,
         formState: { errors },
+        clearErrors,
         setValue,
         watch,
     } = useForm<MenuItemFormData>({
@@ -83,6 +84,7 @@ export default function MenuItemForm({
     const selectedBranchId = watch('branchId');
     // eslint-disable-next-line react-hooks/incompatible-library
     const selectedCategory = watch('category');
+    const previousBranchIdRef = useRef<string | null>(initialData?.branchId || lockedBranchId || null);
     const shareableBranches = selectedBranchId
         ? branches.filter((branch) => branch.id !== selectedBranchId)
         : [];
@@ -122,11 +124,38 @@ export default function MenuItemForm({
     }, [selectedBranchId]);
 
     useEffect(() => {
+        const previousBranchId = previousBranchIdRef.current;
+
+        if (!selectedBranchId) {
+            if (previousBranchId) {
+                setValue('category', '', { shouldValidate: false });
+                clearErrors('category');
+            }
+            previousBranchIdRef.current = null;
+            return;
+        }
+
+        if (previousBranchId && previousBranchId !== selectedBranchId) {
+            setValue('category', '', { shouldValidate: false });
+            clearErrors('category');
+        }
+
+        previousBranchIdRef.current = selectedBranchId;
+    }, [clearErrors, selectedBranchId, setValue]);
+
+    useEffect(() => {
+        if (!selectedCategory?.trim()) return;
+        clearErrors('category');
+    }, [clearErrors, selectedCategory]);
+
+    useEffect(() => {
         if (!selectedBranchId) {
             setCategories([]);
+            setCategoryLoading(false);
             return;
         }
         let active = true;
+        setCategories([]);
         const loadCategories = async () => {
             try {
                 setCategoryLoading(true);
@@ -151,11 +180,6 @@ export default function MenuItemForm({
         };
     }, [selectedBranchId]);
 
-    useEffect(() => {
-        if (!selectedBranchId || selectedCategory || categories.length === 0) return;
-        setValue('category', categories[0].name, { shouldValidate: true });
-    }, [categories, selectedBranchId, selectedCategory, setValue]);
-
     const categoryOptions = useMemo(() => {
         const seen = new Set<string>();
         const options = categories.flatMap((cat) => {
@@ -175,6 +199,18 @@ export default function MenuItemForm({
         }
         return options;
     }, [categories, selectedCategory]);
+
+    const categorySelectOptions = useMemo(() => {
+        const placeholderLabel = !selectedBranchId
+            ? 'Select branch first'
+            : categoryLoading
+                ? 'Loading categories...'
+                : categoryOptions.length > 0
+                    ? 'Select Category'
+                    : 'No categories found';
+
+        return [{ value: '', label: placeholderLabel }, ...categoryOptions];
+    }, [categoryLoading, categoryOptions, selectedBranchId]);
 
     return (
         <form
@@ -211,39 +247,6 @@ export default function MenuItemForm({
                     )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                        label="Price"
-                        type="number"
-                        step="0.01"
-                        {...register('price', { valueAsNumber: true })}
-                        error={errors.price?.message}
-                        placeholder="0.00"
-                    />
-
-                    <div className="w-full">
-                        <Input
-                            label="Category"
-                            list="menu-category-options"
-                            {...register('category')}
-                            error={errors.category?.message}
-                            placeholder="e.g. Beverage"
-                            helperText={
-                                categoryLoading
-                                    ? 'Loading categories...'
-                                    : categoryOptions.length > 0
-                                        ? 'Pick an existing category or type a new one.'
-                                        : 'Type a category name to create a new one.'
-                            }
-                        />
-                        <datalist id="menu-category-options">
-                            {categoryOptions.map((option) => (
-                                <option key={option.value} value={option.value} />
-                            ))}
-                        </datalist>
-                    </div>
-                </div>
-
                 <Select
                     label="Branch"
                     {...register('branchId')}
@@ -265,6 +268,36 @@ export default function MenuItemForm({
                         Branch is locked to your assignment.
                     </p>
                 )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                        label="Price"
+                        type="number"
+                        step="0.01"
+                        {...register('price', { valueAsNumber: true })}
+                        error={errors.price?.message}
+                        placeholder="0.00"
+                    />
+
+                    <div className="w-full">
+                        <Select
+                            label="Category"
+                            {...register('category')}
+                            error={errors.category?.message}
+                            options={categorySelectOptions}
+                            disabled={!selectedBranchId || categoryLoading || categoryOptions.length === 0}
+                            description={
+                                !selectedBranchId
+                                    ? 'Select a branch first to load its categories.'
+                                    : categoryLoading
+                                        ? 'Loading categories...'
+                                        : categoryOptions.length > 0
+                                            ? 'Showing categories for the selected branch.'
+                                            : 'No categories found for this branch.'
+                            }
+                        />
+                    </div>
+                </div>
 
                 <div className="pt-2">
                     <Checkbox
