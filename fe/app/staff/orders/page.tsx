@@ -705,8 +705,8 @@ export default function ActiveOrdersPage() {
                                     {totalItems} item{totalItems === 1 ? '' : 's'} • {orderType === OrderType.TAKEAWAY ? 'No token needed' : 'Token will be generated'}
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <div className="text-2xl font-bold text-black">
-                                        Total: <span className="text-purple-400">Rs. {totalAmount.toFixed(2)}</span>
+                                    <div className="text-2xl font-bold text-white">
+                                        Total: <span className="text-white">Rs. {totalAmount.toFixed(2)}</span>
                                     </div>
                                     <Button
                                         onClick={handleCreateOrder}
@@ -918,17 +918,17 @@ function MobileFooterBar({
 }) {
     if (!hasCart) return null;
     return (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-gray-950/90 backdrop-blur-md border-t border-gray-800 px-4 py-3">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 px-4 py-3">
             <div className="flex items-center gap-3">
-                <div className="flex-1 text-white disabled:opacity-50 disabled:cursor-not-allowed">
-                    <p className="text-sm text-gray-400">Cart total</p>
-                    <p className="text-xl font-bold">Rs. {totalAmount.toFixed(2)}</p>
+                <div className="flex-1 text-black disabled:opacity-50 disabled:cursor-not-allowed">
+                    <p className="text-sm text-black">Cart total</p>
+                    <p className="text-xl font-bold text-black">Rs. {totalAmount.toFixed(2)}</p>
                 </div>
                 <Button
                     size="sm"
                     variant="outline"
                     onClick={onViewOrders}
-                    className="whitespace-nowrap text-white"
+                    className="whitespace-nowrap"
                 >
                     View Orders
                 </Button>
