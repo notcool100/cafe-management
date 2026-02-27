@@ -507,7 +507,7 @@ export default function ActiveOrdersPage() {
                                         <input
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="w-full rounded-xl border border-gray-800 bg-gray-900/60 pl-9 pr-4 py-3 text-sm text-black placeholder:text-gray-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 outline-none"
+                                            className="w-full rounded-xl border border-gray-800 bg-gray-900/60 pl-9 pr-4 py-3 text-sm text-white placeholder:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 outline-none"
                                             placeholder="Search menu or notes"
                                         />
                                     </div>
