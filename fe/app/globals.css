@@ -279,6 +279,106 @@ body::before {
   animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Hide scrollbar utility (for horizontal chips on mobile) */
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Promo pill, chips, tabs and add button styles matching the screenshot */
+
+/* Search bar */
+.search-input {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 9999px;
+  padding: 6px 12px;
+  font-size: 14px;
+  color: #111827;
+}
+.search-input::placeholder {
+  color: #9ca3af;
+}
+
+.icon-btn {
+  background: transparent;
+  padding: 4px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-btn:hover {
+  background: rgba(0,0,0,0.05);
+}
+.promo-pill {
+  background: #fde4cf;
+  color: #7a4b3a;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  border: 1px solid rgba(0,0,0,0.04);
+}
+.chip {
+  background: #fafafa;
+  color: #374151;
+  padding: 8px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  white-space: nowrap;
+  border: 1px solid rgba(0,0,0,0.04);
+}
+.tab {
+  background: transparent;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.tab-active {
+  background: #000;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-weight: 700;
+  min-width: 72px;
+  text-align: center;
+}
+
+.tab-outline {
+  background: transparent;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  color: #000;
+  border: 1px solid #2563eb; /* blue outline */
+  font-weight: 700;
+}
+.add-btn {
+  background: transparent;
+  border: 1.6px solid #34d399;
+  color: #10b981;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+  min-width: 48px;
+  text-align: center;
+}
+
+/* Checkout button style used previously for fixed bar */
+.checkout-btn {
+  background: #ef8f85;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
 /* Stagger Animation for Lists */
 .stagger-item {
   animation: slideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
