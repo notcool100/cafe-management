@@ -43,6 +43,8 @@ export interface Branch {
     id: string;
     name: string;
     location: string;
+    imageUrl?: string;
+    avatar?: string;
     qrCode?: string;
     hasTokenSystem?: boolean;
     maxTokenNumber?: number;

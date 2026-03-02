@@ -247,6 +247,7 @@ export default function PublicMenuPage() {
                     </div>
                 )}
                 </main>
+            </div>
 
             {/* Mobile fixed checkout bar */}
             {cartItemCount > 0 && (
