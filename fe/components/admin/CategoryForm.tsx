@@ -137,7 +137,7 @@ export default function CategoryForm({
                 )}
 
                 {isEdit && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-700">
                         Branch cannot be changed after category creation.
                     </p>
                 )}
@@ -155,7 +155,7 @@ export default function CategoryForm({
                             }
                         }}
                     />
-                    <p className="mt-1 text-sm text-gray-500 ml-7">
+                    <p className="mt-1 text-sm text-gray-700 ml-7">
                         Choose where this category should appear for menu creation.
                     </p>
                 </div>
