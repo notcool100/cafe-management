@@ -13,6 +13,7 @@ import { branchService } from '@/lib/api/branch-service';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { categoryService } from '@/lib/api/category-service';
 import { cn } from '@/lib/utils/cn';
+import { formatBranchLabel } from '@/lib/utils/format';
 
 const menuItemSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -27,6 +28,8 @@ export interface MenuItemFormData extends z.infer<typeof menuItemSchema> {
     imageFile?: File | null;
     sharedBranchIds?: string[];
 }
+
+
 
 interface MenuItemFormProps {
     initialData?: MenuItem;
@@ -283,10 +286,10 @@ export default function MenuItemForm({
                         isManager && lockedBranchId
                             ? branches
                                 .filter((b) => b.id === lockedBranchId)
-                                .map((b) => ({ value: b.id, label: b.name }))
+                                .map((b) => ({ value: b.id, label: formatBranchLabel(b) }))
                             : [
                                 { value: '', label: 'Select Branch' },
-                                ...branches.map((b) => ({ value: b.id, label: b.name })),
+                                ...branches.map((b) => ({ value: b.id, label: formatBranchLabel(b) })),
                             ]
                     }
                     disabled={isManager}
@@ -392,7 +395,7 @@ export default function MenuItemForm({
                                                     );
                                                 }}
                                             />
-                                            <span>{branch.name}</span>
+                                            <span>{formatBranchLabel(branch)}</span>
                                         </label>
                                     );
                                 })}

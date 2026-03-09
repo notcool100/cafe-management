@@ -11,6 +11,7 @@ import Checkbox from '@/components/ui/Checkbox';
 import Button from '@/components/ui/Button';
 import { branchService } from '@/lib/api/branch-service';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { formatBranchLabel } from '@/lib/utils/format';
 
 const categorySchema = z.object({
     name: z.string().min(2, 'Category name must be at least 2 characters'),
@@ -20,6 +21,8 @@ const categorySchema = z.object({
 export type CategoryFormData = z.infer<typeof categorySchema> & {
     sharedBranchIds?: string[];
 };
+
+
 
 interface CategoryFormProps {
     initialData?: Category;
@@ -128,10 +131,10 @@ export default function CategoryForm({
                         isManager && lockedBranchId
                             ? branches
                                 .filter((b) => b.id === lockedBranchId)
-                                .map((b) => ({ value: b.id, label: b.name }))
+                                .map((b) => ({ value: b.id, label: formatBranchLabel(b) }))
                             : [
                                 { value: '', label: 'Select Branch' },
-                                ...branches.map((b) => ({ value: b.id, label: b.name })),
+                                ...branches.map((b) => ({ value: b.id, label: formatBranchLabel(b) })),
                             ]
                     }
                     disabled={isManager || isEdit}
@@ -196,7 +199,7 @@ export default function CategoryForm({
                                                     );
                                                 }}
                                             />
-                                            <span>{branch.name}</span>
+                                            <span>{formatBranchLabel(branch)}</span>
                                         </label>
                                     );
                                 })}

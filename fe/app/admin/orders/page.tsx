@@ -13,6 +13,7 @@ import { Branch, Order, OrderStatus, OrderType, UserRole } from '@/lib/types';
 import Toast from '@/components/ui/Toast';
 import OrderDetailModal from '@/components/staff/OrderDetailModal';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { formatBranchLabel } from '@/lib/utils/format';
 
 type DateFilter = 'TODAY' | 'LAST_24H' | 'THIS_WEEK' | 'ALL';
 type OrderView = 'LIVE' | 'COMPLETED' | 'CANCELLED';
@@ -282,10 +283,10 @@ export default function AdminOrdersPage() {
                                     isManager && managerBranchId
                                         ? branches
                                             .filter((b) => b.id === managerBranchId)
-                                            .map((b) => ({ value: b.id, label: b.name }))
+                                            .map((b) => ({ value: b.id, label: formatBranchLabel(b) }))
                                         : [
                                             { value: 'all', label: 'All branches' },
-                                            ...branches.map((b) => ({ value: b.id, label: b.name })),
+                                            ...branches.map((b) => ({ value: b.id, label: formatBranchLabel(b) })),
                                         ]
                                 }
                                 disabled={isManager}
@@ -481,8 +482,8 @@ function OrderCard({ order, selected, onSelect }: { order: Order; selected: bool
             type="button"
             onClick={() => onSelect(order.id)}
             className={`w-full rounded-xl border p-3 text-left transition ${selected
-                    ? 'border-[#2f8fff] bg-[#633225] shadow-lg'
-                    : 'border-[#cdbfa8] bg-[#6d3a2a] hover:border-[#ab9980]'
+                ? 'border-[#2f8fff] bg-[#633225] shadow-lg'
+                : 'border-[#cdbfa8] bg-[#6d3a2a] hover:border-[#ab9980]'
                 }`}
         >
             <div className="space-y-3">

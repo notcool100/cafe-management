@@ -10,6 +10,7 @@ import Toast from '@/components/ui/Toast';
 import Spinner from '@/components/ui/Spinner';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
+import { formatBranchLabel } from '@/lib/utils/format';
 
 export default function CategoriesPage() {
     const { user } = useAuthStore();
@@ -201,7 +202,7 @@ export default function CategoriesPage() {
                                             .filter((b) => b.id === managerBranchId)
                                             .map((b) => (
                                                 <option key={b.id} value={b.id}>
-                                                    {b.name}
+                                                    {formatBranchLabel(b)}
                                                 </option>
                                             ))
                                         : (
@@ -209,7 +210,7 @@ export default function CategoriesPage() {
                                                 <option value="">All Branches</option>
                                                 {branches.map((b) => (
                                                     <option key={b.id} value={b.id}>
-                                                        {b.name}
+                                                        {formatBranchLabel(b)}
                                                     </option>
                                                 ))}
                                             </>

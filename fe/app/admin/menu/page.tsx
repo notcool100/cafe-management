@@ -12,6 +12,7 @@ import Modal from '@/components/ui/Modal';
 import Toast from '@/components/ui/Toast';
 import { resolveImageUrl } from '@/lib/utils/image';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { formatBranchLabel } from '@/lib/utils/format';
 
 export default function MenuPage() {
     const { user } = useAuthStore();
@@ -157,7 +158,7 @@ export default function MenuPage() {
                                     .filter((b) => b.id === managerBranchId)
                                     .map((b) => (
                                         <option key={b.id} value={b.id}>
-                                            {b.name}
+                                            {formatBranchLabel(b)}
                                         </option>
                                     ))
                                 : (
@@ -165,7 +166,7 @@ export default function MenuPage() {
                                         <option value="">Branch</option>
                                         {branches.map((b) => (
                                             <option key={b.id} value={b.id}>
-                                                {b.name}
+                                                {formatBranchLabel(b)}
                                             </option>
                                         ))}
                                     </>

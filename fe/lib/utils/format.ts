@@ -43,3 +43,8 @@ export function formatPhoneNumber(phone: string): string {
     }
     return phone;
 }
+
+export function formatBranchLabel(branch: { name: string; location?: string }): string {
+    const location = branch.location?.trim();
+    return location ? `${branch.name}, ${location}` : branch.name;
+}

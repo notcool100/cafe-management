@@ -7,6 +7,7 @@ import { Branch, ReportOverview, UserRole } from '@/lib/types';
 import Spinner from '@/components/ui/Spinner';
 import Toast from '@/components/ui/Toast';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { formatBranchLabel } from '@/lib/utils/format';
 
 const toInputDate = (date: Date) => date.toISOString().split('T')[0];
 
@@ -281,7 +282,7 @@ export default function ReportsPage() {
                                             {!isManager ? <option value="all">All Branches</option> : null}
                                             {branches.map((branch) => (
                                                 <option key={branch.id} value={branch.id}>
-                                                    {branch.name}
+                                                    {formatBranchLabel(branch)}
                                                 </option>
                                             ))}
                                         </select>

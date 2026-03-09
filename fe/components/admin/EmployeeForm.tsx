@@ -10,6 +10,7 @@ import Select from '@/components/ui/Select';
 import { useEffect, useState } from 'react';
 import { branchService } from '@/lib/api/branch-service';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { formatBranchLabel } from '@/lib/utils/format';
 
 const employeeSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -28,10 +29,7 @@ interface EmployeeFormProps {
     isEdit?: boolean;
 }
 
-const formatBranchOptionLabel = (branch: Branch) => {
-    const location = branch.location?.trim();
-    return location ? `${branch.name}, ${location}` : branch.name;
-};
+
 
 export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit = false }: EmployeeFormProps) {
     const [branches, setBranches] = useState<Branch[]>([]);
@@ -142,10 +140,10 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
                         isManager && lockedBranchId
                             ? branches
                                 .filter((b) => b.id === lockedBranchId)
-                                .map((b) => ({ value: b.id, label: formatBranchOptionLabel(b) }))
+                                .map((b) => ({ value: b.id, label: formatBranchLabel(b) }))
                             : [
                                 { value: '', label: 'No Branch Assigned' },
-                                ...branches.map((b) => ({ value: b.id, label: formatBranchOptionLabel(b) })),
+                                ...branches.map((b) => ({ value: b.id, label: formatBranchLabel(b) })),
                             ]
                     }
                     disabled={isManager}
