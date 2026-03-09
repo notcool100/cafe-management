@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { branchService } from '@/lib/api/branch-service';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { categoryService } from '@/lib/api/category-service';
+import { cn } from '@/lib/utils/cn';
 
 const menuItemSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -33,6 +34,7 @@ interface MenuItemFormProps {
     isLoading: boolean;
     isEdit?: boolean;
     onImagePreview?: (file: File | null) => void;
+    theme?: 'dark' | 'light';
 }
 
 export default function MenuItemForm({
@@ -41,6 +43,7 @@ export default function MenuItemForm({
     isLoading,
     isEdit = false,
     onImagePreview,
+    theme = 'dark',
 }: MenuItemFormProps) {
     const [branches, setBranches] = useState<Branch[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -214,6 +217,12 @@ export default function MenuItemForm({
 
         return [{ value: '', label: placeholderLabel }, ...categoryOptions];
     }, [categoryLoading, categoryOptions, selectedBranchId]);
+    const isLightTheme = theme === 'light';
+    const inputClassName = isLightTheme
+        ? 'border-gray-300 bg-white text-black placeholder:text-black/70 focus:border-blue-500 focus:ring-blue-500/20'
+        : undefined;
+    const labelClassName = isLightTheme ? 'text-black' : undefined;
+    const descriptionClassName = isLightTheme ? 'text-black' : undefined;
 
     return (
         <form
@@ -224,24 +233,36 @@ export default function MenuItemForm({
                     sharedBranchIds: isTransferable ? sharedBranchIds : [],
                 })
             )}
-            className="space-y-6 text-white [&_label]:!text-white [&_p]:!text-white [&_span]:!text-white"
+            className={cn(
+                'space-y-6',
+                isLightTheme
+                    ? 'text-black'
+                    : 'text-white [&_label]:!text-white [&_p]:!text-white [&_span]:!text-white'
+            )}
         >
             <div className="space-y-4">
                 <Input
                     label="Item Name"
-                    
+                    floatingLabel={!isLightTheme}
+                    labelClassName={labelClassName}
+                    className={inputClassName}
                     {...register('name')}
                     error={errors.name?.message}
                     placeholder="Cheeseburger"
                 />
 
                 <div className="w-full">
-                    <label className="block text-sm font-medium text-white mb-1">
+                    <label className={cn('block text-sm font-medium mb-1', isLightTheme ? 'text-black' : 'text-white')}>
                         Description
                     </label>
                     <textarea
                         {...register('description')}
-                        className="block w-full rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2 text-white placeholder-white/70 shadow-sm transition-colors focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                        className={cn(
+                            'block w-full rounded-lg border px-3 py-2 shadow-sm transition-colors focus:outline-none focus:ring-2',
+                            isLightTheme
+                                ? 'border-gray-300 bg-white text-black placeholder:text-black/70 focus:border-blue-500 focus:ring-blue-500/20'
+                                : 'border-gray-700 bg-gray-900/50 text-white placeholder-white/70 focus:border-purple-500 focus:ring-purple-500/20'
+                        )}
                         rows={3}
                         placeholder="Delicious beef burger with cheese..."
                     />
@@ -252,6 +273,9 @@ export default function MenuItemForm({
 
                 <Select
                     label="Branch"
+                    labelClassName={labelClassName}
+                    optionClassName={isLightTheme ? 'bg-white text-black' : undefined}
+                    className={inputClassName}
                     {...register('branchId')}
                     value={selectedBranchId || ''}
                     error={errors.branchId?.message}
@@ -268,7 +292,7 @@ export default function MenuItemForm({
                     disabled={isManager}
                 />
                 {isManager && (
-                    <p className="text-xs text-amber-300 mt-1">
+                    <p className={cn('text-xs mt-1', isLightTheme ? 'text-black' : 'text-amber-300')}>
                         Branch is locked to your assignment.
                     </p>
                 )}
@@ -276,6 +300,9 @@ export default function MenuItemForm({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input
                         label="Price"
+                        floatingLabel={!isLightTheme}
+                        labelClassName={labelClassName}
+                        className={inputClassName}
                         type="number"
                         step="0.01"
                         {...register('price', { valueAsNumber: true })}
@@ -286,6 +313,10 @@ export default function MenuItemForm({
                     <div className="w-full">
                         <Select
                             label="Category"
+                            labelClassName={labelClassName}
+                            descriptionClassName={descriptionClassName}
+                            optionClassName={isLightTheme ? 'bg-white text-black' : undefined}
+                            className={inputClassName}
                             {...register('category')}
                             error={errors.category?.message}
                             options={categorySelectOptions}
@@ -306,6 +337,8 @@ export default function MenuItemForm({
                 <div className="pt-2">
                     <Checkbox
                         label="Transferable to other branches"
+                        labelClassName={labelClassName}
+                        className={isLightTheme ? 'border-gray-300 bg-white text-black focus:ring-blue-500/20' : undefined}
                         id="transferable"
                         checked={isTransferable}
                         onChange={(event) => {
@@ -316,20 +349,20 @@ export default function MenuItemForm({
                             }
                         }}
                     />
-                    <p className="mt-1 text-sm text-white ml-7">
+                    <p className={cn('mt-1 ml-7 text-sm', isLightTheme ? 'text-black' : 'text-white')}>
                         Enable this to share the item with selected branches in the same organization.
                     </p>
                 </div>
 
                 {isTransferable && (
-                    <div className="grid gap-2 pl-7 border-l-2 border-gray-800 ml-2">
+                    <div className={cn('ml-2 grid gap-2 pl-7 border-l-2', isLightTheme ? 'border-gray-300' : 'border-gray-800')}>
                         {!selectedBranchId && (
-                            <p className="text-xs text-white">
+                            <p className={cn('text-xs', isLightTheme ? 'text-black' : 'text-white')}>
                                 Select a branch to choose sharing targets.
                             </p>
                         )}
                         {selectedBranchId && shareableBranches.length === 0 && (
-                            <p className="text-xs text-white">
+                            <p className={cn('text-xs', isLightTheme ? 'text-black' : 'text-white')}>
                                 No other branches available to share with.
                             </p>
                         )}
@@ -338,10 +371,18 @@ export default function MenuItemForm({
                                 {shareableBranches.map((branch) => {
                                     const checked = sharedBranchIds.includes(branch.id);
                                     return (
-                                        <label key={branch.id} className="flex items-center gap-2 text-sm text-white">
+                                        <label
+                                            key={branch.id}
+                                            className={cn('flex items-center gap-2 text-sm', isLightTheme ? 'text-black' : 'text-white')}
+                                        >
                                             <input
                                                 type="checkbox"
-                                                className="h-4 w-4 rounded border-gray-700 bg-gray-900/50 text-purple-600 focus:ring-purple-500/20 focus:ring-2 transition-colors cursor-pointer"
+                                                className={cn(
+                                                    'h-4 w-4 rounded focus:ring-2 transition-colors cursor-pointer',
+                                                    isLightTheme
+                                                        ? 'border-gray-300 bg-white text-black focus:ring-blue-500/20'
+                                                        : 'border-gray-700 bg-gray-900/50 text-purple-600 focus:ring-purple-500/20'
+                                                )}
                                                 checked={checked}
                                                 onChange={() => {
                                                     setSharedBranchIds((prev) =>
@@ -358,7 +399,7 @@ export default function MenuItemForm({
                             </div>
                         )}
                         {selectedBranchId && shareableBranches.length > 0 && sharedBranchIds.length === 0 && (
-                            <p className="text-xs text-amber-300">
+                            <p className={cn('text-xs', isLightTheme ? 'text-black' : 'text-amber-300')}>
                                 Select at least one branch to enable sharing.
                             </p>
                         )}
@@ -366,17 +407,22 @@ export default function MenuItemForm({
                 )}
 
                 <div className="w-full">
-                    <label className="block text-sm font-medium text-white mb-1">
+                    <label className={cn('mb-1 block text-sm font-medium', isLightTheme ? 'text-black' : 'text-white')}>
                         Item Image (Optional)
                     </label>
                     <input
                         type="file"
                         accept="image/*"
                         onChange={handleImageChange}
-                        className="block w-full rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2 text-white shadow-sm transition-colors file:mr-4 file:rounded file:border-0 file:bg-gray-700 file:px-3 file:py-1 file:text-sm file:font-medium file:text-white hover:file:bg-gray-600 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                        className={cn(
+                            'block w-full rounded-lg border px-3 py-2 shadow-sm transition-colors file:mr-4 file:rounded file:border-0 file:px-3 file:py-1 file:text-sm file:font-medium focus:outline-none focus:ring-2',
+                            isLightTheme
+                                ? 'border-gray-300 bg-white text-black file:bg-gray-100 file:text-black hover:file:bg-gray-200 focus:border-blue-500 focus:ring-blue-500/20'
+                                : 'border-gray-700 bg-gray-900/50 text-white file:bg-gray-700 file:text-white hover:file:bg-gray-600 focus:border-purple-500 focus:ring-purple-500/20'
+                        )}
                     />
                     {initialData?.imageUrl && (
-                        <p className="mt-1 text-xs text-white">
+                        <p className={cn('mt-1 text-xs', isLightTheme ? 'text-black' : 'text-white')}>
                             Current image is set. Upload a new file to replace it.
                         </p>
                     )}
@@ -385,6 +431,8 @@ export default function MenuItemForm({
                 <div className="pt-2">
                     <Checkbox
                         label="Available"
+                        labelClassName={labelClassName}
+                        className={isLightTheme ? 'border-gray-300 bg-white text-black focus:ring-blue-500/20' : undefined}
                         {...register('available')}
                     />
                 </div>

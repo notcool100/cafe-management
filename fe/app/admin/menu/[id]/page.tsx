@@ -94,7 +94,7 @@ export default function EditMenuItemPage() {
     if (!menuItem) return null;
 
     return (
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto text-black">
             <Toast
                 message={toast.message}
                 type={toast.type}
@@ -105,16 +105,16 @@ export default function EditMenuItemPage() {
             <div className="mb-6 flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-black mb-2">Edit Menu Item</h1>
-                    <p className="text-black-400">Update item details</p>
+                    <p className="text-black">Update item details</p>
                 </div>
                 <Link href="/admin/menu">
-                    <Button  className='text-black'>Back to List</Button>
+                    <Button>Back to List</Button>
                 </Link>
             </div>
 
-            <Card variant="glass">
+            <Card variant="glass" className="!bg-white !border-gray-200 shadow-lg">
                 <CardHeader>
-                    <CardTitle>Item Details</CardTitle>
+                    <CardTitle className="text-black">Item Details</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <MenuItemForm
@@ -122,6 +122,7 @@ export default function EditMenuItemPage() {
                         onSubmit={handleSubmit}
                         isLoading={isSaving}
                         isEdit={true}
+                        theme="light"
                     />
                 </CardContent>
             </Card>

@@ -6,10 +6,11 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     error?: string;
     helperText?: string;
     floatingLabel?: boolean;
+    labelClassName?: string;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-    ({ className, label, error, helperText, type = 'text', floatingLabel = true, ...props }, ref) => {
+    ({ className, label, error, helperText, type = 'text', floatingLabel = true, labelClassName, ...props }, ref) => {
         const [focused, setFocused] = useState(false);
         const [showPassword, setShowPassword] = useState(false);
         const isPassword = type === 'password';
@@ -20,7 +21,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                     <label
                         className={cn(
                             'mb-1 block text-sm font-medium',
-                            error ? 'text-red-400' : 'text-gray-300'
+                            error ? 'text-red-400' : 'text-gray-300',
+                            labelClassName
                         )}
                     >
                         {label}
@@ -55,7 +57,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                                     ? 'text-red-400'
                                     : focused
                                         ? 'text-purple-400'
-                                        : 'text-gray-400'
+                                        : 'text-gray-400',
+                                labelClassName
                             )}
                         >
                             {label}
