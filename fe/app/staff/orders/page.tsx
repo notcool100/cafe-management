@@ -20,6 +20,12 @@ interface CartItem {
   quantity: number;
 }
 
+interface MenuItemPreview {
+  name?: string;
+  imageUrl?: string;
+  image?: string;
+}
+
 export default function StaffOrdersPage() {
   const { user } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,6 +47,7 @@ export default function StaffOrdersPage() {
   const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [branchInfo, setBranchInfo] = useState<Branch | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
 
   // Fetch live orders from API
   const fetchLiveOrders = async () => {
@@ -95,6 +102,25 @@ export default function StaffOrdersPage() {
     const interval = setInterval(fetchLiveOrders, 10000);
     return () => clearInterval(interval);
   }, [viewMode]);
+
+  useEffect(() => {
+    if (!previewImage) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPreviewImage(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [previewImage]);
 
   const statusOptions: Array<{ value: OrderStatus; label: string; disabled?: boolean }> = [
     { value: OrderStatus.PENDING, label: 'Pending' },
@@ -345,6 +371,20 @@ export default function StaffOrdersPage() {
     );
   });
 
+  const getMenuItemImage = (item: MenuItemPreview) =>
+    resolveImageUrl(item.imageUrl ?? item.image) || '/api/placeholder/300/200';
+
+  const handleOpenImagePreview = (item: MenuItemPreview) => {
+    setPreviewImage({
+      src: getMenuItemImage(item),
+      alt: item.name || 'Menu item',
+    });
+  };
+
+  const handleCloseImagePreview = () => {
+    setPreviewImage(null);
+  };
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#f8fafc', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
       <div className="w-full bg-white min-h-screen relative">
@@ -386,11 +426,6 @@ export default function StaffOrdersPage() {
                 </svg>
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-700 rounded-full"></span>
               </Link>
-              <button className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 group">
-                <svg className="w-6 h-6 text-gray-700 group-hover:text-gray-900 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </button>
             </div>
           </div>
         </header>
@@ -509,13 +544,21 @@ export default function StaffOrdersPage() {
                           <div className="bg-white border border-gray-100 rounded-xl p-4 hover:shadow-lg hover:border-gray-200 transition-all duration-300 cursor-pointer">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                               <div className="flex items-center gap-3 min-w-0 sm:flex-1 sm:pr-4">
-                                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-100 rounded-full overflow-hidden flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleOpenImagePreview(item);
+                                  }}
+                                  className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-100 rounded-full overflow-hidden flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2"
+                                  aria-label={`Preview ${item.name} image`}
+                                >
                                   <img
-                                    src={resolveImageUrl(item.imageUrl ?? item.image) || '/api/placeholder/300/200'}
+                                    src={getMenuItemImage(item)}
                                     alt={item.name}
                                     className="w-full h-full object-cover"
                                   />
-                                </div>
+                                </button>
                                 <div className="min-w-0">
                                   <h3 className="font-semibold text-gray-900 text-sm sm:text-base leading-snug line-clamp-2 sm:line-clamp-1" style={{ fontFamily: 'Jakarta Sans, sans-serif' }}>{item.name}</h3>
                                   <p className="text-gray-700 text-[11px] sm:text-xs mt-1 line-clamp-2 sm:line-clamp-1">{item.description || 'No description available'}</p>
@@ -898,6 +941,37 @@ export default function StaffOrdersPage() {
             </button>
           </div>
         </div>
+
+        {/* Menu Item Image Preview */}
+        {previewImage && (
+          <div
+            className="fixed inset-0 z-[60] bg-black/70 p-4 flex items-center justify-center"
+            onClick={handleCloseImagePreview}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu item image preview"
+          >
+            <div
+              className="relative w-full max-w-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                onClick={handleCloseImagePreview}
+                className="absolute -top-3 -right-3 w-10 h-10 rounded-full bg-white text-gray-700 shadow-lg hover:bg-gray-100 flex items-center justify-center"
+                aria-label="Close image preview"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <img
+                src={previewImage.src}
+                alt={previewImage.alt}
+                className="w-full max-h-[85vh] object-contain rounded-2xl bg-white p-2 shadow-2xl"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Checkout Modal */}
         {isCheckoutOpen && (

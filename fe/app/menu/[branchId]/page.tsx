@@ -135,9 +135,6 @@ export default function PublicMenuPage() {
                         <button className="icon-btn">
                             <ShareIcon className="h-5 w-5 text-gray-600" />
                         </button>
-                        <button className="icon-btn">
-                            <HeartIcon className="h-5 w-5 text-gray-600" />
-                        </button>
                     </div>
                 </div>
                 {/* Top Card (matches screenshot) */}
@@ -279,14 +276,6 @@ function ShareIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 8l4 4m0 0l-4 4m4-4H9" />
-        </svg>
-    );
-}
-
-function HeartIcon({ className }: { className?: string }) {
-    return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 010 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
         </svg>
     );
 }
