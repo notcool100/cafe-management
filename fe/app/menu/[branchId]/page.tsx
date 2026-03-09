@@ -179,15 +179,6 @@ export default function PublicMenuPage() {
                         </div>
 
                         <div className="mt-3">
-                            <button className="promo-pill w-full text-left flex items-center gap-2">
-                                <svg className="h-5 w-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h.01M15 12h.01M17.657 6.343l-11.314 11.314" />
-                                </svg>
-                                Promocodes
-                            </button>
-                        </div>
-
-                        <div className="mt-3">
                             <div className="flex gap-2 overflow-x-auto hide-scrollbar">
                                 {['Momo', 'Chowmein', 'Pizza', 'Burger', 'Appetizers', 'Drinks'].map((t) => (
                                     <button key={t} className="chip">{t}</button>

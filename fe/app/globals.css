@@ -288,7 +288,7 @@ body::before {
   display: none; /* Chrome, Safari, Opera */
 }
 
-/* Promo pill, chips, tabs and add button styles matching the screenshot */
+/* Chips, tabs and add button styles matching the screenshot */
 
 /* Search bar */
 .search-input {
@@ -313,14 +313,6 @@ body::before {
 }
 .icon-btn:hover {
   background: rgba(0,0,0,0.05);
-}
-.promo-pill {
-  background: #fde4cf;
-  color: #7a4b3a;
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-weight: 600;
-  border: 1px solid rgba(0,0,0,0.04);
 }
 .chip {
   background: #fafafa;
