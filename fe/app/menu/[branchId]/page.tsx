@@ -27,6 +27,7 @@ export default function PublicMenuPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [currentTab, setCurrentTab] = useState<'MENU' | 'ORDERS'>('MENU');
     const [isCartOpen, setIsCartOpen] = useState(false);
+    const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
 
     const { addItem, getItemCount } = useCartStore();
     const cartItemCount = getItemCount();
@@ -69,6 +70,39 @@ export default function PublicMenuPage() {
             isVisible: true,
         });
     };
+
+    const handleOpenImagePreview = (item: MenuItem) => {
+        const imageSrc = resolveImageUrl(item.imageUrl);
+        if (imageSrc) {
+            setPreviewImage({
+                src: imageSrc as string,
+                alt: item.name,
+            });
+        }
+    };
+
+    const handleCloseImagePreview = () => {
+        setPreviewImage(null);
+    };
+
+    useEffect(() => {
+        if (!previewImage) return;
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setPreviewImage(null);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [previewImage]);
 
     const filteredItems = menuItems.filter(item => {
         const matchesCategory = selectedCategory === 'ALL' || item.category === selectedCategory;
@@ -240,7 +274,10 @@ export default function PublicMenuPage() {
                                         </div>
 
                                         <div className="flex flex-col items-center w-24">
-                                            <div className="w-16 h-16 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
+                                            <div
+                                                className="w-16 h-16 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all"
+                                                onClick={() => handleOpenImagePreview(item)}
+                                            >
                                                 {resolveImageUrl(item.imageUrl) ? (
                                                     <Image src={resolveImageUrl(item.imageUrl) as string} alt={item.name} width={64} height={64} className="object-cover" unoptimized />
                                                 ) : (
@@ -280,6 +317,37 @@ export default function PublicMenuPage() {
             )}
 
             <CartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+
+            {/* Menu Item Image Preview */}
+            {previewImage && (
+                <div
+                    className="fixed inset-0 z-[60] bg-black/70 p-4 flex items-center justify-center"
+                    onClick={handleCloseImagePreview}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Menu item image preview"
+                >
+                    <div
+                        className="relative w-full max-w-lg"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <button
+                            onClick={handleCloseImagePreview}
+                            className="absolute -top-3 -right-3 w-10 h-10 rounded-full bg-white text-gray-700 shadow-lg hover:bg-gray-100 flex items-center justify-center z-10"
+                            aria-label="Close image preview"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                        <img
+                            src={previewImage.src}
+                            alt={previewImage.alt}
+                            className="w-full max-h-[85vh] object-contain rounded-2xl bg-white p-2 shadow-2xl"
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
