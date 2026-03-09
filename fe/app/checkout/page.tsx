@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Toast from '@/components/ui/Toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { cn } from '@/lib/utils/cn';
 import { getOrCreateDeviceId } from '@/lib/utils/device';
 import { OrderType } from '@/lib/types';
 
@@ -72,7 +73,7 @@ export default function CheckoutPage() {
     if (items.length === 0) return null;
 
     return (
-        <div className="min-h-screen bg-gray-950 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8" style={{ background: '#f6fbfa' }}>
             <Toast
                 message={toast.message}
                 type={toast.type}
@@ -81,84 +82,92 @@ export default function CheckoutPage() {
             />
 
             <div className="max-w-3xl mx-auto">
-                <h1 className="text-3xl font-bold text-white mb-8">Checkout</h1>
+                <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Order Summary */}
                     <div className="space-y-6">
-                        <Card variant="glass">
-                            <CardHeader>
-                                <CardTitle>Your Order</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div className="p-6 border-b border-gray-50 text-xl font-bold text-gray-900">
+                                Your Order
+                            </div>
+                            <div className="p-6 space-y-4">
                                 {items.map((item) => (
-                                    <div key={item.menuItem.id} className="flex justify-between items-center py-2 border-b border-gray-800 last:border-0">
+                                    <div key={item.menuItem.id} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
                                         <div className="flex-1">
-                                            <h4 className="font-medium text-white">{item.menuItem.name}</h4>
-                                            <p className="text-sm text-gray-400">Rs. {item.menuItem.price.toFixed(2)} x {item.quantity}</p>
+                                            <h4 className="font-semibold text-gray-900">{item.menuItem.name}</h4>
+                                            <p className="text-sm text-gray-600">Rs. {item.menuItem.price.toFixed(2)} x {item.quantity}</p>
                                         </div>
-                                        <p className="font-bold text-white">Rs. {(item.menuItem.price * item.quantity).toFixed(2)}</p>
+                                        <p className="font-bold text-gray-900">Rs. {(item.menuItem.price * item.quantity).toFixed(2)}</p>
                                     </div>
                                 ))}
-                                <div className="pt-4 flex justify-between items-center text-xl font-bold text-white border-t border-gray-800">
+                                <div className="pt-4 flex justify-between items-center text-xl font-bold text-purple-600 border-t border-gray-100">
                                     <span>Total</span>
                                     <span>Rs. {getTotal().toFixed(2)}</span>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Customer Info & Actions */}
                     <div className="space-y-6">
-                        <Card variant="glass">
-                            <CardHeader>
-                                <CardTitle>Customer Details (Optional)</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
+                            <h3 className="text-xl font-bold text-gray-900">Customer Details</h3>
+                            <div className="space-y-4">
                                 <div>
-                                    <p className="text-sm text-gray-400 mb-2">Order type</p>
+                                    <p className="text-sm font-medium text-gray-600 mb-2">Order type</p>
                                     <div className="grid grid-cols-2 gap-2">
                                         {[OrderType.DINE_IN, OrderType.TAKEAWAY].map((type) => (
-                                            <Button
+                                            <button
                                                 key={type}
-                                                variant={orderType === type ? 'primary' : 'outline'}
                                                 onClick={() => setOrderType(type)}
-                                                fullWidth
+                                                className={cn(
+                                                    "px-4 py-2 rounded-lg font-medium transition-all text-sm",
+                                                    orderType === type
+                                                        ? "bg-purple-600 text-white shadow-md"
+                                                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                                )}
                                             >
                                                 {type === OrderType.DINE_IN ? 'Dine-in' : 'Takeaway'}
-                                            </Button>
+                                            </button>
                                         ))}
                                     </div>
                                 </div>
                                 <Input
                                     label="Name"
+                                    floatingLabel={false}
                                     value={customerName}
                                     onChange={(e) => setCustomerName(e.target.value)}
                                     placeholder="Enter your name"
+                                    className="bg-gray-50 border-gray-200 text-black focus:border-purple-500 focus:ring-purple-500/20"
+                                    labelClassName="text-gray-700 font-medium"
                                 />
                                 <Input
                                     label="Phone Number"
+                                    floatingLabel={false}
                                     value={customerPhone}
                                     onChange={(e) => setCustomerPhone(e.target.value)}
                                     placeholder="Enter your phone number"
+                                    className="bg-gray-50 border-gray-200 text-black focus:border-purple-500 focus:ring-purple-500/20"
+                                    labelClassName="text-gray-700 font-medium"
                                 />
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
                         <Button
                             onClick={handlePlaceOrder}
                             isLoading={isLoading}
                             fullWidth
                             size="lg"
-                            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg shadow-purple-500/30"
+                            className="bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-600/20"
                         >
                             Place Order
                         </Button>
 
                         <Link href={`/menu/${branchId}`} className="block">
-                            <Button variant="ghost" fullWidth>
+                            <button className="w-full text-center py-2 text-gray-500 hover:text-purple-600 font-medium transition-colors">
                                 Continue Shopping
-                            </Button>
+                            </button>
                         </Link>
                     </div>
                 </div>

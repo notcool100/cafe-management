@@ -47,7 +47,7 @@ export default function TokenPage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center" style={{ background: '#f6fbfa' }}>
                 <Spinner size="lg" />
             </div>
         );
@@ -56,7 +56,7 @@ export default function TokenPage() {
     if (!order) return null;
 
     return (
-        <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-4 overflow-hidden">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden" style={{ background: '#f6fbfa' }}>
             <style jsx>{`
                 @keyframes token-pulse {
                     0%, 100% {
@@ -137,18 +137,18 @@ export default function TokenPage() {
 
             <div className="max-w-md w-full space-y-8 text-center token-container">
                 <div>
-                    <h2 className="text-gray-400 text-lg uppercase tracking-wider mb-4 animate-pulse">Your Order Token</h2>
+                    <h2 className="text-gray-500 text-lg uppercase tracking-wider mb-4 animate-pulse font-bold">Your Order Token</h2>
                     <div className="gradient-border p-1 rounded-3xl shadow-2xl token-pulse">
-                        <div className="bg-gray-900 rounded-[22px] py-16 px-8 relative overflow-hidden">
+                        <div className="bg-white rounded-[22px] py-16 px-8 relative overflow-hidden">
                             {/* Shimmer effect */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/5 to-transparent"
                                 style={{
                                     animation: 'shimmer 3s infinite',
                                     backgroundSize: '1000px 100%'
                                 }}>
                             </div>
 
-                            <span className="token-number relative text-8xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white via-purple-200 to-pink-200">
+                            <span className="token-number relative text-8xl font-black text-transparent bg-clip-text bg-gradient-to-br from-purple-600 via-indigo-600 to-pink-600">
                                 {order.tokenNumber}
                             </span>
                         </div>
@@ -156,27 +156,27 @@ export default function TokenPage() {
                 </div>
 
                 <div className="space-y-4 success-badge">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/20 border-2 border-green-500 mb-2">
-                        <svg className="w-8 h-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/10 border-2 border-green-500 mb-2">
+                        <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                     </div>
-                    <h3 className="text-2xl font-bold text-white">Order Placed Successfully!</h3>
-                    <p className="text-gray-400">
+                    <h3 className="text-2xl font-bold text-gray-900">Order Placed Successfully!</h3>
+                    <p className="text-gray-600 font-medium">
                         Please wait for your number to be called. You can track your order status live.
                     </p>
                 </div>
 
                 <div className="flex flex-col gap-4 action-buttons">
                     <Link href={`/order/${orderId}/track`}>
-                        <Button fullWidth size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg shadow-purple-500/30">
+                        <Button fullWidth size="lg" className="bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-600/20">
                             Track Order Status
                         </Button>
                     </Link>
                     <Link href={`/menu/${order.branchId}`}>
-                        <Button variant="ghost" fullWidth>
+                        <button className="w-full text-center py-2 text-gray-500 hover:text-purple-600 font-medium transition-colors">
                             Back to Menu
-                        </Button>
+                        </button>
                     </Link>
                 </div>
             </div>

@@ -29,17 +29,17 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
             {/* Sidebar */}
             <div
                 className={cn(
-                    "fixed inset-y-0 right-0 z-50 w-full max-w-md bg-gray-900 shadow-2xl transform transition-transform duration-300 ease-in-out border-l border-gray-800",
+                    "fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white shadow-2xl transform transition-transform duration-300 ease-in-out border-l border-gray-100",
                     isOpen ? "translate-x-0" : "translate-x-full"
                 )}
             >
                 <div className="flex flex-col h-full">
                     {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-                        <h2 className="text-xl font-bold text-white">Your Order</h2>
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                        <h2 className="text-xl font-bold text-black">Your Order</h2>
                         <button
                             onClick={onClose}
-                            className="p-2 rounded-full hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+                            className="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-black transition-colors"
                         >
                             <CloseIcon className="h-6 w-6" />
                         </button>
@@ -49,23 +49,22 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                     <div className="flex-1 overflow-y-auto px-6 py-4">
                         {items.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-center">
-                                <ShoppingBagIcon className="h-16 w-16 text-gray-700 mb-4" />
-                                <p className="text-gray-400 text-lg mb-2">Your cart is empty</p>
+                                <ShoppingBagIcon className="h-16 w-16 text-gray-300 mb-4" />
+                                <p className="text-black text-lg font-semibold mb-2">Your cart is empty</p>
                                 <p className="text-gray-600">Add some delicious items from the menu</p>
-                                <Button
-                                    className="mt-6"
-                                    variant="outline"
+                                <button
+                                    className="mt-6 px-6 py-2 border-2 border-purple-600 text-purple-600 rounded-full font-medium hover:bg-purple-600 hover:text-white transition-all"
                                     onClick={onClose}
                                 >
                                     Browse Menu
-                                </Button>
+                                </button>
                             </div>
                         ) : (
                             <div className="space-y-6">
                                 {items.map((item) => (
                                     <div key={item.menuItem.id} className="flex gap-4">
                                         {/* Item Image */}
-                                        <div className="relative h-20 w-20 flex-shrink-0 rounded-lg bg-gray-800 overflow-hidden">
+                                        <div className="relative h-20 w-20 flex-shrink-0 rounded-lg bg-gray-50 border border-gray-100 overflow-hidden">
                                             {resolveImageUrl(item.menuItem.imageUrl) ? (
                                                 <Image
                                                     src={resolveImageUrl(item.menuItem.imageUrl) as string}
@@ -76,7 +75,7 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                                                     unoptimized
                                                 />
                                             ) : (
-                                                <div className="h-full w-full flex items-center justify-center text-gray-600">
+                                                <div className="h-full w-full flex items-center justify-center text-gray-300">
                                                     <ImageIcon className="h-8 w-8" />
                                                 </div>
                                             )}
@@ -86,37 +85,37 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
                                         <div className="flex-1 flex flex-col justify-between">
                                             <div>
                                                 <div className="flex justify-between items-start">
-                                                    <h3 className="text-white font-medium line-clamp-1">{item.menuItem.name}</h3>
-                                                    <p className="text-purple-400 font-bold ml-2">
+                                                    <h3 className="text-black font-semibold line-clamp-1">{item.menuItem.name}</h3>
+                                                    <p className="text-purple-600 font-bold ml-2">
                                                         Rs. {(item.menuItem.price * item.quantity).toFixed(2)}
                                                     </p>
                                                 </div>
-                                                <p className="text-sm text-gray-500 mt-0.5">
+                                                <p className="text-sm text-gray-600 mt-0.5">
                                                     Rs. {item.menuItem.price.toFixed(2)} each
                                                 </p>
                                             </div>
 
                                             <div className="flex items-center justify-between mt-2">
-                                                <div className="flex items-center bg-gray-800 rounded-lg p-1">
+                                                <div className="flex items-center bg-gray-100 rounded-lg p-1">
                                                     <button
                                                         onClick={() => updateQuantity(item.menuItem.id, item.quantity - 1)}
-                                                        className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
+                                                        className="p-1 rounded hover:bg-gray-200 text-gray-600 hover:text-black transition-colors"
                                                     >
                                                         <MinusIcon className="h-4 w-4" />
                                                     </button>
-                                                    <span className="w-8 text-center text-white text-sm font-medium">
+                                                    <span className="w-8 text-center text-black text-sm font-semibold">
                                                         {item.quantity}
                                                     </span>
                                                     <button
                                                         onClick={() => updateQuantity(item.menuItem.id, item.quantity + 1)}
-                                                        className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
+                                                        className="p-1 rounded hover:bg-gray-200 text-gray-600 hover:text-black transition-colors"
                                                     >
                                                         <PlusIcon className="h-4 w-4" />
                                                     </button>
                                                 </div>
                                                 <button
                                                     onClick={() => removeItem(item.menuItem.id)}
-                                                    className="text-gray-500 hover:text-red-400 text-sm underline transition-colors"
+                                                    className="text-gray-400 hover:text-red-500 text-sm underline transition-colors"
                                                 >
                                                     Remove
                                                 </button>
@@ -130,13 +129,13 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
 
                     {/* Footer */}
                     {items.length > 0 && (
-                        <div className="p-6 bg-gray-900 border-t border-gray-800 space-y-4">
-                            <div className="flex justify-between items-center text-lg font-bold text-white">
+                        <div className="p-6 bg-white border-t border-gray-100 space-y-4">
+                            <div className="flex justify-between items-center text-lg font-bold text-black">
                                 <span>Total</span>
                                 <span>Rs. {total.toFixed(2)}</span>
                             </div>
                             <Link href="/checkout" onClick={onClose} className="block w-full">
-                                <Button fullWidth size="lg" className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700">
+                                <Button fullWidth size="lg" className="bg-purple-600 hover:bg-purple-700 shadow-md">
                                     Proceed to Checkout
                                 </Button>
                             </Link>

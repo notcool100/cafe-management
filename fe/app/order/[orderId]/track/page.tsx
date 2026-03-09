@@ -41,7 +41,7 @@ export default function OrderTrackingPage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center" style={{ background: '#f6fbfa' }}>
                 <Spinner size="lg" />
             </div>
         );
@@ -59,29 +59,29 @@ export default function OrderTrackingPage() {
     const displayToken = order.tokenNumber ?? order.id.slice(0, 8);
 
     return (
-        <div className="min-h-screen bg-gray-950 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8" style={{ background: '#f6fbfa' }}>
             <div className="max-w-xl mx-auto space-y-8">
                 <div className="text-center">
-                    <h1 className="text-3xl font-bold text-white mb-2">Order Status</h1>
-                    <p className="text-gray-400">
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Order Status</h1>
+                    <p className="text-gray-600 font-medium">
                         {order.orderType === OrderType.TAKEAWAY ? 'Takeaway order' : 'Tracking Order'} #{order.tokenNumber || order.id.slice(0, 8)}
                     </p>
                 </div>
 
                 {/* Status Timeline */}
                 <div className="relative">
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-gray-800 rounded-full -z-10"></div>
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-gray-200 rounded-full -z-10"></div>
                     <div className="flex justify-between">
                         {steps.map((step, index) => {
                             const isCompleted = index <= currentStepIndex;
                             const isCurrent = index === currentStepIndex;
 
                             return (
-                                <div key={step} className="flex flex-col items-center bg-gray-950 px-2">
+                                <div key={step} className="flex flex-col items-center px-2" style={{ background: '#f6fbfa' }}>
                                     <div className={`
                                         w-8 h-8 rounded-full flex items-center justify-center mb-2 transition-colors duration-300
-                                        ${isCompleted ? 'bg-green-500 text-black' : 'bg-gray-800 text-gray-400'}
-                                        ${isCurrent ? 'ring-4 ring-green-500/30' : ''}
+                                        ${isCompleted ? 'bg-green-500 text-white shadow-md' : 'bg-gray-200 text-gray-400'}
+                                        ${isCurrent ? 'ring-4 ring-green-500/20' : ''}
                                     `}>
                                         {isCompleted ? (
                                             <CheckIcon className="h-5 w-5" />
@@ -89,7 +89,7 @@ export default function OrderTrackingPage() {
                                             <span className="text-xs">{index + 1}</span>
                                         )}
                                     </div>
-                                    <span className={`text-xs font-medium ${isCompleted ? 'text-green-400' : 'text-gray-500'}`}>
+                                    <span className={`text-xs font-bold ${isCompleted ? 'text-green-600' : 'text-gray-400'}`}>
                                         {step}
                                     </span>
                                 </div>
@@ -99,42 +99,42 @@ export default function OrderTrackingPage() {
                 </div>
 
                 {/* Order Details Card */}
-                <Card variant="glass">
-                    <CardContent className="p-6">
-                        <div className="flex justify-between items-center mb-6 pb-6 border-b border-gray-800">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="p-6">
+                        <div className="flex justify-between items-center mb-6 pb-6 border-b border-gray-50">
                             <div>
-                                <p className="text-sm text-gray-400">Display Token</p>
-                                <p className="text-3xl font-bold text-white">
+                                <p className="text-sm font-medium text-gray-500">Display Token</p>
+                                <p className="text-3xl font-bold text-gray-900">
                                     {order.orderType === OrderType.TAKEAWAY ? 'Not required' : displayToken}
                                 </p>
-                                    {order.orderType === OrderType.TAKEAWAY && (
-                                        <p className="text-xs text-gray-500 mt-1">Takeaway orders don&apos;t use tokens.</p>
-                                    )}
+                                {order.orderType === OrderType.TAKEAWAY && (
+                                    <p className="text-xs text-gray-500 mt-1">Takeaway orders don&apos;t use tokens.</p>
+                                )}
                             </div>
                             <div className="text-right">
-                                <p className="text-sm text-gray-400">Total Amount</p>
-                                <p className="text-2xl font-bold text-purple-400">Rs. {order.totalAmount.toFixed(2)}</p>
+                                <p className="text-sm font-medium text-gray-500">Total Amount</p>
+                                <p className="text-2xl font-bold text-purple-600">Rs. {order.totalAmount.toFixed(2)}</p>
                             </div>
                         </div>
 
                         <div className="space-y-4">
-                            <h3 className="font-medium text-white">Items</h3>
+                            <h3 className="font-bold text-gray-900">Items</h3>
                             {order.items.map((item) => (
                                 <div key={item.id} className="flex justify-between text-sm">
-                                    <span className="text-gray-300">
-                                        <span className="text-gray-500 mr-2">{item.quantity}x</span>
+                                    <span className="text-gray-800 font-medium">
+                                        <span className="text-gray-400 mr-2">{item.quantity}x</span>
                                         {item.menuItem?.name}
                                     </span>
-                                    <span className="text-gray-400">Rs. {(item.price * item.quantity).toFixed(2)}</span>
+                                    <span className="text-gray-600 font-semibold">Rs. {(item.price * item.quantity).toFixed(2)}</span>
                                 </div>
                             ))}
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
                 <div className="text-center">
                     <Link href={`/menu/${order.branchId}`}>
-                        <Button variant="outline">Place Another Order</Button>
+                        <Button className="bg-purple-600 hover:bg-purple-700 shadow-md">Place Another Order</Button>
                     </Link>
                 </div>
             </div>
