@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { menuService } from '@/lib/api/menu-service';
-import { MenuItem, Branch } from '@/lib/types';
+import { MenuItem, Branch, Order } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
@@ -13,6 +13,8 @@ import CartSidebar from '@/components/CartSidebar';
 import { useCartStore } from '@/lib/store/cart-store';
 import Toast from '@/components/ui/Toast';
 import { resolveImageUrl } from '@/lib/utils/image';
+import { orderService } from '@/lib/api/order-service';
+import { getOrCreateDeviceId } from '@/lib/utils/device';
 
 export default function PublicMenuPage() {
     const params = useParams();
@@ -22,6 +24,8 @@ export default function PublicMenuPage() {
     const [branch, setBranch] = useState<Branch | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [currentTab, setCurrentTab] = useState<'MENU' | 'ORDERS'>('MENU');
     const [isCartOpen, setIsCartOpen] = useState(false);
 
     const { addItem, getItemCount } = useCartStore();
@@ -66,9 +70,12 @@ export default function PublicMenuPage() {
         });
     };
 
-    const filteredItems = menuItems.filter(item =>
-        selectedCategory === 'ALL' || item.category === selectedCategory
-    );
+    const filteredItems = menuItems.filter(item => {
+        const matchesCategory = selectedCategory === 'ALL' || item.category === selectedCategory;
+        const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+        return matchesCategory && matchesSearch;
+    });
 
     const categories = useMemo(() => {
         const unique = new Set<string>();
@@ -129,6 +136,8 @@ export default function PublicMenuPage() {
                             type="text"
                             placeholder="Search Dishes"
                             className="search-input w-full pl-9"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                     <div className="flex items-center gap-2">
@@ -161,7 +170,7 @@ export default function PublicMenuPage() {
 
                             <div className="flex-1">
                                 <h2 className="text-xl font-semibold text-black leading-tight">{branch.name}</h2>
-                                <p className="text-xs text-gray-500">{branch.location}</p>
+                                <p className="text-xs text-gray-800">{branch.location}</p>
                             </div>
 
                             <button
@@ -180,7 +189,7 @@ export default function PublicMenuPage() {
 
                         <div className="mt-3">
                             <button className="promo-pill w-full text-left flex items-center gap-2">
-                                <svg className="h-5 w-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg className="h-5 w-5 text-orange-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h.01M15 12h.01M17.657 6.343l-11.314 11.314" />
                                 </svg>
                                 Promocodes
@@ -189,8 +198,14 @@ export default function PublicMenuPage() {
 
                         <div className="mt-3">
                             <div className="flex gap-2 overflow-x-auto hide-scrollbar">
-                                {['Momo', 'Chowmein', 'Pizza', 'Burger', 'Appetizers', 'Drinks'].map((t) => (
-                                    <button key={t} className="chip">{t}</button>
+                                {categories.map((cat) => (
+                                    <button
+                                        key={cat}
+                                        className={`chip ${selectedCategory === cat ? 'bg-purple-600 text-white' : ''}`}
+                                        onClick={() => setSelectedCategory(cat)}
+                                    >
+                                        {formatCategoryLabel(cat)}
+                                    </button>
                                 ))}
                             </div>
                         </div>
@@ -199,10 +214,19 @@ export default function PublicMenuPage() {
 
                 {/* Tabs row (Waffles / Food / Live Orders) */}
                 <div className="mt-4 flex items-center gap-3">
-                    <button className="tab-active">Waffles</button>
                     <div className="flex-1 flex items-center justify-center gap-3">
-                        <button className="tab-active">Food</button>
-                        <button className="tab-outline">Live Orders</button>
+                        <button
+                            className={currentTab === 'MENU' ? 'tab-active' : 'tab-outline'}
+                            onClick={() => setCurrentTab('MENU')}
+                        >
+                            Menu
+                        </button>
+                        <button
+                            className={currentTab === 'ORDERS' ? 'tab-active' : 'tab-outline'}
+                            onClick={() => setCurrentTab('ORDERS')}
+                        >
+                            Live Orders
+                        </button>
                     </div>
                 </div>
                 {/* Menu heading */}
@@ -213,39 +237,43 @@ export default function PublicMenuPage() {
 
                 {/* Menu List */}
                 <main className="mt-4">
-                {filteredItems.length === 0 ? (
-                    <div className="text-center py-8">
-                        <p className="text-gray-500">No items available in this category.</p>
-                    </div>
-                ) : (
-                    <div className="bg-white rounded-2xl mt-2 overflow-hidden">
-                        {filteredItems.map((item) => (
-                            <div key={item.id} className="px-4 py-4 border-b last:border-b-0 border-gray-200 flex items-center justify-between">
-                                <div className="flex-1 pr-4">
-                                    <h3 className="text-black font-semibold text-base">{item.name}</h3>
-                                    <div className="text-sm text-gray-500 mt-2">Rs. {item.price.toFixed(0)}</div>
-                                </div>
-
-                                <div className="flex flex-col items-center w-24">
-                                    <div className="w-16 h-16 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
-                                        {resolveImageUrl(item.imageUrl) ? (
-                                            <Image src={resolveImageUrl(item.imageUrl) as string} alt={item.name} width={64} height={64} className="object-cover" unoptimized />
-                                        ) : (
-                                            <div className="w-10 h-10 rounded-full bg-gray-200" />
-                                        )}
-                                    </div>
-                                    <button
-                                        onClick={() => handleAddToCart(item)}
-                                        disabled={!item.available}
-                                        className={`add-btn mt-3 ${!item.available ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    >
-                                        ADD
-                                    </button>
-                                </div>
+                    {currentTab === 'MENU' ? (
+                        filteredItems.length === 0 ? (
+                            <div className="text-center py-8">
+                                <p className="text-gray-800">No items available in this category.</p>
                             </div>
-                        ))}
-                    </div>
-                )}
+                        ) : (
+                            <div className="bg-white rounded-2xl mt-2 overflow-hidden">
+                                {filteredItems.map((item) => (
+                                    <div key={item.id} className="px-4 py-4 border-b last:border-b-0 border-gray-200 flex items-center justify-between">
+                                        <div className="flex-1 pr-4">
+                                            <h3 className="text-black font-semibold text-base">{item.name}</h3>
+                                            <div className="text-sm text-gray-800 mt-2">Rs. {item.price.toFixed(0)}</div>
+                                        </div>
+
+                                        <div className="flex flex-col items-center w-24">
+                                            <div className="w-16 h-16 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
+                                                {resolveImageUrl(item.imageUrl) ? (
+                                                    <Image src={resolveImageUrl(item.imageUrl) as string} alt={item.name} width={64} height={64} className="object-cover" unoptimized />
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-full bg-gray-200" />
+                                                )}
+                                            </div>
+                                            <button
+                                                onClick={() => handleAddToCart(item)}
+                                                disabled={!item.available}
+                                                className={`add-btn mt-3 ${!item.available ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            >
+                                                ADD
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )
+                    ) : (
+                        <LiveOrdersSection branchId={branchId} />
+                    )}
                 </main>
             </div>
 
@@ -316,4 +344,111 @@ function formatCategoryLabel(value?: string) {
     const shouldTitleCase = trimmed === trimmed.toUpperCase() || trimmed.includes('_');
     if (!shouldTitleCase) return normalized;
     return normalized.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function LiveOrdersSection({ branchId }: { branchId: string }) {
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const loadOrders = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const deviceId = getOrCreateDeviceId();
+            const data = await orderService.getOrdersByDevice(deviceId);
+            // Filter by branchId if needed, or show all for this device
+            setOrders(data.filter((o: Order) => o.branchId === branchId));
+        } catch (error) {
+            console.error('Failed to load orders:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [branchId]);
+
+    useEffect(() => {
+        loadOrders();
+        // Refresh every 30 seconds
+        const interval = setInterval(loadOrders, 30000);
+        return () => clearInterval(interval);
+    }, [loadOrders]);
+
+    if (isLoading) {
+        return (
+            <div className="flex justify-center py-12">
+                <Spinner size="md" />
+            </div>
+        );
+    }
+
+    if (orders.length === 0) {
+        return (
+            <div className="text-center py-12 bg-white rounded-2xl shadow-sm border border-gray-100">
+                <p className="text-gray-500 mb-2">No active orders found.</p>
+                <p className="text-sm text-gray-400">Place an order to see it here!</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {orders.map((order) => (
+                <div key={order.id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-medium text-gray-500">Token</span>
+                                <span className="text-2xl font-bold text-purple-600">
+                                    #{order.tokenNumber || '---'}
+                                </span>
+                            </div>
+                            <div className="text-xs text-gray-400">
+                                {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                        </div>
+                        <StatusBadge status={order.status} />
+                    </div>
+
+                    <div className="space-y-2 border-t border-gray-50 pt-3">
+                        {order.items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between text-sm">
+                                <span className="text-gray-700">
+                                    <span className="font-semibold">{item.quantity}x</span> {item.menuItem?.name || 'Item'}
+                                </span>
+                                <span className="text-gray-500">Rs. {((item.price || 0) * item.quantity).toFixed(0)}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-50">
+                        <span className="text-sm font-semibold text-gray-900">Total</span>
+                        <span className="text-base font-bold text-gray-900">Rs. {order.totalAmount.toFixed(0)}</span>
+                    </div>
+                </div>
+            ))}
+
+            <button
+                onClick={loadOrders}
+                className="w-full py-3 text-sm font-medium text-purple-600 bg-purple-50 rounded-xl hover:bg-purple-100 transition-colors"
+            >
+                Refresh Status
+            </button>
+        </div>
+    );
+}
+
+function StatusBadge({ status }: { status: string }) {
+    const configs: Record<string, { label: string, classes: string }> = {
+        PENDING: { label: 'Pending', classes: 'bg-gray-100 text-gray-600' },
+        PREPARING: { label: 'Preparing', classes: 'bg-blue-100 text-blue-600 animate-pulse' },
+        READY: { label: 'Ready', classes: 'bg-green-100 text-green-600 font-bold' },
+        COMPLETED: { label: 'Completed', classes: 'bg-green-50 text-green-500' },
+        CANCELLED: { label: 'Cancelled', classes: 'bg-red-100 text-red-600' },
+    };
+
+    const config = configs[status] || configs.PENDING;
+
+    return (
+        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${config.classes}`}>
+            {config.label}
+        </span>
+    );
 }
