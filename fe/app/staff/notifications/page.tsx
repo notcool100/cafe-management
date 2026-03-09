@@ -79,7 +79,7 @@ export default function StaffNotificationsPage() {
 
     const fetchNotifications = useCallback(
         async (showInitialLoader = false) => {
-            if (!user?.branchId || !sharedNotifySince) {
+            if (!user?.branchId) {
                 setIsLoading(false);
                 return;
             }
@@ -91,8 +91,15 @@ export default function StaffNotificationsPage() {
                     setIsRefreshing(true);
                 }
 
-                const incoming = await orderService.getSharedItemNotifications(sharedNotifySince);
-                if (incoming.length === 0) return;
+                const incoming = await orderService.getSharedItemNotifications(sharedNotifySince ?? undefined);
+                if (incoming.length === 0) {
+                    if (!sharedNotifySince && typeof window !== 'undefined') {
+                        const now = new Date().toISOString();
+                        setSharedNotifySince(now);
+                        window.localStorage.setItem(sharedNotifyKey, now);
+                    }
+                    return;
+                }
 
                 const latest = incoming.reduce((current, next) => {
                     const currentTime = new Date(current.completedAt).getTime();
@@ -146,19 +153,14 @@ export default function StaffNotificationsPage() {
         const storedSince = window.localStorage.getItem(sharedNotifyKey);
         if (storedSince) {
             setSharedNotifySince(storedSince);
-        } else {
-            const now = new Date().toISOString();
-            window.localStorage.setItem(sharedNotifyKey, now);
-            setSharedNotifySince(now);
         }
 
         window.localStorage.setItem(sharedNotifyLastSeenKey, new Date().toISOString());
         hydrateFromStorage();
-        setIsLoading(false);
     }, [hydrateFromStorage, sharedNotifyKey, sharedNotifyLastSeenKey, user?.branchId]);
 
     useEffect(() => {
-        if (!user?.branchId || !sharedNotifySince) return;
+        if (!user?.branchId) return;
 
         void fetchNotifications(true);
         refreshIntervalRef.current = setInterval(() => {

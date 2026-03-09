@@ -28,8 +28,23 @@ const parseSharedBranchIds = (value: unknown) => {
 export class MenuController {
     static createMenuItemValidation = [
         body('name').notEmpty().withMessage('Name is required'),
-        body('price').isFloat({ min: 0 }).withMessage('Price must be a positive number'),
+        body('price')
+            .custom((value) => {
+                const parsed = Number(value);
+                return Number.isFinite(parsed) && parsed > 0;
+            })
+            .withMessage('Price must be greater than 0'),
         body('branchId').isUUID().withMessage('Valid branch ID is required'),
+    ];
+
+    static updateMenuItemValidation = [
+        body('price')
+            .optional()
+            .custom((value) => {
+                const parsed = Number(value);
+                return Number.isFinite(parsed) && parsed > 0;
+            })
+            .withMessage('Price must be greater than 0'),
     ];
 
     static async createMenuItem(req: AuthRequest, res: Response) {
@@ -112,6 +127,11 @@ export class MenuController {
 
     static async updateMenuItem(req: AuthRequest, res: Response) {
         try {
+            const errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return res.status(400).json({ errors: errors.array() });
+            }
+
             const { id } = req.params;
             const { name, description, price, category, branchId } = req.body;
             const file = (req as AuthRequest & { file?: Express.Multer.File }).file;

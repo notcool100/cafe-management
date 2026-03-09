@@ -5,15 +5,18 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
     label?: string;
     error?: string;
     description?: string;
+    labelClassName?: string;
+    descriptionClassName?: string;
+    optionClassName?: string;
     options: { value: string; label: string }[];
 }
 
 const Select = forwardRef<HTMLSelectElement, SelectProps>(
-    ({ className, label, error, description, options, ...props }, ref) => {
+    ({ className, label, error, description, labelClassName, descriptionClassName, optionClassName, options, ...props }, ref) => {
         return (
             <div className="w-full">
                 {label && (
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                    <label className={cn('block text-sm font-medium text-gray-300 mb-1', labelClassName)}>
                         {label}
                     </label>
                 )}
@@ -31,7 +34,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
                         {...props}
                     >
                         {options.map((option) => (
-                            <option key={option.value} value={option.value} className="bg-gray-900 text-white">
+                            <option key={option.value} value={option.value} className={cn('bg-gray-900 text-white', optionClassName)}>
                                 {option.label}
                             </option>
                         ))}
@@ -43,7 +46,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
                     </div>
                 </div>
                 {description && !error && (
-                    <p className="mt-1 text-xs text-gray-500">{description}</p>
+                    <p className={cn('mt-1 text-xs text-gray-500', descriptionClassName)}>{description}</p>
                 )}
                 {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
             </div>

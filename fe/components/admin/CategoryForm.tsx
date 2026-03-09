@@ -42,6 +42,7 @@ export default function CategoryForm({
     const { user } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
     const lockedBranchId = isManager ? user?.branchId : undefined;
+    const initialBranchName = initialData?.branch?.name?.trim() || '';
     const initialBranchId = initialData?.branchId || initialData?.branch?.id || lockedBranchId || '';
 
     const {
@@ -70,8 +71,12 @@ export default function CategoryForm({
                 const data = await branchService.getBranches();
                 setBranches(data);
 
+                const fallbackBranchId = !initialBranchId && initialBranchName
+                    ? data.find((branch) => branch.name.trim().toLowerCase() === initialBranchName.toLowerCase())?.id
+                    : undefined;
                 const preferredBranch =
                     initialBranchId ||
+                    fallbackBranchId ||
                     (data.length === 1 ? data[0].id : '');
 
                 if (preferredBranch) {
@@ -82,7 +87,7 @@ export default function CategoryForm({
             }
         };
         loadBranches();
-    }, [initialBranchId, setValue]);
+    }, [initialBranchId, initialBranchName, setValue]);
 
     useEffect(() => {
         if (initialData?.sharedBranchIds) {
@@ -104,7 +109,7 @@ export default function CategoryForm({
                     sharedBranchIds: isTransferable ? sharedBranchIds : [],
                 })
             )}
-            className="space-y-6"
+            className="space-y-6 text-[#1f1c17] [&_label]:!text-[#1f1c17] [&_p]:!text-[#1f1c17] [&_span]:!text-[#1f1c17]"
         >
             <div className="space-y-4">
                 <Input
@@ -117,6 +122,7 @@ export default function CategoryForm({
                 <Select
                     label="Branch"
                     {...register('branchId')}
+                    value={selectedBranchId || ''}
                     error={errors.branchId?.message}
                     options={
                         isManager && lockedBranchId
@@ -131,13 +137,13 @@ export default function CategoryForm({
                     disabled={isManager || isEdit}
                 />
                 {isManager && (
-                    <p className="text-xs text-amber-300 mt-1">
+                    <p className="text-xs text-[#1f1c17] mt-1">
                         Branch is locked to your assignment.
                     </p>
                 )}
 
                 {isEdit && (
-                    <p className="text-xs text-gray-700">
+                    <p className="text-xs text-[#1f1c17]">
                         Branch cannot be changed after category creation.
                     </p>
                 )}
@@ -155,7 +161,7 @@ export default function CategoryForm({
                             }
                         }}
                     />
-                    <p className="mt-1 text-sm text-gray-700 ml-7">
+                    <p className="mt-1 text-sm text-[#1f1c17] ml-7">
                         Choose where this category should appear for menu creation.
                     </p>
                 </div>
@@ -163,12 +169,12 @@ export default function CategoryForm({
                 {isTransferable && (
                     <div className="grid gap-2 pl-7 border-l-2 border-gray-800 ml-2">
                         {!selectedBranchId && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-[#1f1c17]">
                                 Select a branch to choose sharing targets.
                             </p>
                         )}
                         {selectedBranchId && shareableBranches.length === 0 && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-[#1f1c17]">
                                 No other branches available to share with.
                             </p>
                         )}
@@ -177,7 +183,7 @@ export default function CategoryForm({
                                 {shareableBranches.map((branch) => {
                                     const checked = sharedBranchIds.includes(branch.id);
                                     return (
-                                        <label key={branch.id} className="flex items-center gap-2 text-sm text-gray-200">
+                                        <label key={branch.id} className="flex items-center gap-2 text-sm text-[#1f1c17]">
                                             <input
                                                 type="checkbox"
                                                 className="h-4 w-4 rounded border-gray-700 bg-gray-900/50 text-purple-600 focus:ring-purple-500/20 focus:ring-2 transition-colors cursor-pointer"
@@ -197,7 +203,7 @@ export default function CategoryForm({
                             </div>
                         )}
                         {selectedBranchId && shareableBranches.length > 0 && sharedBranchIds.length === 0 && (
-                            <p className="text-xs text-amber-300">
+                            <p className="text-xs text-[#1f1c17]">
                                 Select at least one branch to enable sharing.
                             </p>
                         )}

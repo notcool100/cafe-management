@@ -19,6 +19,10 @@ export class MenuService {
             select: { tenantId: true, isActive: true },
         });
 
+        if (!Number.isFinite(data.price) || data.price <= 0) {
+            throw new Error('Price must be greater than 0');
+        }
+
         if (!branch || !branch.isActive) {
             throw new Error('Branch not found for this tenant');
         }
@@ -109,6 +113,10 @@ export class MenuService {
 
         if (!existing) {
             throw new Error('Menu item not found');
+        }
+
+        if (data.price !== undefined && (!Number.isFinite(data.price) || data.price <= 0)) {
+            throw new Error('Price must be greater than 0');
         }
 
         const sharedBranchIds = data.sharedBranchIds !== undefined

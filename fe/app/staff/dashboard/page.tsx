@@ -118,11 +118,6 @@ export default function DashboardPage() {
                 </svg>
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
-              <button className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 group">
-                <svg className="w-6 h-6 text-gray-700 group-hover:text-gray-900 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </button>
             </div>
           </div>
         </header>
@@ -166,23 +161,6 @@ export default function DashboardPage() {
                 <button className="px-6 py-2.5 bg-gray-900 text-white rounded-full text-sm font-medium border-2 border-blue-500 hover:bg-gray-800 transition-all duration-200 hover:shadow-lg">
                   Live Orders
                 </button>
-              </div>
-            </section>
-
-            {/* Promocodes Banner */}
-            <section className="px-4 py-2 lg:px-8">
-              <div className="rounded-2xl p-4 border hover:shadow-md transition-all duration-300 cursor-pointer" style={{ backgroundColor: '#FEF0E3', borderColor: '#F5DEB3' }}>
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#DC2626' }}>
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <span className="font-semibold" style={{ color: '#DC2626' }}>Dashboard Stats</span>
-                    <p className="text-xs mt-1" style={{ color: '#B91C1C' }}>Real-time business metrics</p>
-                  </div>
-                </div>
               </div>
             </section>
 

@@ -4,10 +4,11 @@ import { cn } from '@/lib/utils/cn';
 export interface CheckboxProps extends InputHTMLAttributes<HTMLInputElement> {
     label?: string;
     error?: string;
+    labelClassName?: string;
 }
 
 const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
-    ({ className, label, error, ...props }, ref) => {
+    ({ className, label, error, labelClassName, ...props }, ref) => {
         return (
             <div className="flex items-start">
                 <div className="flex items-center h-5">
@@ -24,7 +25,7 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
                 </div>
                 {label && (
                     <div className="ml-3 text-sm">
-                        <label htmlFor={props.id} className="font-medium text-gray-300 cursor-pointer select-none">
+                        <label htmlFor={props.id} className={cn('font-medium text-gray-300 cursor-pointer select-none', labelClassName)}>
                             {label}
                         </label>
                         {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
