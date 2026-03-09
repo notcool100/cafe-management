@@ -2,16 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { orderService } from '@/lib/api/order-service';
+import Modal from '@/components/ui/Modal';
 import Spinner from '@/components/ui/Spinner';
+import { useAuthStore } from '@/lib/store/auth-store';
 
 export default function StaffDashboardPage() {
+    const { user } = useAuthStore();
     const [stats, setStats] = useState({
         active: 0,
         completed: 0,
         totalToday: 0,
     });
     const [isLoading, setIsLoading] = useState(true);
+    const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+
+    const branchName = user?.branch?.name || 'Your branch';
+    const branchQrCode = user?.branch?.qrCode;
 
     useEffect(() => {
         loadStats();
@@ -99,6 +107,62 @@ export default function StaffDashboardPage() {
                     </Link>
                 </div>
             </div>
+
+            <div className="rounded-3xl border border-[#e2d6c1] bg-[#f3e7d2] p-6 md:p-8 shadow-[0_12px_28px_rgba(90,58,46,0.08)]">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h2 className="text-2xl font-semibold text-[#5a3a2e]">Your Branch QR</h2>
+                        <p className="text-sm text-[#8b6f5f] mt-2">
+                            Share this QR to open the menu for {branchName}.
+                        </p>
+                    </div>
+
+                    {branchQrCode ? (
+                        <button
+                            type="button"
+                            onClick={() => setIsQrModalOpen(true)}
+                            className="self-start rounded-2xl border border-[#d9c9ae] bg-[#fffaf0] p-3 shadow-[0_8px_18px_rgba(90,58,46,0.12)] transition hover:scale-[1.02]"
+                            aria-label={`Open large QR for ${branchName}`}
+                        >
+                            <Image
+                                src={branchQrCode}
+                                alt={`${branchName} QR code`}
+                                width={112}
+                                height={112}
+                                unoptimized
+                                className="h-28 w-28 rounded-lg object-contain"
+                            />
+                            <p className="mt-2 text-center text-xs font-semibold text-[#5a3a2e]">Tap to enlarge</p>
+                        </button>
+                    ) : (
+                        <p className="text-sm text-[#8b6f5f]">No QR code is available for this branch yet.</p>
+                    )}
+                </div>
+            </div>
+
+            <Modal
+                isOpen={isQrModalOpen}
+                onClose={() => setIsQrModalOpen(false)}
+                title={`${branchName} QR`}
+                size="lg"
+                theme="light"
+            >
+                <div className="flex flex-col items-center gap-3">
+                    {branchQrCode && (
+                        <Image
+                            src={branchQrCode}
+                            alt={`${branchName} large QR code`}
+                            width={420}
+                            height={420}
+                            unoptimized
+                            className="w-full max-w-md rounded-2xl border border-[#e2d6c1] bg-[#fffaf0] p-3 object-contain"
+                        />
+                    )}
+                    <p className="text-center text-sm text-[#8b6f5f]">
+                        Scan to open menu of {branchName}.
+                    </p>
+                </div>
+            </Modal>
         </div>
     );
 }
