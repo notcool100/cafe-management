@@ -28,6 +28,11 @@ interface EmployeeFormProps {
     isEdit?: boolean;
 }
 
+const formatBranchOptionLabel = (branch: Branch) => {
+    const location = branch.location?.trim();
+    return location ? `${branch.name}, ${location}` : branch.name;
+};
+
 export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit = false }: EmployeeFormProps) {
     const [branches, setBranches] = useState<Branch[]>([]);
     const { user } = useAuthStore();
@@ -137,10 +142,10 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
                         isManager && lockedBranchId
                             ? branches
                                 .filter((b) => b.id === lockedBranchId)
-                                .map((b) => ({ value: b.id, label: b.name }))
+                                .map((b) => ({ value: b.id, label: formatBranchOptionLabel(b) }))
                             : [
                                 { value: '', label: 'No Branch Assigned' },
-                                ...branches.map((b) => ({ value: b.id, label: b.name })),
+                                ...branches.map((b) => ({ value: b.id, label: formatBranchOptionLabel(b) })),
                             ]
                     }
                     disabled={isManager}
