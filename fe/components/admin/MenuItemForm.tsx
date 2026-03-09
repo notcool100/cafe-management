@@ -16,7 +16,7 @@ import { categoryService } from '@/lib/api/category-service';
 const menuItemSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
     description: z.string().optional(),
-    price: z.number().min(0, 'Price must be positive'),
+    price: z.number().positive('Price must be greater than 0'),
     category: z.string().min(1, 'Category is required'),
     branchId: z.string().min(1, 'Branch is required'),
     available: z.boolean(),

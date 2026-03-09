@@ -50,7 +50,7 @@ export const branchSchema = z.object({
 export const menuItemSchema = z.object({
     name: z.string().min(2, 'Item name must be at least 2 characters'),
     description: z.string().optional(),
-    price: z.number().min(0, 'Price must be a positive number'),
+    price: z.number().positive('Price must be greater than 0'),
     category: z.string().min(1, 'Category is required'),
     available: z.boolean().default(true),
     branchId: z.string().min(1, 'Branch is required'),

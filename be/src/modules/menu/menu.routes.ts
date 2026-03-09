@@ -36,6 +36,7 @@ router.put(
     authenticate,
     requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
     uploadMenuImage.single('image'),
+    MenuController.updateMenuItemValidation,
     MenuController.updateMenuItem
 );
 
