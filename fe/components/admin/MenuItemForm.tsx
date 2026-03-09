@@ -53,6 +53,7 @@ export default function MenuItemForm({
     const { user } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
     const lockedBranchId = isManager ? user?.branchId : undefined;
+    const initialBranchName = initialData?.branch?.name?.trim() || '';
     const initialBranchId = initialData?.branchId || initialData?.branch?.id || lockedBranchId || '';
     const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0] || null;
@@ -95,8 +96,12 @@ export default function MenuItemForm({
                 setBranches(data);
 
                 // Auto-select branch for managers or when only one branch is available
+                const fallbackBranchId = !initialBranchId && initialBranchName
+                    ? data.find((branch) => branch.name.trim().toLowerCase() === initialBranchName.toLowerCase())?.id
+                    : undefined;
                 const preferredBranch =
                     initialBranchId ||
+                    fallbackBranchId ||
                     (data.length === 1 ? data[0].id : '');
 
                 if (preferredBranch) {
@@ -107,7 +112,7 @@ export default function MenuItemForm({
             }
         };
         loadBranches();
-    }, [initialBranchId, setValue]);
+    }, [initialBranchId, initialBranchName, setValue]);
 
     useEffect(() => {
         if (initialData?.sharedBranchIds) {
@@ -219,7 +224,7 @@ export default function MenuItemForm({
                     sharedBranchIds: isTransferable ? sharedBranchIds : [],
                 })
             )}
-            className="space-y-6"
+            className="space-y-6 text-white [&_label]:!text-white [&_p]:!text-white [&_span]:!text-white"
         >
             <div className="space-y-4">
                 <Input
@@ -231,12 +236,12 @@ export default function MenuItemForm({
                 />
 
                 <div className="w-full">
-                    <label className="block text-sm font-medium text-black-300 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                         Description
                     </label>
                     <textarea
                         {...register('description')}
-                        className="block w-full rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2 text-white shadow-sm transition-colors focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                        className="block w-full rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2 text-white placeholder-white/70 shadow-sm transition-colors focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
                         rows={3}
                         placeholder="Delicious beef burger with cheese..."
                     />
@@ -248,6 +253,7 @@ export default function MenuItemForm({
                 <Select
                     label="Branch"
                     {...register('branchId')}
+                    value={selectedBranchId || ''}
                     error={errors.branchId?.message}
                     options={
                         isManager && lockedBranchId
@@ -310,7 +316,7 @@ export default function MenuItemForm({
                             }
                         }}
                     />
-                    <p className="mt-1 text-sm text-gray-500 ml-7">
+                    <p className="mt-1 text-sm text-white ml-7">
                         Enable this to share the item with selected branches in the same organization.
                     </p>
                 </div>
@@ -318,12 +324,12 @@ export default function MenuItemForm({
                 {isTransferable && (
                     <div className="grid gap-2 pl-7 border-l-2 border-gray-800 ml-2">
                         {!selectedBranchId && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-white">
                                 Select a branch to choose sharing targets.
                             </p>
                         )}
                         {selectedBranchId && shareableBranches.length === 0 && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-white">
                                 No other branches available to share with.
                             </p>
                         )}
@@ -332,7 +338,7 @@ export default function MenuItemForm({
                                 {shareableBranches.map((branch) => {
                                     const checked = sharedBranchIds.includes(branch.id);
                                     return (
-                                        <label key={branch.id} className="flex items-center gap-2 text-sm text-gray-200">
+                                        <label key={branch.id} className="flex items-center gap-2 text-sm text-white">
                                             <input
                                                 type="checkbox"
                                                 className="h-4 w-4 rounded border-gray-700 bg-gray-900/50 text-purple-600 focus:ring-purple-500/20 focus:ring-2 transition-colors cursor-pointer"
@@ -360,7 +366,7 @@ export default function MenuItemForm({
                 )}
 
                 <div className="w-full">
-                    <label className="block text-sm font-medium text-black-300 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                         Item Image (Optional)
                     </label>
                     <input
@@ -370,7 +376,7 @@ export default function MenuItemForm({
                         className="block w-full rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2 text-white shadow-sm transition-colors file:mr-4 file:rounded file:border-0 file:bg-gray-700 file:px-3 file:py-1 file:text-sm file:font-medium file:text-white hover:file:bg-gray-600 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
                     />
                     {initialData?.imageUrl && (
-                        <p className="mt-1 text-xs text-black-500">
+                        <p className="mt-1 text-xs text-white">
                             Current image is set. Upload a new file to replace it.
                         </p>
                     )}

@@ -70,7 +70,7 @@ export default function NewMenuItemPage() {
                 }
             />
 
-            <h1 className="text-2xl font-semibold mb-8 tracking-wide">
+            <h1 className="text-2xl font-semibold mb-8 tracking-wide text-white">
                 MENU
             </h1>
 
@@ -78,7 +78,7 @@ export default function NewMenuItemPage() {
                 <div className="grid md:grid-cols-2">
 
                     {/* LEFT SIDE FORM */}
-                    <div className="p-8 bg-[#8d776f]">
+                    <div className="p-8 bg-[#8d776f] text-white [&_label]:!text-white [&_p]:!text-white [&_span]:!text-white [&_h2]:!text-white">
                         <h2 className="text-lg text-white mb-6">
                             Add an item to the menu
                         </h2>
