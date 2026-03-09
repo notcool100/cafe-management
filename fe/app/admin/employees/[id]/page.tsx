@@ -103,11 +103,13 @@ export default function EditEmployeePage() {
 
             <div className="mb-6 flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Edit Employee</h1>
-                    <p className="text-gray-400">Update staff member details</p>
+                    <h1 className="text-3xl font-bold text-black mb-2">Edit Employee</h1>
+                    <p className="text-black">Update staff member details</p>
                 </div>
                 <Link href="/admin/employees">
-                    <Button variant="ghost">Back to List</Button>
+                    <Button variant="ghost" className="!text-black hover:!text-black">
+                        Back to List
+                    </Button>
                 </Link>
             </div>
 

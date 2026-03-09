@@ -5,22 +5,34 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     label?: string;
     error?: string;
     helperText?: string;
+    floatingLabel?: boolean;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-    ({ className, label, error, helperText, type = 'text', ...props }, ref) => {
+    ({ className, label, error, helperText, type = 'text', floatingLabel = true, ...props }, ref) => {
         const [focused, setFocused] = useState(false);
         const [showPassword, setShowPassword] = useState(false);
         const isPassword = type === 'password';
 
         return (
             <div className="w-full">
+                {label && !floatingLabel && (
+                    <label
+                        className={cn(
+                            'mb-1 block text-sm font-medium',
+                            error ? 'text-red-400' : 'text-gray-300'
+                        )}
+                    >
+                        {label}
+                    </label>
+                )}
                 <div className="relative">
                     <input
                         ref={ref}
                         type={isPassword ? (showPassword ? 'text' : 'password') : type}
                         className={cn(
-                            'peer w-full rounded-lg border bg-gray-900/50 px-4 py-3 text-white placeholder-transparent transition-all duration-200 focus:outline-none focus:ring-2',
+                            'w-full rounded-lg border bg-gray-900/50 px-4 py-3 text-white transition-all duration-200 focus:outline-none focus:ring-2',
+                            floatingLabel ? 'peer placeholder-transparent' : 'placeholder:text-gray-400',
                             isPassword && 'pr-12',
                             error
                                 ? 'border-red-500 focus:border-red-500 focus:ring-red-500/30'
@@ -32,7 +44,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                         onBlur={() => setFocused(false)}
                         {...props}
                     />
-                    {label && (
+                    {label && floatingLabel && (
                         <label
                             className={cn(
                                 'absolute left-4 transition-all duration-200 pointer-events-none',

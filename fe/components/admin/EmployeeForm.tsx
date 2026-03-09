@@ -84,10 +84,14 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
     };
 
     return (
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+        <form
+            onSubmit={handleSubmit(handleFormSubmit)}
+            className="space-y-6 text-[#1f1c17] [&_label]:!text-[#1f1c17] [&_input]:!text-[#1f1c17] [&_input]:!bg-white [&_input]:!border-[#9ca3af] [&_select]:!text-[#1f1c17] [&_select]:!bg-white [&_select]:!border-[#9ca3af] [&_option]:!text-[#1f1c17] [&_option]:!bg-white [&_button[type='button']]:!text-[#1f1c17] [&_p.text-sm.text-gray-500]:!text-[#1f1c17]"
+        >
             <div className="space-y-4">
                 <Input
                     label="Full Name"
+                    floatingLabel={false}
                     {...register('name')}
                     error={errors.name?.message}
                     placeholder="John Doe"
@@ -96,6 +100,7 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
                 <Input
                     label="Email Address"
                     type="email"
+                    floatingLabel={false}
                     {...register('email')}
                     error={errors.email?.message}
                     placeholder="john@example.com"
@@ -105,6 +110,7 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
                     <Input
                         label="Password"
                         type="password"
+                        floatingLabel={false}
                         {...register('password')}
                         error={errors.password?.message}
                         placeholder="••••••••"
@@ -140,7 +146,7 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
                     disabled={isManager}
                 />
                 {isManager && (
-                    <p className="text-xs text-amber-300 mt-1">
+                    <p className="text-xs text-[#1f1c17] mt-1">
                         Branch is locked to your assignment.
                     </p>
                 )}
