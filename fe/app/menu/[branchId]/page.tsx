@@ -206,7 +206,7 @@ export default function PublicMenuPage() {
 
                             <button
                                 onClick={() => setIsCartOpen(true)}
-                                className="relative p-2 text-gray-700 hover:text-black transition-colors"
+                                className="relative p-2 text-gray-900 hover:text-black transition-colors"
                                 aria-label="Open cart"
                             >
                                 <ShoppingCartIcon className="h-6 w-6" />
@@ -223,7 +223,7 @@ export default function PublicMenuPage() {
                                 {categories.map((cat) => (
                                     <button
                                         key={cat}
-                                        className={`chip ${selectedCategory === cat ? 'bg-purple-600 text-white' : ''}`}
+                                        className={`chip ${selectedCategory === cat ? 'bg-purple-600 text-gra' : ''}`}
                                         onClick={() => setSelectedCategory(cat)}
                                     >
                                         {formatCategoryLabel(cat)}
@@ -430,8 +430,8 @@ function LiveOrdersSection({ branchId }: { branchId: string }) {
     if (orders.length === 0) {
         return (
             <div className="text-center py-12 bg-white rounded-2xl shadow-sm border border-gray-100">
-                <p className="text-gray-500 mb-2">No active orders found.</p>
-                <p className="text-sm text-gray-400">Place an order to see it here!</p>
+                <p className="text-gray-900 mb-2">No active orders found.</p>
+                <p className="text-sm text-gray-900">Place an order to see it here!</p>
             </div>
         );
     }
@@ -443,12 +443,12 @@ function LiveOrdersSection({ branchId }: { branchId: string }) {
                     <div className="flex justify-between items-start mb-4">
                         <div>
                             <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-medium text-gray-500">Token</span>
+                                <span className="text-sm font-medium text-gray-900">Token</span>
                                 <span className="text-2xl font-bold text-purple-600">
                                     #{order.tokenNumber || '---'}
                                 </span>
                             </div>
-                            <div className="text-xs text-gray-400">
+                            <div className="text-xs text-gray-900">
                                 {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </div>
                         </div>
@@ -458,10 +458,10 @@ function LiveOrdersSection({ branchId }: { branchId: string }) {
                     <div className="space-y-2 border-t border-gray-50 pt-3">
                         {order.items.map((item, idx) => (
                             <div key={idx} className="flex justify-between text-sm">
-                                <span className="text-gray-700">
+                                <span className="text-gray-900">
                                     <span className="font-semibold">{item.quantity}x</span> {item.menuItem?.name || 'Item'}
                                 </span>
-                                <span className="text-gray-500">Rs. {((item.price || 0) * item.quantity).toFixed(0)}</span>
+                                <span className="text-gray-900">Rs. {((item.price || 0) * item.quantity).toFixed(0)}</span>
                             </div>
                         ))}
                     </div>
@@ -485,7 +485,7 @@ function LiveOrdersSection({ branchId }: { branchId: string }) {
 
 function StatusBadge({ status }: { status: string }) {
     const configs: Record<string, { label: string, classes: string }> = {
-        PENDING: { label: 'Pending', classes: 'bg-gray-100 text-gray-600' },
+        PENDING: { label: 'Pending', classes: 'bg-gray-100 text-gray-900' },
         PREPARING: { label: 'Preparing', classes: 'bg-blue-100 text-blue-600 animate-pulse' },
         READY: { label: 'Ready', classes: 'bg-green-100 text-green-600 font-bold' },
         COMPLETED: { label: 'Completed', classes: 'bg-green-50 text-green-500' },

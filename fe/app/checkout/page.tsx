@@ -96,12 +96,12 @@ export default function CheckoutPage() {
                                     <div key={item.menuItem.id} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
                                         <div className="flex-1">
                                             <h4 className="font-semibold text-gray-900">{item.menuItem.name}</h4>
-                                            <p className="text-sm text-gray-600">Rs. {item.menuItem.price.toFixed(2)} x {item.quantity}</p>
+                                            <p className="text-sm text-gray-900">Rs. {item.menuItem.price.toFixed(2)} x {item.quantity}</p>
                                         </div>
                                         <p className="font-bold text-gray-900">Rs. {(item.menuItem.price * item.quantity).toFixed(2)}</p>
                                     </div>
                                 ))}
-                                <div className="pt-4 flex justify-between items-center text-xl font-bold text-purple-600 border-t border-gray-100">
+                                <div className="pt-4 flex justify-between items-center text-xl font-bold text-purple-600 border-t border-gray-900">
                                     <span>Total</span>
                                     <span>Rs. {getTotal().toFixed(2)}</span>
                                 </div>
@@ -115,7 +115,7 @@ export default function CheckoutPage() {
                             <h3 className="text-xl font-bold text-gray-900">Customer Details</h3>
                             <div className="space-y-4">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-600 mb-2">Order type</p>
+                                    <p className="text-sm font-medium text-gray-900 mb-2">Order type</p>
                                     <div className="grid grid-cols-2 gap-2">
                                         {[OrderType.DINE_IN, OrderType.TAKEAWAY].map((type) => (
                                             <button
@@ -125,7 +125,7 @@ export default function CheckoutPage() {
                                                     "px-4 py-2 rounded-lg font-medium transition-all text-sm",
                                                     orderType === type
                                                         ? "bg-purple-600 text-white shadow-md"
-                                                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                                        : "bg-gray-100 text-gray-900 hover:bg-gray-200"
                                                 )}
                                             >
                                                 {type === OrderType.DINE_IN ? 'Dine-in' : 'Takeaway'}
@@ -165,7 +165,7 @@ export default function CheckoutPage() {
                         </Button>
 
                         <Link href={`/menu/${branchId}`} className="block">
-                            <button className="w-full text-center py-2 text-gray-500 hover:text-purple-600 font-medium transition-colors">
+                            <button className="w-full text-center py-2 text-gray-900 hover:text-purple-600 font-medium transition-colors">
                                 Continue Shopping
                             </button>
                         </Link>
