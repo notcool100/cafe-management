@@ -37,22 +37,39 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
     const isManager = user?.role === UserRole.MANAGER;
     const lockedBranchId = isManager ? user?.branchId : undefined;
 
+    const resolvedInitialBranchId =
+        initialData?.branchId ||
+        initialData?.branch?.id ||
+        lockedBranchId ||
+        '';
+
     const {
         register,
         handleSubmit,
         formState: { errors },
         setError,
         setValue,
+        reset,
     } = useForm<EmployeeFormData>({
         resolver: zodResolver(employeeSchema),
         defaultValues: {
             name: initialData?.name || '',
             email: initialData?.email || '',
             role: initialData?.role || UserRole.EMPLOYEE,
-            branchId: initialData?.branchId || lockedBranchId || '',
+            branchId: resolvedInitialBranchId,
             password: '',
         },
     });
+
+    useEffect(() => {
+        reset({
+            name: initialData?.name || '',
+            email: initialData?.email || '',
+            role: initialData?.role || UserRole.EMPLOYEE,
+            branchId: resolvedInitialBranchId,
+            password: '',
+        });
+    }, [initialData, reset, resolvedInitialBranchId]);
 
     useEffect(() => {
         const loadBranches = async () => {
@@ -60,10 +77,7 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
                 const data = await branchService.getBranches();
                 setBranches(data);
 
-                const preferredBranch =
-                    initialData?.branchId ||
-                    lockedBranchId ||
-                    (data.length === 1 ? data[0].id : '');
+                const preferredBranch = resolvedInitialBranchId || (data.length === 1 ? data[0].id : '');
 
                 if (preferredBranch) {
                     setValue('branchId', preferredBranch, { shouldValidate: true });
@@ -73,7 +87,7 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
             }
         };
         loadBranches();
-    }, [initialData?.branchId, lockedBranchId, setValue]);
+    }, [resolvedInitialBranchId, setValue]);
 
     const handleFormSubmit = async (data: EmployeeFormData) => {
         if (!isEdit && !data.password) {
