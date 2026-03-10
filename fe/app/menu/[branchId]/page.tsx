@@ -266,12 +266,18 @@ export default function PublicMenuPage() {
                             </div>
                         ) : (
                             <div className="bg-white rounded-2xl mt-2 overflow-hidden">
-                                {filteredItems.map((item) => (
-                                    <div key={item.id} className="px-4 py-4 border-b last:border-b-0 border-gray-200 flex items-center justify-between">
-                                        <div className="flex-1 pr-4">
-                                            <h3 className="text-black font-semibold text-base">{item.name}</h3>
-                                            <div className="text-sm text-gray-800 mt-2">Rs. {item.price.toFixed(0)}</div>
-                                        </div>
+                                {filteredItems.map((item) => {
+                                    const description = item.description?.trim();
+
+                                    return (
+                                        <div key={item.id} className="px-4 py-4 border-b last:border-b-0 border-gray-200 flex items-center justify-between">
+                                            <div className="flex-1 pr-4">
+                                                <h3 className="text-black font-semibold text-base">{item.name}</h3>
+                                                {description ? (
+                                                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">{description}</p>
+                                                ) : null}
+                                                <div className="text-sm text-gray-800 mt-2">Rs. {item.price.toFixed(0)}</div>
+                                            </div>
 
                                         <div className="flex flex-col items-center w-24">
                                             <div
@@ -292,8 +298,9 @@ export default function PublicMenuPage() {
                                                 ADD
                                             </button>
                                         </div>
-                                    </div>
-                                ))}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )
                     ) : (
