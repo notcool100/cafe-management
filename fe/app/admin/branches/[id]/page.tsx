@@ -101,8 +101,8 @@ export default function EditBranchPage() {
 
             <div className="mb-6 flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Edit Branch</h1>
-                    <p className="text-gray-400">Update location details and settings</p>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Edit Branch</h1>
+                    <p className="text-gray-900">Update location details and settings</p>
                 </div>
                 <Link href="/admin/branches">
                     <Button variant="ghost">Back to List</Button>
