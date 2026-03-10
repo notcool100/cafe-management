@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Branch, Category, UserRole } from '@/lib/types';
+import { cn } from '@/lib/utils/cn';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Checkbox from '@/components/ui/Checkbox';
@@ -29,6 +30,7 @@ interface CategoryFormProps {
     onSubmit: (data: CategoryFormData) => Promise<void>;
     isLoading: boolean;
     isEdit?: boolean;
+    theme?: 'light' | 'dark';
 }
 
 export default function CategoryForm({
@@ -36,6 +38,7 @@ export default function CategoryForm({
     onSubmit,
     isLoading,
     isEdit = false,
+    theme = 'light',
 }: CategoryFormProps) {
     const [branches, setBranches] = useState<Branch[]>([]);
     const [sharedBranchIds, setSharedBranchIds] = useState<string[]>(initialData?.sharedBranchIds || []);
@@ -104,6 +107,9 @@ export default function CategoryForm({
         setSharedBranchIds((prev) => prev.filter((id) => id !== selectedBranchId));
     }, [selectedBranchId]);
 
+    const textColor = theme === 'light' ? 'text-[#1f1c17]' : 'text-white';
+    const helperTextColor = theme === 'light' ? 'text-[#1f1c17]' : 'text-gray-300';
+
     return (
         <form
             onSubmit={handleSubmit((data) =>
@@ -112,7 +118,12 @@ export default function CategoryForm({
                     sharedBranchIds: isTransferable ? sharedBranchIds : [],
                 })
             )}
-            className="space-y-6 text-[#1f1c17] [&_label]:!text-[#1f1c17] [&_p]:!text-[#1f1c17] [&_span]:!text-[#1f1c17]"
+            className={cn(
+                'space-y-6',
+                theme === 'light'
+                    ? 'text-[#1f1c17] [&_label]:!text-[#1f1c17] [&_p]:!text-[#1f1c17] [&_span]:!text-[#1f1c17]'
+                    : 'text-white'
+            )}
         >
             <div className="space-y-4">
                 <Input
@@ -120,6 +131,7 @@ export default function CategoryForm({
                     {...register('name')}
                     error={errors.name?.message}
                     placeholder="Beverages"
+                    labelClassName={theme === 'dark' ? 'text-white' : ''}
                 />
 
                 <Select
@@ -127,6 +139,7 @@ export default function CategoryForm({
                     {...register('branchId')}
                     value={selectedBranchId || ''}
                     error={errors.branchId?.message}
+                    labelClassName={theme === 'dark' ? 'text-white' : ''}
                     options={
                         isManager && lockedBranchId
                             ? branches
@@ -140,13 +153,13 @@ export default function CategoryForm({
                     disabled={isManager || isEdit}
                 />
                 {isManager && (
-                    <p className="text-xs text-[#1f1c17] mt-1">
+                    <p className={cn('text-xs mt-1', helperTextColor)}>
                         Branch is locked to your assignment.
                     </p>
                 )}
 
                 {isEdit && (
-                    <p className="text-xs text-[#1f1c17]">
+                    <p className={cn('text-xs', helperTextColor)}>
                         Branch cannot be changed after category creation.
                     </p>
                 )}
@@ -156,6 +169,7 @@ export default function CategoryForm({
                         label="Share this category with other branches"
                         id="transferable"
                         checked={isTransferable}
+                        labelClassName={theme === 'dark' ? 'text-white' : ''}
                         onChange={(event) => {
                             const checked = event.target.checked;
                             setIsTransferable(checked);
@@ -164,20 +178,20 @@ export default function CategoryForm({
                             }
                         }}
                     />
-                    <p className="mt-1 text-sm text-[#1f1c17] ml-7">
+                    <p className={cn('mt-1 text-sm ml-7', helperTextColor)}>
                         Choose where this category should appear for menu creation.
                     </p>
                 </div>
 
                 {isTransferable && (
-                    <div className="grid gap-2 pl-7 border-l-2 border-gray-800 ml-2">
+                    <div className={cn('grid gap-2 pl-7 border-l-2 ml-2', theme === 'light' ? 'border-gray-800' : 'border-gray-700')}>
                         {!selectedBranchId && (
-                            <p className="text-xs text-[#1f1c17]">
+                            <p className={cn('text-xs', helperTextColor)}>
                                 Select a branch to choose sharing targets.
                             </p>
                         )}
                         {selectedBranchId && shareableBranches.length === 0 && (
-                            <p className="text-xs text-[#1f1c17]">
+                            <p className={cn('text-xs', helperTextColor)}>
                                 No other branches available to share with.
                             </p>
                         )}
@@ -186,7 +200,7 @@ export default function CategoryForm({
                                 {shareableBranches.map((branch) => {
                                     const checked = sharedBranchIds.includes(branch.id);
                                     return (
-                                        <label key={branch.id} className="flex items-center gap-2 text-sm text-[#1f1c17]">
+                                        <label key={branch.id} className={cn('flex items-center gap-2 text-sm', textColor)}>
                                             <input
                                                 type="checkbox"
                                                 className="h-4 w-4 rounded border-gray-700 bg-gray-900/50 text-purple-600 focus:ring-purple-500/20 focus:ring-2 transition-colors cursor-pointer"
@@ -206,7 +220,7 @@ export default function CategoryForm({
                             </div>
                         )}
                         {selectedBranchId && shareableBranches.length > 0 && sharedBranchIds.length === 0 && (
-                            <p className="text-xs text-[#1f1c17]">
+                            <p className={cn('text-xs', helperTextColor)}>
                                 Select at least one branch to enable sharing.
                             </p>
                         )}

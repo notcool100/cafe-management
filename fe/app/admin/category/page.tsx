@@ -292,6 +292,7 @@ export default function CategoriesPage() {
                         onSubmit={handleUpdate}
                         isLoading={isSaving}
                         isEdit
+                        theme="dark"
                     />
                 )}
             </Modal>
