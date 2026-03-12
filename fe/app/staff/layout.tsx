@@ -141,11 +141,12 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                     </div>
                 </aside>
 
-                <div className="min-h-screen lg:ml-64">
+                <div className={cn("min-h-screen", pathname === '/staff/orders' ? "lg:ml-64" : "lg:ml-64")}>
                     <div
                         className={cn(
                             'fixed inset-0 z-50 lg:hidden',
-                            sidebarOpen ? 'pointer-events-auto' : 'pointer-events-none'
+                            sidebarOpen ? 'pointer-events-auto' : 'pointer-events-none',
+                            pathname === '/staff/orders' && 'hidden'
                         )}
                         aria-hidden={!sidebarOpen}
                     >
@@ -266,7 +267,10 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                         </aside>
                     </div>
 
-                    <div className="sticky top-0 z-40 lg:hidden border-b border-[#e4d7c2] px-4 py-4 shadow-[0_10px_30px_rgba(90,58,46,0.08)] bg-[#f3e7d2] text-[#5a3a2e]">
+                    <div className={cn(
+                        "sticky top-0 z-40 lg:hidden border-b border-[#e4d7c2] px-4 py-4 shadow-[0_10px_30px_rgba(90,58,46,0.08)] bg-[#f3e7d2] text-[#5a3a2e]",
+                        pathname === '/staff/orders' && 'hidden'
+                    )}>
                         <div className="flex items-center justify-between">
                             <h1 className="text-lg font-semibold tracking-tight text-[#5a3a2e]">Cafe Staff</h1>
                             <button
@@ -279,8 +283,11 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                         </div>
                     </div>
 
-                    <main className="bg-[#fbf5e8] p-6 lg:p-8">
-                        <div className="max-w-7xl mx-auto">{children}</div>
+                    <main className={cn(
+                        "bg-[#fbf5e8]",
+                        pathname === '/staff/orders' ? "p-0 lg:p-8" : "p-6 lg:p-8"
+                    )}>
+                        <div className={cn("max-w-7xl mx-auto", pathname === '/staff/orders' && "max-w-none")}>{children}</div>
                     </main>
                 </div>
             </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orderService } from '@/lib/api/order-service';
 import { menuService } from '@/lib/api/menu-service';
@@ -27,6 +28,7 @@ interface MenuItemPreview {
 }
 
 export default function StaffOrdersPage() {
+  const router = useRouter();
   const { user } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -130,19 +132,19 @@ export default function StaffOrdersPage() {
     { value: OrderStatus.CANCELLED, label: 'Cancelled', disabled: true },
     { value: OrderStatus.CANCELLATION_PENDING, label: 'Cancellation pending', disabled: true },
   ];
-  
+
   // Helper function to format time ago
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} hours ago`;
     return format(date, 'MMM d, h:mm a');
   };
-  
+
   // Menu items state - starts empty, will be fetched from API
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [isLoadingMenu, setIsLoadingMenu] = useState(false);
@@ -161,7 +163,7 @@ export default function StaffOrdersPage() {
   // Fetch menu items from API
   const fetchMenuItems = async () => {
     if (!user?.branchId) return;
-    
+
     try {
       setIsLoadingMenu(true);
       const items = await menuService.getMenuItems({ branchId: user.branchId });
@@ -258,7 +260,7 @@ export default function StaffOrdersPage() {
     }
 
     setIsSubmittingOrder(true);
-    
+
     try {
       // Create order data
       const orderData: CreateOrderData = {
@@ -289,11 +291,11 @@ export default function StaffOrdersPage() {
 
       // Show success message
       alert('Order placed successfully!');
-      
+
       // Switch to live orders view and refresh
       setViewMode('live-orders');
       await fetchLiveOrders();
-      
+
     } catch (error) {
       console.error('Failed to create order:', error);
       alert(`Failed to place order: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -307,7 +309,7 @@ export default function StaffOrdersPage() {
     try {
       const billBlob = await orderService.generateBill(orderId);
       orderService.downloadPDF(billBlob, `bill-${orderId}.pdf`);
-      
+
       // Also try to open print dialog
       const fileURL = URL.createObjectURL(billBlob);
       const printWindow = window.open(fileURL, '_blank');
@@ -388,15 +390,29 @@ export default function StaffOrdersPage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#f8fafc', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
       <div className="w-full bg-white min-h-screen relative">
-        
+
         {/* Sticky Header */}
-        <header className="sticky top-16 lg:top-0 z-10 bg-white/95 backdrop-blur border-b border-gray-100 transition-all duration-300">
+        <header className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-gray-100 transition-all duration-300">
           <div className="flex items-center justify-between p-4">
             {/* Navigation */}
             <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-bold text-gray-900">Orders</h1>
+              {viewMode === 'menu' && !isCheckoutOpen && (
+                <button
+                  onClick={() => router.back()}
+                  className="lg:hidden p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Go back"
+                >
+                  <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                </button>
+              )}
+              <h1 className="text-xl font-bold text-gray-900 lg:block hidden">Orders</h1>
+              {viewMode !== 'menu' && (
+                <h1 className="text-xl font-bold text-gray-900 lg:hidden block">Orders</h1>
+              )}
             </div>
-            
+
             {/* Search Bar - Centered */}
             <div className="flex-1 max-w-md mx-auto">
               <div className="relative">
@@ -412,7 +428,7 @@ export default function StaffOrdersPage() {
                 />
               </div>
             </div>
-            
+
             {/* Action Icons */}
             <div className="flex items-center space-x-2">
               <Link
@@ -441,16 +457,16 @@ export default function StaffOrdersPage() {
                     <img src="/api/placeholder/64/64" alt="Restaurant" className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1">
-                    <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Jakarta Sans, sans-serif' }}>
+                    <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: '30px', lineHeight: '125%', color: '#000000' }}>
                       {branchInfo?.name || 'Cafe'}
                     </h2>
                     <div className="flex items-center text-sm text-gray-600 mt-2">
-                      <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 mr-2 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      <span className='text-gray-900'>{branchInfo?.location || 'Location'}</span>
-                      <svg className="w-4 h-4 ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <span style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 400, fontSize: '20px', lineHeight: '125%', color: '#000000' }}>{branchInfo?.location || 'Location'}</span>
+                      <svg className="w-4 h-4 ml-2 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
@@ -459,18 +475,18 @@ export default function StaffOrdersPage() {
               </div>
             </section>
 
-              {/* Category Navigation */}
+            {/* Category Navigation */}
             <nav className="px-4 py-6 lg:px-8">
               <div className="flex space-x-3 overflow-x-auto scrollbar-hide">
                 {categories.map((category) => (
                   <button
                     key={category}
                     onClick={() => setSelectedCategory(category)}
-                    className={`px-6 py-3 rounded-full whitespace-nowrap text-sm font-medium transition-all duration-200 ${
-                      selectedCategory === category
-                        ? 'bg-blue-700 text-white shadow-lg transform scale-105'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'
-                    }`}
+                    className={`px-6 py-3 rounded-full whitespace-nowrap text-sm font-medium transition-all duration-200 ${selectedCategory === category
+                      ? 'bg-blue-700 text-gray-900'
+                      : 'bg-gray-100 text-gray-900 hover:bg-gray-200 hover:shadow-md'
+                      }`}
+                    style={{ fontFamily: "'Poiret One', cursive" }}
                   >
                     {category}
                   </button>
@@ -481,33 +497,33 @@ export default function StaffOrdersPage() {
             {/* Menu Header */}
             <section className="px-4 py-4 flex items-center justify-between lg:px-8">
               <div className="flex items-center space-x-3">
-                <button 
+                <button
                   onClick={() => setViewMode('menu')}
-                  className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-200 hover:shadow-lg ${
-                    viewMode === 'menu' 
-                      ? 'bg-gray-900 text-white' 
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+                  className={`px-6 py-2.5 rounded-full transition-all duration-200 hover:shadow-lg ${viewMode === 'menu'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, fontSize: '20px', lineHeight: '125%' }}
                 >
                   Menu
                 </button>
-                <button 
+                <button
                   onClick={() => setViewMode('live-orders')}
-                  className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-200 hover:shadow-lg ${
-                    viewMode === 'live-orders' 
-                      ? 'bg-gray-900 text-white border-2 border-blue-700' 
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+                  className={`px-6 py-2.5 rounded-full transition-all duration-200 hover:shadow-lg ${viewMode === 'live-orders'
+                    ? 'bg-gray-900 text-white border-2 border-blue-700'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, fontSize: '20px', lineHeight: '125%' }}
                 >
-                  Live Orders
+                  Orders
                 </button>
-                <button 
+                <button
                   onClick={() => setViewMode('history')}
-                  className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-200 hover:shadow-lg ${
-                    viewMode === 'history' 
-                      ? 'bg-gray-900 text-white border-2 border-emerald-500' 
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
+                  className={`px-6 py-2.5 rounded-full transition-all duration-200 hover:shadow-lg ${viewMode === 'history'
+                    ? 'bg-gray-900 text-white border-2 border-emerald-500'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, fontSize: '20px', lineHeight: '125%' }}
                 >
                   History
                 </button>
@@ -520,7 +536,7 @@ export default function StaffOrdersPage() {
               <section className="px-4 pb-32 lg:px-8">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-6">{selectedCategory}</h2>
-                  
+
                   {isLoadingMenu ? (
                     <div className="text-center py-12">
                       <div className="w-10 h-10 border-2 border-blue-700 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -540,17 +556,38 @@ export default function StaffOrdersPage() {
                   ) : (
                     <div className="space-y-4">
                       {filteredItems.map((item) => (
-                        <article key={item.id} className="group">
-                          <div className="bg-white border border-gray-100 rounded-xl p-4 hover:shadow-lg hover:border-gray-200 transition-all duration-300 cursor-pointer">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                              <div className="flex items-center gap-3 min-w-0 sm:flex-1 sm:pr-4">
+                        <article key={item.id} className="py-6 border-b border-gray-900/10 last:border-0">
+                          <div className="flex justify-between items-start gap-6">
+                            {/* Left Column: Info */}
+                            <div className="flex-1 min-w-0 flex flex-col items-start">
+                              <div style={{ width: '276px', padding: '5px' }} className="mb-[5px]">
+                                <h3 style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, fontSize: '20px', lineHeight: '125%', letterSpacing: '0%' }} className="text-gray-900">
+                                  {item.name}
+                                </h3>
+                              </div>
+                              <div style={{ width: '276px', padding: '5px' }} className="mb-[5px]">
+                                <span style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, fontSize: '15px', lineHeight: '125%', letterSpacing: '0%' }} className="text-gray-900">
+                                  Rs {item.price}
+                                </span>
+                              </div>
+                              <div style={{ width: '276px', padding: '5px' }}>
+                                <p style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, fontSize: '10px', lineHeight: '125%', letterSpacing: '0%' }} className="text-gray-900 leading-relaxed">
+                                  {item.description || 'No description available'}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Right Column: Image & Order Control */}
+                            <div className="flex flex-col items-center gap-4 flex-shrink-0">
+                              <div className="relative" style={{ width: '68px', height: '68px' }}>
                                 <button
                                   type="button"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     handleOpenImagePreview(item);
                                   }}
-                                  className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-100 rounded-full overflow-hidden flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2"
+                                  className="w-full h-full rounded-full overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  style={{ backgroundColor: '#D9D9D9' }}
                                   aria-label={`Preview ${item.name} image`}
                                 >
                                   <img
@@ -559,42 +596,44 @@ export default function StaffOrdersPage() {
                                     className="w-full h-full object-cover"
                                   />
                                 </button>
-                                <div className="min-w-0">
-                                  <h3 className="font-semibold text-gray-900 text-sm sm:text-base leading-snug line-clamp-2 sm:line-clamp-1" style={{ fontFamily: 'Jakarta Sans, sans-serif' }}>{item.name}</h3>
-                                  <p className="text-gray-700 text-[11px] sm:text-xs mt-1 line-clamp-2 sm:line-clamp-1">{item.description || 'No description available'}</p>
-                                </div>
                               </div>
-                              <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end sm:gap-3">
-                                <span className="text-sm sm:text-lg font-bold text-gray-900">Rs {item.price}</span>
-                                {getItemQuantity(item.id) === 0 ? (
+
+                              {getItemQuantity(item.id) === 0 ? (
+                                <button
+                                  onClick={() => addToCart(item)}
+                                  className="flex items-center justify-center border-2 border-green-700/60 text-green-700 rounded-full hover:bg-green-700 hover:text-white transition-all duration-200"
+                                  style={{
+                                    fontFamily: "'Quicksand', sans-serif",
+                                    width: '82px',
+                                    height: '26px',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    lineHeight: '125%'
+                                  }}
+                                >
+                                  ADD
+                                </button>
+                              ) : (
+                                <div className="flex items-center bg-gray-100 rounded-full px-2 py-1 gap-3">
                                   <button
-                                    onClick={() => addToCart(item)}
-                                    className="px-6 py-2 border-2 border-green-700 text-green-600 rounded-full font-medium hover:bg-green-700 hover:text-white transition-all duration-200 hover:shadow-lg"
+                                    onClick={() => updateQuantity(item.id, getItemQuantity(item.id) - 1)}
+                                    className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors"
+                                    aria-label={`Decrease ${item.name}`}
                                   >
-                                    ADD
+                                    <span className="text-lg font-bold">-</span>
                                   </button>
-                                ) : (
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      onClick={() => updateQuantity(item.id, getItemQuantity(item.id) - 1)}
-                                      className="w-8 h-8 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center justify-center text-lg"
-                                      aria-label={`Decrease ${item.name}`}
-                                    >
-                                      -
-                                    </button>
-                                    <span className="min-w-[2rem] text-center font-semibold text-gray-900">
-                                      {getItemQuantity(item.id)}
-                                    </span>
-                                    <button
-                                      onClick={() => updateQuantity(item.id, getItemQuantity(item.id) + 1)}
-                                      className="w-8 h-8 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center justify-center text-lg"
-                                      aria-label={`Increase ${item.name}`}
-                                    >
-                                      +
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
+                                  <span className="text-sm font-bold text-gray-900 min-w-[1ch] text-center" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                    {getItemQuantity(item.id)}
+                                  </span>
+                                  <button
+                                    onClick={() => updateQuantity(item.id, getItemQuantity(item.id) + 1)}
+                                    className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors"
+                                    aria-label={`Increase ${item.name}`}
+                                  >
+                                    <span className="text-lg font-bold">+</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </article>
@@ -614,7 +653,7 @@ export default function StaffOrdersPage() {
                       <span className="text-sm text-gray-600">Live</span>
                     </div>
                   </div>
-                  
+
                   {isLoadingOrders ? (
                     <div className="text-center py-12">
                       <div className="w-10 h-10 border-2 border-blue-700 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -641,12 +680,12 @@ export default function StaffOrdersPage() {
                                 <div className="w-1 h-8 bg-gradient-to-b from-red-700 to-red-600 rounded-full mr-4 shadow-sm"></div>
                                 <div>
                                   <div className="flex items-center space-x-2">
-                                    <span className="text-sm font-semibold text-gray-800">Token no:</span>
-                                    <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                    <span className="text-sm font-semibold text-gray-800" style={{ fontFamily: 'Quicksand, sans-serif' }}>Token no:</span>
+                                    <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                                       {order.tokenNumber ? String(order.tokenNumber).padStart(3, '0') : order.id.slice(-3)}
                                     </span>
                                   </div>
-                                  <div className="flex items-center space-x-3 mt-1">
+                                  <div className="flex items-center space-x-3 mt-1" style={{ fontFamily: "'Quicksand', sans-serif" }}>
                                     <span className="text-xs text-gray-700">
                                       {order.customerName || 'Guest'}
                                     </span>
@@ -660,14 +699,13 @@ export default function StaffOrdersPage() {
                             </div>
                             <div className="w-full sm:w-auto sm:text-right">
                               <div className="flex flex-col items-start sm:items-end space-y-2">
-                                <span className="text-xl font-bold text-gray-900">Rs {order.totalAmount}</span>
+                                <span className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>Rs {order.totalAmount}</span>
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
-                                    order.status === 'READY' ? 'bg-green-100 text-green-700 border border-green-200' :
+                                  <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${order.status === 'READY' ? 'bg-green-100 text-green-700 border border-green-200' :
                                     order.status === 'PREPARING' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
-                                    order.status === 'PENDING' ? 'bg-gray-100 text-gray-700 border border-gray-200' :
-                                    'bg-red-100 text-red-700 border border-red-200'
-                                  }`}>
+                                      order.status === 'PENDING' ? 'bg-gray-100 text-gray-700 border border-gray-200' :
+                                        'bg-red-100 text-red-700 border border-red-200'
+                                    }`}>
                                     {order.status.replace('_', ' ')}
                                   </span>
                                   <select
@@ -719,7 +757,7 @@ export default function StaffOrdersPage() {
                                 <p className="text-xs font-medium text-gray-700 mb-2">Order Items:</p>
                                 <div className="space-y-1">
                                   {order.items.map((item, index) => (
-                                    <div key={index} className="flex items-center justify-between text-sm">
+                                    <div key={index} className="flex items-center justify-between text-sm" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                                       <div className="flex items-center space-x-2">
                                         <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                                         <span className="text-gray-700 font-medium">
@@ -773,19 +811,18 @@ export default function StaffOrdersPage() {
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex items-center space-x-4">
                               <div className="flex items-center">
-                                <div className={`w-1 h-8 rounded-full mr-4 shadow-sm ${
-                                  order.status === OrderStatus.COMPLETED
-                                    ? 'bg-gradient-to-b from-emerald-600 to-emerald-500'
-                                    : 'bg-gradient-to-b from-red-700 to-red-600'
-                                }`}></div>
+                                <div className={`w-1 h-8 rounded-full mr-4 shadow-sm ${order.status === OrderStatus.COMPLETED
+                                  ? 'bg-gradient-to-b from-emerald-600 to-emerald-500'
+                                  : 'bg-gradient-to-b from-red-700 to-red-600'
+                                  }`}></div>
                                 <div>
                                   <div className="flex items-center space-x-2">
-                                    <span className="text-sm font-semibold text-gray-800">Token no:</span>
-                                    <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                    <span className="text-sm font-semibold text-gray-800" style={{ fontFamily: 'Quicksand, sans-serif' }}>Token no:</span>
+                                    <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                                       {order.tokenNumber ? String(order.tokenNumber).padStart(3, '0') : order.id.slice(-3)}
                                     </span>
                                   </div>
-                                  <div className="flex items-center space-x-3 mt-1">
+                                  <div className="flex items-center space-x-3 mt-1" style={{ fontFamily: "'Quicksand', sans-serif" }}>
                                     <span className="text-xs text-gray-700">
                                       {order.customerName || 'Guest'}
                                     </span>
@@ -799,13 +836,12 @@ export default function StaffOrdersPage() {
                             </div>
                             <div className="w-full sm:w-auto sm:text-right">
                               <div className="flex flex-col items-start sm:items-end space-y-2">
-                                <span className="text-xl font-bold text-gray-900">Rs {order.totalAmount}</span>
+                                <span className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>Rs {order.totalAmount}</span>
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
-                                    order.status === OrderStatus.COMPLETED
-                                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                                      : 'bg-red-100 text-red-700 border border-red-200'
-                                  }`}>
+                                  <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${order.status === OrderStatus.COMPLETED
+                                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                    : 'bg-red-100 text-red-700 border border-red-200'
+                                    }`}>
                                     {order.status.replace('_', ' ')}
                                   </span>
                                   <span className="text-xs text-gray-700">
@@ -830,7 +866,7 @@ export default function StaffOrdersPage() {
                                 <p className="text-xs font-medium text-gray-700 mb-2">Order Items:</p>
                                 <div className="space-y-1">
                                   {order.items.map((item, index) => (
-                                    <div key={index} className="flex items-center justify-between text-sm">
+                                    <div key={index} className="flex items-center justify-between text-sm" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                                       <div className="flex items-center space-x-2">
                                         <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                                         <span className="text-gray-700 font-medium">
@@ -861,15 +897,15 @@ export default function StaffOrdersPage() {
             <div className="sticky top-20 p-6">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-6 whitespace-nowrap">Cart Summary</h3>
-                
+
                 {cartItems.length > 0 ? (
                   <>
                     <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
                       {cartItems.map((item, index) => (
                         <div key={index} className="flex items-center justify-between py-2 border-b border-gray-50">
                           <div className="flex-1">
-                            <p className="font-medium text-gray-900" style={{ fontFamily: 'Jakarta Sans, sans-serif' }}>{item.name}</p>
-                            <p className="text-sm text-gray-700">Rs {item.price} x {item.quantity}</p>
+                            <p className="font-medium text-gray-900" style={{ fontFamily: 'Quicksand, sans-serif' }}>{item.name}</p>
+                            <p className="text-sm text-gray-700" style={{ fontFamily: 'Quicksand, sans-serif' }}>Rs {item.price} x {item.quantity}</p>
                           </div>
                           <div className="flex items-center space-x-2">
                             <button
@@ -889,23 +925,23 @@ export default function StaffOrdersPage() {
                         </div>
                       ))}
                     </div>
-                    
+
                     <div className="space-y-3 pt-4 border-t border-gray-100">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                         <span className="text-gray-700">Items ({getTotalItems()}):</span>
                         <span className="font-semibold">{getTotalItems()}</span>
                       </div>
-                      <div className="flex items-center justify-between text-lg">
+                      <div className="flex items-center justify-between text-lg" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                         <span className="font-semibold text-gray-900">Total:</span>
                         <span className="font-bold text-gray-900">Rs {getTotalPrice()}</span>
                       </div>
                     </div>
-                    
-                    <button 
+
+                    <button
                       onClick={handleCheckout}
-                      className="w-full mt-6 py-3 rounded-full font-semibold transition-all duration-200 hover:shadow-lg" 
-                      style={{ backgroundColor: '#DC2626', color: 'white' }} 
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#B91C1C'} 
+                      className="w-full mt-6 py-3 rounded-full font-semibold transition-all duration-200 hover:shadow-lg"
+                      style={{ backgroundColor: '#DC2626', color: 'white' }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#B91C1C'}
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#DC2626'}
                     >
                       Checkout
@@ -930,11 +966,11 @@ export default function StaffOrdersPage() {
         {/* Mobile Checkout Button - Fixed at bottom */}
         <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40">
           <div className="max-w-md mx-auto">
-            <button 
+            <button
               onClick={handleCheckout}
-              className="w-full py-4 rounded-full font-semibold text-lg transition-all duration-200 hover:shadow-lg" 
-              style={{ backgroundColor: '#DC2626', color: 'white' }} 
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#B91C1C'} 
+              className="w-full py-4 rounded-full font-semibold text-lg transition-all duration-200 hover:shadow-lg"
+              style={{ backgroundColor: '#DC2626', color: 'white' }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#B91C1C'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#DC2626'}
             >
               Checkout {getTotalItems() > 0 && `(${getTotalItems()})`}
@@ -994,14 +1030,14 @@ export default function StaffOrdersPage() {
                 <h3 className="font-semibold text-gray-900 mb-3">Order Summary</h3>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {cartItems.map((item, index) => (
-                    <div key={index} className="flex justify-between text-sm">
+                    <div key={index} className="flex justify-between text-sm" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                       <span className="text-gray-700">{item.name} x {item.quantity}</span>
                       <span className="font-medium">Rs {item.price * item.quantity}</span>
                     </div>
                   ))}
                 </div>
                 <div className="border-t pt-2 mt-3">
-                  <div className="flex justify-between font-semibold">
+                  <div className="flex justify-between font-semibold" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                     <span>Total</span>
                     <span>Rs {getTotalPrice()}</span>
                   </div>
@@ -1009,9 +1045,9 @@ export default function StaffOrdersPage() {
               </div>
 
               {/* Customer Info */}
-              <div className="mb-6">
+              <div className="mb-6" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                 <h3 className="font-semibold text-gray-900 mb-3">Customer Information</h3>
-                
+
                 {/* Order Type */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Order Type</label>
@@ -1021,7 +1057,7 @@ export default function StaffOrdersPage() {
                         type="radio"
                         value="dine-in"
                         checked={customerInfo.orderType === 'dine-in'}
-                        onChange={(e) => setCustomerInfo({...customerInfo, orderType: e.target.value as 'dine-in' | 'takeaway'})}
+                        onChange={(e) => setCustomerInfo({ ...customerInfo, orderType: e.target.value as 'dine-in' | 'takeaway' })}
                         className="form-radio text-blue-700"
                       />
                       <span className="ml-2 text-sm">Dine-in</span>
@@ -1031,7 +1067,7 @@ export default function StaffOrdersPage() {
                         type="radio"
                         value="takeaway"
                         checked={customerInfo.orderType === 'takeaway'}
-                        onChange={(e) => setCustomerInfo({...customerInfo, orderType: e.target.value as 'dine-in' | 'takeaway'})}
+                        onChange={(e) => setCustomerInfo({ ...customerInfo, orderType: e.target.value as 'dine-in' | 'takeaway' })}
                         className="form-radio text-blue-700"
                       />
                       <span className="ml-2 text-sm">Takeaway</span>
@@ -1045,7 +1081,7 @@ export default function StaffOrdersPage() {
                     <input
                       type="text"
                       value={customerInfo.name}
-                      onChange={(e) => setCustomerInfo({...customerInfo, name: e.target.value})}
+                      onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700"
                       placeholder="Enter your name"
                     />
@@ -1055,7 +1091,7 @@ export default function StaffOrdersPage() {
                     <input
                       type="tel"
                       value={customerInfo.phone}
-                      onChange={(e) => setCustomerInfo({...customerInfo, phone: e.target.value})}
+                      onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700"
                       placeholder="Enter your phone number"
                     />
