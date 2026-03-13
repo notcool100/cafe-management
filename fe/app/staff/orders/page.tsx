@@ -9,6 +9,7 @@ import { Order, CreateOrderData, OrderType, OrderStatus, Branch } from '@/lib/ty
 import { format } from 'date-fns';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { resolveImageUrl } from '@/lib/utils/image';
+import { SharedItemNotification } from '@/lib/types';
 
 interface CartItem {
   id: string;
@@ -50,6 +51,9 @@ export default function StaffOrdersPage() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [branchInfo, setBranchInfo] = useState<Branch | null>(null);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<SharedItemNotification[]>([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   // Fetch live orders from API
   const fetchLiveOrders = async () => {
@@ -355,6 +359,39 @@ export default function StaffOrdersPage() {
     }
   };
 
+  const fetchNotifications = async () => {
+    try {
+      const incoming = await orderService.getSharedItemNotifications();
+      setNotifications(incoming.slice(0, 10)); // Show latest 10
+
+      const lastSeen = localStorage.getItem(`last-seen-notifications-${user?.branchId}`);
+      if (lastSeen) {
+        const count = incoming.filter(n => new Date(n.completedAt) > new Date(lastSeen)).length;
+        setUnreadNotificationsCount(count);
+      } else {
+        setUnreadNotificationsCount(incoming.length);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.branchId) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 30000); // Check every 30s
+      return () => clearInterval(interval);
+    }
+  }, [user?.branchId]);
+
+  const handleToggleNotifications = () => {
+    setIsNotificationsOpen(!isNotificationsOpen);
+    if (!isNotificationsOpen) {
+      setUnreadNotificationsCount(0);
+      localStorage.setItem(`last-seen-notifications-${user?.branchId}`, new Date().toISOString());
+    }
+  };
+
   const handleCloseCheckout = () => {
     setIsCheckoutOpen(false);
   };
@@ -430,18 +467,65 @@ export default function StaffOrdersPage() {
             </div>
 
             {/* Action Icons */}
-            <div className="flex items-center space-x-2">
-              <Link
-                href="/staff/notifications"
-                aria-label="Open notifications"
+            <div className="flex items-center space-x-2 relative">
+              <button
+                onClick={handleToggleNotifications}
+                aria-label="Toggle notifications"
                 title="Notifications"
                 className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 group relative"
               >
                 <svg className="w-6 h-6 text-gray-700 group-hover:text-gray-900 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-700 rounded-full"></span>
-              </Link>
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-700 rounded-full"></span>
+                )}
+              </button>
+
+              {/* Notifications Popup */}
+              {isNotificationsOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-20"
+                    onClick={() => setIsNotificationsOpen(false)}
+                  ></div>
+                  <div className="absolute top-full right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-gray-100 z-30 overflow-hidden">
+                    <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                      <h3 className="font-bold text-gray-900">Recent Notifications</h3>
+                      <Link
+                        href="/staff/notifications"
+                        className="text-xs text-blue-700 hover:text-blue-800 font-medium"
+                        onClick={() => setIsNotificationsOpen(false)}
+                      >
+                        View all
+                      </Link>
+                    </div>
+                    <div className="max-h-[400px] overflow-y-auto">
+                      {notifications.length > 0 ? (
+                        <div className="divide-y divide-gray-50">
+                          {notifications.map((notification, idx) => (
+                            <div key={idx} className="p-4 hover:bg-gray-50 transition-colors">
+                              <p className="text-sm font-semibold text-gray-900 leading-tight">
+                                {notification.itemNames.join(', ')}
+                              </p>
+                              <p className="text-xs text-gray-600 mt-1">
+                                Ready at {notification.orderBranchName || 'branch'}
+                              </p>
+                              <p className="text-[10px] text-gray-400 mt-1">
+                                {format(new Date(notification.completedAt), 'p')}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-8 text-center">
+                          <p className="text-sm text-gray-500">No recent notifications</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </header>
