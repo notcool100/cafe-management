@@ -80,6 +80,7 @@ export default function BranchForm({ initialData, onSubmit, isLoading, isEdit = 
                         label="Enable Token System"
                         {...register('tokenSystemEnabled')}
                         id="tokenSystemEnabled"
+                        labelClassName="text-black"
                     />
                     <p className="mt-1 text-sm text-black-500 ml-7">
                         If enabled, orders will be assigned a token number within the specified range.

@@ -147,7 +147,7 @@ export default function EmployeesPage() {
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        className="w-full border-[#b57cff] text-[#f1e8d6] hover:bg-[#73463a]"
+                                        className="w-full border-[#b57cff] text-white hover:bg-[#73463a]"
                                     >
                                         <EditIcon className="mr-1.5 h-4 w-4" />
                                         Edit

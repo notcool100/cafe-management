@@ -108,7 +108,7 @@ export default function PublicMenuPage() {
         const matchesCategory = selectedCategory === 'ALL' || item.category === selectedCategory;
         const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
-        return matchesCategory && matchesSearch;
+        return item.available !== false && matchesCategory && matchesSearch;
     });
 
     const categories = useMemo(() => {

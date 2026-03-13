@@ -428,6 +428,7 @@ export default function StaffOrdersPage() {
   const filteredItems = menuItems.filter(item => {
     const itemCategory = (item.category || 'Uncategorized').trim();
     return (
+      item.available !== false &&
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
       (selectedCategory === 'All' || itemCategory === selectedCategory)
     );

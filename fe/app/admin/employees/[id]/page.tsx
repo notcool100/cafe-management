@@ -107,7 +107,7 @@ export default function EditEmployeePage() {
                     <p className="text-black">Update staff member details</p>
                 </div>
                 <Link href="/admin/employees">
-                    <Button variant="ghost" className="!text-black hover:!text-black">
+                    <Button  className="!text-black hover:!text-black">
                         Back to List
                     </Button>
                 </Link>

@@ -136,7 +136,7 @@ export default function BranchesPage() {
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="flex-1 border-[#eadcc7] text-[#f1e8d6] hover:bg-[#73463a]"
+                                    className="flex-1 border-[#eadcc7] text-white hover:bg-[#73463a]"
                                     onClick={() => handleDownloadQR(branch)}
                                 >
                                     <DownloadIcon className="mr-1.5 h-4 w-4" />
