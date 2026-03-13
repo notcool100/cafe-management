@@ -701,14 +701,14 @@ export default function StaffOrdersPage() {
 
                             {/* Right Column: Image & Order Control */}
                             <div className="flex flex-col items-center gap-4 flex-shrink-0">
-                              <div className="relative" style={{ width: '68px', height: '68px' }}>
+                              <div className="relative" style={{ width: '84px', height: '84px' }}>
                                 <button
                                   type="button"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     handleOpenImagePreview(item);
                                   }}
-                                  className="w-full h-full rounded-full overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  className="w-full h-full rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   style={{ backgroundColor: '#D9D9D9' }}
                                   aria-label={`Preview ${item.name} image`}
                                 >

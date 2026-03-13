@@ -282,13 +282,13 @@ export default function PublicMenuPage() {
 
                                         <div className="flex flex-col items-center w-24">
                                             <div
-                                                className="w-16 h-16 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all"
+                                                className="w-20 h-20 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all"
                                                 onClick={() => handleOpenImagePreview(item)}
                                             >
                                                 {resolveImageUrl(item.imageUrl) ? (
-                                                    <Image src={resolveImageUrl(item.imageUrl) as string} alt={item.name} width={64} height={64} className="object-cover" unoptimized />
+                                                    <Image src={resolveImageUrl(item.imageUrl) as string} alt={item.name} width={80} height={80} className="object-cover" unoptimized />
                                                 ) : (
-                                                    <div className="w-10 h-10 rounded-full bg-gray-200" />
+                                                    <div className="w-12 h-12 rounded-lg bg-gray-200" />
                                                 )}
                                             </div>
                                             {getItemQuantity(item.id) === 0 ? (
