@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orderService } from '@/lib/api/order-service';
@@ -49,11 +49,16 @@ export default function StaffOrdersPage() {
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [historyOrders, setHistoryOrders] = useState<Order[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyStartDate, setHistoryStartDate] = useState('');
+  const [historyEndDate, setHistoryEndDate] = useState('');
+  const historyStartDateRef = useRef<HTMLInputElement | null>(null);
+  const historyEndDateRef = useRef<HTMLInputElement | null>(null);
   const [branchInfo, setBranchInfo] = useState<Branch | null>(null);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<SharedItemNotification[]>([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const branchQrCode = branchInfo?.qrCode || user?.branch?.qrCode;
 
   // Fetch live orders from API
   const fetchLiveOrders = async () => {
@@ -148,6 +153,24 @@ export default function StaffOrdersPage() {
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} hours ago`;
     return format(date, 'MMM d, h:mm a');
   };
+
+  const filteredHistoryOrders = historyOrders.filter(order => {
+    if (!historyStartDate && !historyEndDate) return true;
+
+    const orderDate = new Date(order.updatedAt || order.createdAt);
+
+    if (historyStartDate) {
+      const startDate = new Date(`${historyStartDate}T00:00:00`);
+      if (orderDate < startDate) return false;
+    }
+
+    if (historyEndDate) {
+      const endDate = new Date(`${historyEndDate}T23:59:59.999`);
+      if (orderDate > endDate) return false;
+    }
+
+    return true;
+  });
 
   // Menu items state - starts empty, will be fetched from API
   const [menuItems, setMenuItems] = useState<any[]>([]);
@@ -508,10 +531,10 @@ export default function StaffOrdersPage() {
                               <p className="text-sm font-semibold text-gray-900 leading-tight">
                                 {notification.itemNames.join(', ')}
                               </p>
-                              <p className="text-xs text-gray-600 mt-1">
+                              <p className="text-xs text-gray-800 mt-1">
                                 Ready at {notification.orderBranchName || 'branch'}
                               </p>
-                              <p className="text-[10px] text-gray-400 mt-1">
+                              <p className="text-[10px] text-gray-800 mt-1">
                                 {format(new Date(notification.completedAt), 'p')}
                               </p>
                             </div>
@@ -519,7 +542,7 @@ export default function StaffOrdersPage() {
                         </div>
                       ) : (
                         <div className="p-8 text-center">
-                          <p className="text-sm text-gray-500">No recent notifications</p>
+                          <p className="text-sm text-gray-800">No recent notifications</p>
                         </div>
                       )}
                     </div>
@@ -537,9 +560,24 @@ export default function StaffOrdersPage() {
             <section className="px-4 py-6 lg:px-8">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-300">
                 <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 bg-gray-200 rounded-xl overflow-hidden ring-2 ring-gray-100">
-                    <img src="/api/placeholder/64/64" alt="Restaurant" className="w-full h-full object-cover" />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!branchQrCode) return;
+                      setPreviewImage({
+                        src: branchQrCode,
+                        alt: `${branchInfo?.name || 'Branch'} QR code`,
+                      });
+                    }}
+                    className={`w-16 h-16 rounded-xl overflow-hidden ring-2 ring-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${branchQrCode ? 'bg-white cursor-pointer' : 'bg-gray-200 cursor-default'}`}
+                    aria-label={branchQrCode ? 'Open branch QR code' : 'Branch QR code unavailable'}
+                  >
+                    <img
+                      src={branchQrCode || '/api/placeholder/64/64'}
+                      alt={branchQrCode ? `${branchInfo?.name || 'Branch'} QR code` : 'Restaurant'}
+                      className={`w-full h-full ${branchQrCode ? 'object-contain p-1' : 'object-cover'}`}
+                    />
+                  </button>
                   <div className="flex-1">
                     <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: '30px', lineHeight: '125%', color: '#000000' }}>
                       {branchInfo?.name || 'Cafe'}
@@ -567,10 +605,10 @@ export default function StaffOrdersPage() {
                     key={category}
                     onClick={() => setSelectedCategory(category)}
                     className={`px-6 py-3 rounded-full whitespace-nowrap text-sm font-medium transition-all duration-200 ${selectedCategory === category
-                      ? 'bg-blue-700 text-gray-900'
+                      ? 'bg-red-600 text-white shadow-md'
                       : 'bg-gray-100 text-gray-900 hover:bg-gray-200 hover:shadow-md'
                       }`}
-                    style={{ fontFamily: "'Poiret One', cursive" }}
+                    style={{ fontFamily: "'Quicksand', cursive" }}
                   >
                     {category}
                   </button>
@@ -868,9 +906,82 @@ export default function StaffOrdersPage() {
               /* Order History View */
               <section className="px-4 pb-32 lg:px-8">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
                     <h2 className="text-xl font-semibold text-gray-900">Order History</h2>
-                    <span className="text-sm text-gray-700">Completed & Cancelled</span>
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+                      <span className="text-xs font-medium text-gray-900">Filter by date</span>
+                      <div
+                        className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          if (!historyStartDate && historyEndDate && historyEndDateRef.current) {
+                            historyEndDateRef.current.focus();
+                            historyEndDateRef.current.showPicker?.();
+                            return;
+                          }
+                          if (historyStartDateRef.current) {
+                            historyStartDateRef.current.focus();
+                            historyStartDateRef.current.showPicker?.();
+                          }
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            if (!historyStartDate && historyEndDate && historyEndDateRef.current) {
+                              historyEndDateRef.current.focus();
+                              historyEndDateRef.current.showPicker?.();
+                              return;
+                            }
+                            if (historyStartDateRef.current) {
+                              historyStartDateRef.current.focus();
+                              historyStartDateRef.current.showPicker?.();
+                            }
+                          }
+                        }}
+                      >
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                          <label className="text-xs text-gray-900" htmlFor="history-start-date">From</label>
+                          <input
+                            id="history-start-date"
+                            type="date"
+                            ref={historyStartDateRef}
+                            value={historyStartDate}
+                            onChange={(event) => setHistoryStartDate(event.target.value)}
+                            max={historyEndDate || undefined}
+                            className="w-full rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 sm:w-auto"
+                            onClick={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => event.stopPropagation()}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                          <label className="text-xs text-gray-900" htmlFor="history-end-date">To</label>
+                          <input
+                            id="history-end-date"
+                            type="date"
+                            ref={historyEndDateRef}
+                            value={historyEndDate}
+                            onChange={(event) => setHistoryEndDate(event.target.value)}
+                            min={historyStartDate || undefined}
+                            className="w-full rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 sm:w-auto"
+                            onClick={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => event.stopPropagation()}
+                          />
+                        </div>
+                        {(historyStartDate || historyEndDate) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHistoryStartDate('');
+                              setHistoryEndDate('');
+                            }}
+                            className="w-full rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 sm:w-auto"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {isLoadingHistory ? (
@@ -878,19 +989,25 @@ export default function StaffOrdersPage() {
                       <div className="w-10 h-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                       <p className="text-gray-700">Loading history...</p>
                     </div>
-                  ) : historyOrders.length === 0 ? (
+                  ) : filteredHistoryOrders.length === 0 ? (
                     <div className="text-center py-12">
                       <div className="w-20 h-20 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
                         <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">No history yet</h3>
-                      <p className="text-gray-700">Completed and cancelled orders will appear here</p>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        {historyOrders.length === 0 ? 'No history yet' : 'No orders found'}
+                      </h3>
+                      <p className="text-gray-700">
+                        {historyOrders.length === 0
+                          ? 'Completed and cancelled orders will appear here'
+                          : 'Try adjusting the date range to see more results.'}
+                      </p>
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {historyOrders.map((order) => (
+                      {filteredHistoryOrders.map((order) => (
                         <div key={order.id} className="bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all duration-300">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex items-center space-x-4">

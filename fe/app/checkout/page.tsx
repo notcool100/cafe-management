@@ -21,6 +21,7 @@ export default function CheckoutPage() {
     const [customerPhone, setCustomerPhone] = useState('');
     const [orderType, setOrderType] = useState<OrderType>(OrderType.DINE_IN);
     const [hasCompletedOrder, setHasCompletedOrder] = useState(false);
+    const [customerErrors, setCustomerErrors] = useState<{ name?: string; phone?: string }>({});
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; isVisible: boolean }>({
         message: '',
         type: 'success',
@@ -35,6 +36,25 @@ export default function CheckoutPage() {
 
     const handlePlaceOrder = async () => {
         if (!branchId || items.length === 0) return;
+
+        if (orderType === OrderType.TAKEAWAY) {
+            const errors: { name?: string; phone?: string } = {};
+            if (!customerName.trim()) {
+                errors.name = 'Name is required for takeaway orders.';
+            }
+            if (!customerPhone.trim()) {
+                errors.phone = 'Phone number is required for takeaway orders.';
+            }
+            if (Object.keys(errors).length > 0) {
+                setCustomerErrors(errors);
+                setToast({
+                    message: 'Please add your name and phone number for takeaway.',
+                    type: 'error',
+                    isVisible: true,
+                });
+                return;
+            }
+        }
 
         try {
             setIsLoading(true);
@@ -120,7 +140,12 @@ export default function CheckoutPage() {
                                         {[OrderType.DINE_IN, OrderType.TAKEAWAY].map((type) => (
                                             <button
                                                 key={type}
-                                                onClick={() => setOrderType(type)}
+                                                onClick={() => {
+                                                    setOrderType(type);
+                                                    if (type === OrderType.DINE_IN) {
+                                                        setCustomerErrors({});
+                                                    }
+                                                }}
                                                 className={cn(
                                                     "px-4 py-2 rounded-lg font-medium transition-all text-sm",
                                                     orderType === type
@@ -134,22 +159,36 @@ export default function CheckoutPage() {
                                     </div>
                                 </div>
                                 <Input
-                                    label="Name"
+                                    label={orderType === OrderType.TAKEAWAY ? 'Name *' : 'Name'}
                                     floatingLabel={false}
                                     value={customerName}
-                                    onChange={(e) => setCustomerName(e.target.value)}
+                                    onChange={(e) => {
+                                        setCustomerName(e.target.value);
+                                        if (customerErrors.name) {
+                                            setCustomerErrors((prev) => ({ ...prev, name: undefined }));
+                                        }
+                                    }}
                                     placeholder="Enter your name"
                                     className="bg-gray-50 border-gray-200 text-black focus:border-purple-500 focus:ring-purple-500/20"
                                     labelClassName="text-gray-700 font-medium"
+                                    error={customerErrors.name}
+                                    required={orderType === OrderType.TAKEAWAY}
                                 />
                                 <Input
-                                    label="Phone Number"
+                                    label={orderType === OrderType.TAKEAWAY ? 'Phone Number *' : 'Phone Number'}
                                     floatingLabel={false}
                                     value={customerPhone}
-                                    onChange={(e) => setCustomerPhone(e.target.value)}
+                                    onChange={(e) => {
+                                        setCustomerPhone(e.target.value);
+                                        if (customerErrors.phone) {
+                                            setCustomerErrors((prev) => ({ ...prev, phone: undefined }));
+                                        }
+                                    }}
                                     placeholder="Enter your phone number"
                                     className="bg-gray-50 border-gray-200 text-black focus:border-purple-500 focus:ring-purple-500/20"
                                     labelClassName="text-gray-700 font-medium"
+                                    error={customerErrors.phone}
+                                    required={orderType === OrderType.TAKEAWAY}
                                 />
                             </div>
                         </div>

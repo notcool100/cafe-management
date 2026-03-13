@@ -9,6 +9,7 @@ export interface ToastProps {
     isVisible: boolean;
     onClose: () => void;
     duration?: number;
+    position?: 'top-right' | 'top-center' | 'bottom-right' | 'bottom-center';
 }
 
 export default function Toast({
@@ -17,6 +18,7 @@ export default function Toast({
     isVisible,
     onClose,
     duration = 3000,
+    position = 'bottom-right',
 }: ToastProps) {
     const [show, setShow] = useState(false);
 
@@ -64,10 +66,18 @@ export default function Toast({
         info: 'bg-gray-900 border-blue-500/30',
     };
 
+    const positionClasses = {
+        'top-right': 'top-4 right-4',
+        'top-center': 'top-4 left-1/2 -translate-x-1/2',
+        'bottom-right': 'bottom-4 right-4',
+        'bottom-center': 'bottom-4 left-1/2 -translate-x-1/2',
+    };
+
     return (
         <div
             className={cn(
-                'fixed bottom-4 right-4 z-50 flex items-center p-4 mb-4 rounded-lg shadow-lg border transition-all duration-300 transform',
+                'fixed z-50 flex items-center p-4 mb-4 rounded-lg shadow-lg border transition-all duration-300 transform',
+                positionClasses[position],
                 bgColors[type],
                 show ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
             )}

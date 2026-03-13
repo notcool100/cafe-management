@@ -29,7 +29,7 @@ export default function PublicMenuPage() {
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
 
-    const { addItem, getItemCount } = useCartStore();
+    const { addItem, getItemCount, getItemQuantity, updateQuantity } = useCartStore();
     const cartItemCount = getItemCount();
 
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; isVisible: boolean }>({
@@ -154,6 +154,7 @@ export default function PublicMenuPage() {
                 type={toast.type}
                 isVisible={toast.isVisible}
                 onClose={() => setToast({ ...toast, isVisible: false })}
+                position="top-right"
             />
 
             <div className="w-full max-w-md mx-auto">
@@ -290,13 +291,36 @@ export default function PublicMenuPage() {
                                                     <div className="w-10 h-10 rounded-full bg-gray-200" />
                                                 )}
                                             </div>
-                                            <button
-                                                onClick={() => handleAddToCart(item)}
-                                                disabled={!item.available}
-                                                className={`add-btn mt-3 ${!item.available ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                            >
-                                                ADD
-                                            </button>
+                                            {getItemQuantity(item.id) === 0 ? (
+                                                <button
+                                                    onClick={() => handleAddToCart(item)}
+                                                    disabled={!item.available}
+                                                    className={`add-btn mt-3 ${!item.available ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                >
+                                                    ADD
+                                                </button>
+                                            ) : (
+                                                <div className="mt-3 flex items-center bg-gray-100 rounded-full px-2 py-1 gap-3">
+                                                    <button
+                                                        onClick={() => updateQuantity(item.id, getItemQuantity(item.id) - 1)}
+                                                        className="w-6 h-6 flex items-center justify-center text-gray-700 hover:text-gray-900 transition-colors"
+                                                        aria-label={`Decrease ${item.name}`}
+                                                    >
+                                                        <span className="text-lg font-bold">-</span>
+                                                    </button>
+                                                    <span className="text-sm font-bold text-gray-900 min-w-[1ch] text-center">
+                                                        {getItemQuantity(item.id)}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => updateQuantity(item.id, getItemQuantity(item.id) + 1)}
+                                                        disabled={!item.available}
+                                                        className={`w-6 h-6 flex items-center justify-center transition-colors ${item.available ? 'text-gray-700 hover:text-gray-900' : 'text-gray-400 cursor-not-allowed'}`}
+                                                        aria-label={`Increase ${item.name}`}
+                                                    >
+                                                        <span className="text-lg font-bold">+</span>
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                         </div>
                                     );
