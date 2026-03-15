@@ -94,7 +94,7 @@ export default function EditMenuItemPage() {
     if (!menuItem) return null;
 
     return (
-        <div className="max-w-2xl mx-auto text-black">
+        <div className="max-w-2xl mx-auto text-black px-4 sm:px-0 pb-10">
             <Toast
                 message={toast.message}
                 type={toast.type}
@@ -102,13 +102,13 @@ export default function EditMenuItemPage() {
                 onClose={() => setToast({ ...toast, isVisible: false })}
             />
 
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-black mb-2">Edit Menu Item</h1>
-                    <p className="text-black">Update item details</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-black mb-1">Edit Menu Item</h1>
+                    <p className="text-sm text-gray-600">Update item details</p>
                 </div>
-                <Link href="/admin/menu">
-                    <Button>Back to List</Button>
+                <Link href="/admin/menu" className="w-full sm:w-auto">
+                    <Button className="w-full sm:w-auto" variant="outline">Back to List</Button>
                 </Link>
             </div>
 

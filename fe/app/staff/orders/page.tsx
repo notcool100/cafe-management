@@ -533,7 +533,7 @@ export default function StaffOrdersPage() {
                                 {notification.itemNames.join(', ')}
                               </p>
                               <p className="text-xs text-gray-800 mt-1">
-                                Ready at {notification.orderBranchName || 'branch'}
+                                used at {notification.orderBranchName || 'branch'}
                               </p>
                               <p className="text-[10px] text-gray-800 mt-1">
                                 {format(new Date(notification.completedAt), 'p')}

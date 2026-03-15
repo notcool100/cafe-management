@@ -237,13 +237,13 @@ export default function MenuItemForm({
                 })
             )}
             className={cn(
-                'space-y-6',
+                'space-y-4 sm:space-y-6',
                 isLightTheme
                     ? 'text-black'
                     : 'text-white [&_label]:!text-white [&_p]:!text-white [&_span]:!text-white'
             )}
         >
-            <div className="space-y-4">
+            <div className="space-y-4 sm:space-y-5">
                 <Input
                     label="Item Name"
                     floatingLabel={!isLightTheme}
@@ -340,7 +340,7 @@ export default function MenuItemForm({
                 <div className="pt-2">
                     <Checkbox
                         label="Transferable to other branches"
-                        labelClassName={labelClassName}
+                        labelClassName={cn('text-sm sm:text-base', labelClassName)}
                         className={isLightTheme ? 'border-gray-300 bg-white text-black focus:ring-blue-500/20' : undefined}
                         id="transferable"
                         checked={isTransferable}
@@ -352,13 +352,13 @@ export default function MenuItemForm({
                             }
                         }}
                     />
-                    <p className={cn('mt-1 ml-7 text-sm', isLightTheme ? 'text-black' : 'text-white')}>
+                    <p className={cn('mt-1 ml-6 sm:ml-7 text-xs sm:text-sm', isLightTheme ? 'text-black' : 'text-white opacity-80')}>
                         Enable this to share the item with selected branches in the same organization.
                     </p>
                 </div>
 
                 {isTransferable && (
-                    <div className={cn('ml-2 grid gap-2 pl-7 border-l-2', isLightTheme ? 'border-gray-300' : 'border-gray-800')}>
+                    <div className={cn('ml-2 grid gap-2 pl-4 sm:pl-7 border-l-2', isLightTheme ? 'border-gray-300' : 'border-gray-800')}>
                         {!selectedBranchId && (
                             <p className={cn('text-xs', isLightTheme ? 'text-black' : 'text-white')}>
                                 Select a branch to choose sharing targets.
@@ -442,7 +442,7 @@ export default function MenuItemForm({
             </div>
 
             <div className="flex justify-end gap-4 pt-4">
-                <Button type="submit" isLoading={isLoading} fullWidth>
+                <Button type="submit" isLoading={isLoading} fullWidth className="py-3 text-lg sm:text-base">
                     {isEdit ? 'Update Menu Item' : 'Create Menu Item'}
                 </Button>
             </div>

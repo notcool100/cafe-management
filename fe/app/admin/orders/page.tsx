@@ -43,6 +43,8 @@ export default function AdminOrdersPage() {
     const [statusFilter, setStatusFilter] = useState<LiveStatusFilter>('ALL');
     const [dateFilter, setDateFilter] = useState<DateFilter>('TODAY');
     const [isLoading, setIsLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isDetailView, setIsDetailView] = useState(false);
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
     const [modalOrderId, setModalOrderId] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; isVisible: boolean }>({
@@ -107,10 +109,16 @@ export default function AdminOrdersPage() {
             if (orderView === 'CANCELLED') return order.status === OrderStatus.CANCELLED;
             if (!LIVE_ORDER_STATUSES.includes(order.status)) return false;
             return statusFilter === 'ALL' || order.status === statusFilter;
+        }).filter(order => {
+            if (!searchTerm) return true;
+            const term = searchTerm.toLowerCase();
+            return order.id.toLowerCase().includes(term) ||
+                (order.tokenNumber && String(order.tokenNumber).includes(term)) ||
+                (order.customerName || '').toLowerCase().includes(term);
         });
 
         return [...scopedOrders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }, [orderView, orders, statusFilter]);
+    }, [orderView, orders, statusFilter, searchTerm]);
 
     const viewTitle = orderView === 'LIVE'
         ? 'Live Orders'
@@ -241,7 +249,7 @@ export default function AdminOrdersPage() {
     }, [selectedOrder]);
 
     return (
-        <div className="space-y-5 bg-[#efe6d0] p-4 md:p-5 rounded-2xl border border-[#d2c4aa]">
+        <div className="min-h-screen bg-[#fff9e5] p-6 font-sans">
             <Toast
                 message={toast.message}
                 type={toast.type}
@@ -249,218 +257,254 @@ export default function AdminOrdersPage() {
                 onClose={() => setToast({ ...toast, isVisible: false })}
             />
 
-            <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-[#4e2f27] mb-1">Orders</h1>
-                <p className="text-[#6f584f]">{viewTitle}</p>
-            </div>
+            {/* Header Section */}
+            <div className="mb-6">
+                <h1 className="text-4xl font-bold text-[#4e2f27] mb-6">Orders</h1>
 
-            <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-3 rounded-2xl border border-[#d7ccb2] bg-[#f3ebd8] p-3">
-                <div className="flex flex-col lg:flex-row lg:items-center gap-3 w-full xl:w-auto">
-                    <div className="flex flex-col gap-1">
-                        <span className="text-xs uppercase tracking-wide text-[#6f584f]">View</span>
-                        <div className="flex flex-wrap gap-2">
-                            <FilterChip active={orderView === 'LIVE'} label="Live" onClick={() => setOrderView('LIVE')} />
-                            <FilterChip
-                                active={orderView === 'COMPLETED'}
-                                label="Completed"
-                                onClick={() => setOrderView('COMPLETED')}
-                            />
-                            <FilterChip
-                                active={orderView === 'CANCELLED'}
-                                label="Cancelled"
-                                onClick={() => setOrderView('CANCELLED')}
-                            />
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="relative w-full max-w-sm">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
                         </div>
+                        <input
+                            type="text"
+                            placeholder="Search by order number"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="block w-full pl-10 pr-3 py-2 border-0 rounded-lg bg-white shadow-sm ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-inset focus:ring-amber-500 text-sm"
+                        />
                     </div>
 
-                    <div className="flex flex-col gap-1">
-                        <span className="text-xs uppercase tracking-wide text-[#6f584f]">Branch</span>
-                        <div className="min-w-[220px]">
-                            <Select
-                                value={branchFilter}
-                                onChange={(e) => setBranchFilter(e.target.value)}
-                                options={
-                                    isManager && managerBranchId
-                                        ? branches
-                                            .filter((b) => b.id === managerBranchId)
-                                            .map((b) => ({ value: b.id, label: formatBranchLabel(b) }))
-                                        : [
-                                            { value: 'all', label: 'All branches' },
-                                            ...branches.map((b) => ({ value: b.id, label: formatBranchLabel(b) })),
-                                        ]
-                                }
-                                disabled={isManager}
-                            />
-                            {isManager && (
-                                <p className="text-xs text-[#8a6c61] mt-1">Branch locked to your assignment.</p>
-                            )}
+                    <div className="flex items-center gap-4">
+                        <Select
+                            value={branchFilter}
+                            onChange={(e) => setBranchFilter(e.target.value)}
+                            options={
+                                isManager && managerBranchId
+                                    ? branches
+                                        .filter((b) => b.id === managerBranchId)
+                                        .map((b) => ({ value: b.id, label: formatBranchLabel(b) }))
+                                    : [
+                                        { value: 'all', label: 'Branches' },
+                                        ...branches.map((b) => ({ value: b.id, label: formatBranchLabel(b) })),
+                                    ]
+                            }
+                            className="min-w-[150px] border-0 bg-red-900 shadow-sm rounded-lg"
+                        />
+                        <div className="flex bg-white rounded-lg shadow-sm p-1 border border-gray-100">
+                            <FilterChip active={orderView === 'LIVE'} label="Live" onClick={() => { setOrderView('LIVE'); setIsDetailView(false); }} />
+                            <FilterChip active={orderView === 'COMPLETED'} label="Completed" onClick={() => { setOrderView('COMPLETED'); setIsDetailView(false); }} />
                         </div>
                     </div>
-
-                    {orderView === 'LIVE' && (
-                        <div className="flex flex-col gap-1">
-                            <span className="text-xs uppercase tracking-wide text-[#6f584f]">Status</span>
-                            <div className="flex flex-wrap gap-2">
-                                <FilterChip active={statusFilter === 'ALL'} label="All" onClick={() => setStatusFilter('ALL')} />
-                                {LIVE_ORDER_STATUSES.map((status) => (
-                                    <FilterChip
-                                        key={status}
-                                        active={statusFilter === status}
-                                        label={statusLabel(status)}
-                                        onClick={() => setStatusFilter(status as LiveStatusFilter)}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="flex flex-col gap-1">
-                        <span className="text-xs uppercase tracking-wide text-[#6f584f]">Date</span>
-                        <div className="flex flex-wrap gap-2">
-                            {[
-                                { key: 'TODAY', label: 'Today' },
-                                { key: 'LAST_24H', label: 'Last 24h' },
-                                { key: 'THIS_WEEK', label: 'This week' },
-                                { key: 'ALL', label: 'All' },
-                            ].map(({ key, label }) => (
-                                <FilterChip key={key} active={dateFilter === key} label={label} onClick={() => setDateFilter(key as DateFilter)} />
-                            ))}
-                        </div>
-                    </div>
-
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => loadOrders()}
-                        className="self-end border-[#8a7d6a] text-[#4f4a40]"
-                    >
-                        Refresh
-                    </Button>
                 </div>
             </div>
 
+            {/* Main Content Area */}
             {isLoading ? (
                 <div className="flex items-center justify-center h-64">
                     <Spinner size="lg" />
                 </div>
             ) : filteredOrders.length === 0 ? (
-                <Card className="border border-[#d7ccb2] bg-[#efe7d2] shadow-sm">
-                    <CardContent className="py-16 text-center">
-                        <p className="text-[#6f584f] text-lg">No {viewTitle.toLowerCase()} match these filters.</p>
-                    </CardContent>
-                </Card>
-            ) : (
-                <div className="grid grid-cols-1 xl:grid-cols-[300px_1fr] gap-6">
-                    <div className="rounded-2xl border-2 border-[#2f8fff] bg-[#efe7d2] p-3 max-h-[70vh] overflow-y-auto">
-                        <div className="space-y-3">
-                            {Object.entries(groupedByDate).map(([dateLabel, items]) => (
-                                <div key={dateLabel} className="space-y-2">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#6f584f]">{dateLabel}</p>
-                                    <div className="space-y-2">
-                                        {items.map((order) => (
-                                            <OrderCard
-                                                key={order.id}
-                                                order={order}
-                                                selected={order.id === selectedOrder?.id}
-                                                onSelect={(id) => setSelectedOrderId(id)}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
+                <div className="py-16 text-center bg-white rounded-2xl shadow-sm">
+                    <p className="text-[#6f584f] text-lg">No orders match these filters.</p>
+                </div>
+            ) : !isDetailView ? (
+                /* Table List View */
+                <div className="overflow-x-auto">
+                    <table className="w-full border-separate border-spacing-y-2">
+                        <thead>
+                            <tr className="text-left">
+                                <th className="px-4 py-3 font-semibold text-[#4e2f27]">Order Number</th>
+                                <th className="px-4 py-3 font-semibold text-[#4e2f27]">Date and time</th>
+                                <th className="px-4 py-3 font-semibold text-[#4e2f27]">Item</th>
+                                <th className="px-4 py-3 font-semibold text-[#4e2f27]">Total</th>
+                                <th className="px-4 py-3 font-semibold text-[#4e2f27]">Payment</th>
+                                <th className="px-4 py-3 font-semibold text-[#4e2f27]">Status</th>
+                                <th className="px-4 py-3 font-semibold text-[#4e2f27]">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredOrders.map((order) => (
+                                <tr
+                                    key={order.id}
+                                    className="bg-transparent border-b border-[#e5d9c0] hover:bg-gray-50/50 transition-colors cursor-pointer"
+                                    onClick={() => {
+                                        setSelectedOrderId(order.id);
+                                        // setIsDetailView(true); // Let them use the "view" button specifically if wanted, or just clicking row.
+                                    }}
+                                >
+                                    <td className="px-4 py-4 text-sm font-medium text-[#4e2f27]">
+                                        Ord- {order.tokenNumber ? String(order.tokenNumber).padStart(4, '0') : order.id.slice(-4)}
+                                    </td>
+                                    <td className="px-4 py-4 text-xs text-[#6f584f]">
+                                        <div>{format(new Date(order.createdAt), 'MMM d, yyyy')}</div>
+                                        <div className="text-gray-400">{format(new Date(order.createdAt), 'hh:mm a')}</div>
+                                    </td>
+                                    <td className="px-4 py-4 text-sm text-[#6f584f]">
+                                        {order.items.length > 0 ? (
+                                            <span className="cursor-help underline decoration-dotted" title={order.items.map(i => `${i.menuItem?.name} x${i.quantity}`).join(', ')}>
+                                                Order Details
+                                            </span>
+                                        ) : 'No items'}
+                                    </td>
+                                    <td className="px-4 py-4 text-sm font-semibold text-[#4e2f27]">Rs. {order.totalAmount.toFixed(0)}</td>
+                                    <td className="px-4 py-4 text-sm text-[#6f584f]">Cash/Fonepay</td>
+                                    <td className="px-4 py-4">
+                                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${order.status === OrderStatus.COMPLETED ? 'bg-[#50ff99] text-[#1f5a36]' :
+                                            order.status === OrderStatus.CANCELLED ? 'bg-red-100 text-red-700' :
+                                                'bg-amber-100 text-amber-700'
+                                            }`}>
+                                            {statusLabel(order.status)}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                className="p-1.5 bg-blue shadow-sm border border-gray-100 rounded text-gray-900 hover:text-blue-500"
+                                                onClick={(e) => { e.stopPropagation(); setModalOrderId(order.id); }}
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                            </button>
+                                            <button
+                                                className="p-1.5 bg-white shadow-sm border border-gray-100 rounded text-gray-900 hover:text-green-900"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedOrderId(order.id);
+                                                    setIsDetailView(true);
+                                                }}
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                            </button>
+                                            <button className="p-1.5 bg-white shadow-sm border border-gray-100 rounded text-gray-900 hover:text-red-900">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
                             ))}
-                        </div>
+                        </tbody>
+                    </table>
+                </div>
+            ) : selectedOrder && (
+                /* Detail View */
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    {/* Summary Row */}
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="text-left">
+                                    <th className="px-4 py-3 font-semibold text-[#4e2f27]">Order Number</th>
+                                    <th className="px-4 py-3 font-semibold text-[#4e2f27]">Date and time</th>
+                                    <th className="px-4 py-3 font-semibold text-[#4e2f27]">Item</th>
+                                    <th className="px-4 py-3 font-semibold text-[#4e2f27]">Total</th>
+                                    <th className="px-4 py-3 font-semibold text-[#4e2f27]">Payment</th>
+                                    <th className="px-4 py-3 font-semibold text-[#4e2f27]">Status</th>
+                                    <th className="px-4 py-3 font-semibold text-[#4e2f27]">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr className="bg-transparent">
+                                    <td className="px-4 py-4 text-sm font-medium text-[#4e2f27]">
+                                        Ord- {selectedOrder.tokenNumber ? String(selectedOrder.tokenNumber).padStart(4, '0') : selectedOrder.id.slice(-4)}
+                                    </td>
+                                    <td className="px-4 py-4 text-xs text-[#6f584f]">
+                                        <div>{format(new Date(selectedOrder.createdAt), 'MMM d, yyyy')}</div>
+                                        <div className="text-gray-400">{format(new Date(selectedOrder.createdAt), 'hh:mm a')}</div>
+                                    </td>
+                                    <td className="px-4 py-4 text-sm text-[#6f584f]">Order Details</td>
+                                    <td className="px-4 py-4 text-sm font-semibold text-[#4e2f27]">Rs. {selectedOrder.totalAmount.toFixed(0)}</td>
+                                    <td className="px-4 py-4 text-sm text-[#6f584f]">Cash/Fonepay</td>
+                                    <td className="px-4 py-4">
+                                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${selectedOrder.status === OrderStatus.COMPLETED ? 'bg-[#50ff99] text-[#1f5a36]' :
+                                            'bg-amber-100 text-amber-700'
+                                            }`}>
+                                            {statusLabel(selectedOrder.status)}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                className="p-1 (x bg-white shadow-sm border border-gray-100 rounded text-gray-900 hover:text-blue-500"
+                                                onClick={() => setIsDetailView(false)}
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
 
-                    {selectedOrder && (
-                        <div className="space-y-4">
-                            <div className="rounded-xl bg-[#633225] px-5 py-4 text-white shadow-lg">
-                                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                                    <div>
-                                        <div className="flex flex-wrap items-center gap-2 text-xs text-[#e6d8ca]">
-                                            <span>Order ID #{selectedOrder.id.slice(-6)}</span>
-                                            <span>{format(new Date(selectedOrder.createdAt), 'hh:mm a')}</span>
-                                            <span>{format(new Date(selectedOrder.createdAt), 'dd MMM yyyy')}</span>
-                                        </div>
-                                        <h2 className="mt-2 text-3xl font-semibold leading-tight">
-                                            {selectedOrder.customerName || 'Guest Customer'}
-                                        </h2>
-                                        <p className="mt-1 text-sm text-[#f1e6db]">{selectedOrder.branch?.name || 'No branch'}</p>
-                                    </div>
+                    <div className="space-y-4">
+                        <h3 className="text-xl font-bold text-[#3d4a8e]">Order Details</h3>
 
-                                    <div className="flex shrink-0 flex-col gap-2">
-                                        <Badge className="justify-center border-0 bg-[#9ae6b4] text-[#1f5a36] shadow-none">
-                                            {statusLabel(selectedOrder.status)}
-                                        </Badge>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="border-white/30 bg-white text-[#4e2f27]"
-                                            onClick={handleShare}
-                                        >
-                                            Share
-                                        </Button>
+                        <div className="flex flex-col lg:flex-row gap-6">
+                            {/* Food Details Card */}
+                            <div className="flex-1 rounded-[24px] bg-[#633225] p-6 text-white shadow-xl flex flex-col">
+                                <h4 className="text-lg font-bold mb-6">Food Details</h4>
+                                <div className="flex-1 space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                                    {selectedOrder.items.length > 0 ? (
+                                        selectedOrder.items.map((item, idx) => (
+                                            <div key={idx} className="flex justify-between items-start gap-4 text-sm">
+                                                <span className="text-[#f1e6db]">{item.menuItem?.name || 'Item'} x{item.quantity}</span>
+                                                <span className="shrink-0 font-medium">Rs {(item.price * item.quantity).toFixed(0)}</span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-xs text-[#f1e6db] italic opacity-60">No food items found.</p>
+                                    )}
+                                </div>
+                                <div className="pt-6 mt-4 border-t border-white/20">
+                                    <div className="flex justify-between items-center text-lg font-bold">
+                                        <span>Total Bill</span>
+                                        <span>Rs {selectedOrder.totalAmount.toFixed(0)}</span>
                                     </div>
+                                    <p className="text-[10px] text-[#f1e6db] mt-1 opacity-70">Incl. all taxes & charges</p>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                            {/* Bill Details Card */}
+                            <div className="w-full lg:w-[400px] rounded-[24px] bg-[#633225] p-6 text-white shadow-xl flex flex-col justify-between">
                                 <div>
-                                    <h3 className="mb-2 text-3xl font-semibold text-[#313f7f]">Order Details</h3>
-                                    <div className="rounded-xl bg-[#633225] p-4 text-white shadow-lg">
-                                        <p className="text-xl font-semibold">Bill Details</p>
-                                        <div className="mt-4">
-                                            <p className="text-xs uppercase tracking-wide text-[#e7d5c7]">Order Items</p>
-                                            <div className="mt-2 space-y-2 text-sm">
-                                                {selectedOrder.items.length === 0 ? (
-                                                    <p className="text-[#e7d5c7]">No food items</p>
-                                                ) : (
-                                                    selectedOrder.items.map((item) => (
-                                                        <div key={item.id} className="flex items-start justify-between gap-3">
-                                                            <span className="min-w-0 flex-1 break-words">
-                                                                {item.menuItem?.name || 'Item'} <span className="whitespace-nowrap">x{item.quantity}</span>
-                                                            </span>
-                                                            <span className="shrink-0">{formatCurrency(item.price * item.quantity)}</span>
-                                                        </div>
-                                                    ))
-                                                )}
-                                            </div>
+                                    <div className="flex justify-between items-start mb-8">
+                                        <h4 className="text-lg font-bold">Bill Details</h4>
+                                        <button
+                                            onClick={handleShare}
+                                            className="flex items-center gap-2 px-3 py-1.5 bg-white text-gray-800 rounded-lg text-xs font-semibold shadow-sm hover:bg-gray-100 transition-colors"
+                                        >
+                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" /></svg>
+                                            Share
+                                        </button>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-[#f1e6db]">Total</span>
+                                            <span>Rs {selectedOrderSubtotal.toFixed(0)}</span>
                                         </div>
-                                        <div className="my-3 h-px bg-white/20" />
-                                        <div className="mt-4 space-y-2 text-sm">
-                                            <Row label="Subtotal" value={formatCurrency(selectedOrderSubtotal)} />
-                                            <Row label="Handling Charge" value={formatCurrency(selectedOrderHandling)} />
-                                            <Row label="Delivery Fee" value={formatCurrency(selectedOrderDelivery)} />
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-[#f1e6db]">Handling Charge</span>
+                                            <span>Rs {selectedOrderHandling.toFixed(0)}</span>
                                         </div>
-                                        <div className="my-3 h-px bg-white/20" />
-                                        <Row label="Total Bill" value={formatCurrency(selectedOrder.totalAmount)} strong />
-                                        <p className="mt-2 text-xs text-[#e7d5c7]">Incl. all taxes and charges</p>
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-[#f1e6db]">Delivery Fee</span>
+                                            <span>Rs {selectedOrderDelivery.toFixed(0)}</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div>
-                                    <h3 className="mb-2 text-3xl font-semibold text-[#313f7f]">Billing Details</h3>
-                                    <div className="flex flex-wrap gap-3">
-                                        <Button
-                                            variant="outline"
-                                            size="lg"
-                                            className="w-full max-w-[190px] border-[#7d7a6a] bg-[#848374] text-black hover:bg-[#716f62]"
-                                            onClick={handlePrint}
-                                        >
-                                            Print
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="lg"
-                                            className="w-full max-w-[190px] border-[#633225] bg-[#633225] text-black hover:bg-[#4f291f]"
-                                            onClick={() => setModalOrderId(selectedOrder.id)}
-                                        >
-                                            Manage Order
-                                        </Button>
+                                <div className="pt-8 mt-4 border-t border-white/20">
+                                    <div className="flex justify-between items-center text-lg font-bold">
+                                        <span>Total Bill</span>
+                                        <span>Rs {selectedOrder.totalAmount.toFixed(0)}</span>
                                     </div>
+                                    <p className="text-[10px] text-[#f1e6db] mt-2 opacity-70">Incl. all taxes & charges</p>
                                 </div>
                             </div>
                         </div>
-                    )}
+                    </div>
                 </div>
             )}
 
