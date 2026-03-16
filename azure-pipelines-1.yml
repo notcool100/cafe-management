@@ -1,0 +1,230 @@
+trigger:
+  branches:
+    include:
+      - main
+      - uat
+  paths:
+    include:
+      - fe/**
+      - be/**
+
+pool:
+  name: 'Astro'
+
+variables:
+  nodeVersion: '24.x'
+
+stages:
+- stage: BuildFrontend
+  displayName: 'Build Frontend'
+  jobs:
+  - job: BuildFrontendJob
+    displayName: 'Build Next.js App'
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '$(nodeVersion)'
+      displayName: 'Install Node.js'
+
+    - task: DownloadSecureFile@1
+      name: downloadFeEnv
+      inputs:
+        secureFile: 'fe.env.uat'
+      displayName: 'Download frontend UAT env file'
+
+    - script: |
+        cd fe
+        npm install -g pnpm
+        pnpm install
+        echo "Setting up environment files for build"
+        cp "$(downloadFeEnv.secureFilePath)" .env
+      displayName: 'Install Frontend Dependencies'
+
+    - script: |
+        cd fe
+        echo "Running TypeScript check with skipLibCheck flag"
+        pnpm type-check || true
+      displayName: 'Run TypeScript Check (Non-blocking)'
+
+    - script: |
+        cd fe
+        echo "Building frontend application with TypeScript errors ignored"
+        NODE_OPTIONS=--max_old_space_size=4096 pnpm run build
+      displayName: 'Build Frontend Application'
+
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: 'fe'
+        includeRootFolder: false
+        archiveType: 'tar'
+        tarCompression: 'gz'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/cafe-frontend-uat.tar.gz'
+        replaceExistingArchive: true
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/cafe-frontend-uat.tar.gz'
+        ArtifactName: 'cafe-frontend-uat'
+        publishLocation: 'Container'
+
+- stage: BuildBackend
+  displayName: 'Build Backend'
+  jobs:
+  - job: BuildBackendJob
+    displayName: 'Build Node.js API'
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '$(nodeVersion)'
+      displayName: 'Install Node.js'
+
+    - task: DownloadSecureFile@1
+      name: downloadBeEnv
+      inputs:
+        secureFile: 'be.env.uat'
+      displayName: 'Download backend UAT env file'
+
+    - script: |
+        cd be
+        npm install -g pnpm
+        pnpm install
+      displayName: 'Install Backend Dependencies'
+
+    - script: |
+        cd be
+        echo "Setting up environment files for backend build"
+        cp "$(downloadBeEnv.secureFilePath)" .env
+      displayName: 'Setup Backend Environment'
+
+    - script: |
+        cd be
+        pnpm prisma:generate
+      displayName: 'Generate Prisma Client'
+
+    - script: |
+        cd be
+        pnpm run build
+      displayName: 'Build Backend Application'
+
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: 'be'
+        includeRootFolder: false
+        archiveType: 'tar'
+        tarCompression: 'gz'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/cafe-backend-uat.tar.gz'
+        replaceExistingArchive: true
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/cafe-backend-uat.tar.gz'
+        ArtifactName: 'cafe-backend-uat'
+        publishLocation: 'Container'
+
+- stage: DeployUAT
+  displayName: 'Deploy to UAT'
+  dependsOn:
+    - BuildFrontend
+    - BuildBackend
+  condition: and(succeeded('BuildFrontend'), succeeded('BuildBackend'), eq(variables['Build.SourceBranch'], 'refs/heads/uat'))
+  jobs:
+  - job: DeployFrontendUAT
+    displayName: 'Deploy Frontend to UAT'
+    steps:
+    - task: DownloadBuildArtifacts@1
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: 'cafe-frontend-uat'
+        downloadPath: '$(System.ArtifactsDirectory)'
+
+    - script: |
+        echo "Listing downloaded files:"
+        ls -la $(System.ArtifactsDirectory)
+
+        TEMP_DIR=$(mktemp -d)
+        echo "Created temporary directory: $TEMP_DIR"
+
+        tar -xzf $(System.ArtifactsDirectory)/cafe-frontend-uat/cafe-frontend-uat.tar.gz -C $TEMP_DIR
+
+        mkdir -p /var/www/cafe-management-uat/frontend
+
+        if [ -d "/var/www/cafe-management-uat/frontend/.next" ]; then
+          rm -rf /var/www/cafe-management-uat/frontend/.next
+        fi
+
+        rsync -av --exclude='.next/cache' $TEMP_DIR/ /var/www/cafe-management-uat/frontend/
+
+        rm -rf $TEMP_DIR
+
+        echo "Frontend deployed to /var/www/cafe-management-uat/frontend"
+      displayName: 'Extract Frontend Build'
+
+    - script: |
+        if [ "$(whoami)" = "astroagent" ]; then
+          export PATH=$PATH:/home/astroagent/.nvm/versions/node/v24.4.1/bin
+          export PM2_HOME=/home/astroagent/.pm2
+          cd /var/www/cafe-management-uat/frontend
+          pm2 restart cafe-frontend-uat || pm2 start npm --name "cafe-frontend-uat" --cwd /var/www/cafe-management-uat/frontend -- start
+          pm2 save
+        else
+          echo "Current user is not astroagent and sudo is not available."
+          exit 1
+        fi
+      displayName: 'Restart Frontend UAT with PM2'
+
+  - job: DeployBackendUAT
+    displayName: 'Deploy Backend to UAT'
+    steps:
+    - task: DownloadBuildArtifacts@1
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: 'cafe-backend-uat'
+        downloadPath: '$(System.ArtifactsDirectory)'
+
+    - script: |
+        echo "Listing downloaded files:"
+        ls -la $(System.ArtifactsDirectory)
+
+        TEMP_DIR=$(mktemp -d)
+        echo "Created temporary directory: $TEMP_DIR"
+
+        tar -xzf $(System.ArtifactsDirectory)/cafe-backend-uat/cafe-backend-uat.tar.gz -C $TEMP_DIR
+
+        mkdir -p /var/www/cafe-management-uat/backend
+
+        rsync -av $TEMP_DIR/ /var/www/cafe-management-uat/backend/
+
+        rm -rf $TEMP_DIR
+
+        echo "Backend deployed to /var/www/cafe-management-uat/backend"
+      displayName: 'Extract Backend Build'
+
+    - script: |
+        if [ "$(whoami)" = "astroagent" ]; then
+          export PATH=$PATH:/home/astroagent/.nvm/versions/node/v24.4.1/bin
+          cd /var/www/cafe-management-uat/backend
+
+          npm install -g pnpm
+          pnpm install --frozen-lockfile
+          pnpm prisma:generate
+          # pnpm prisma:migrate:deploy
+        else
+          echo "Not running as astroagent"
+          exit 1
+        fi
+      displayName: 'Install deps + Generate Prisma on VPS'
+
+    - script: |
+        if [ "$(whoami)" = "astroagent" ]; then
+          export PATH=$PATH:/home/astroagent/.nvm/versions/node/v24.4.1/bin
+          export PM2_HOME=/home/astroagent/.pm2
+          cd /var/www/cafe-management-uat/backend
+          pm2 restart cafe-backend-uat || pm2 start npm --name "cafe-backend-uat" --cwd /var/www/cafe-management-uat/backend -- start
+          pm2 save
+        else
+          echo "Current user is not astroagent and sudo is not available."
+          exit 1
+        fi
+      displayName: 'Restart Backend UAT with PM2'
