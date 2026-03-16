@@ -7,14 +7,23 @@ import { generateKOT, generateBill } from '../../utils/pdf';
 export class StaffController {
     static async getActiveOrders(req: AuthRequest, res: Response) {
         try {
-            const branchId = req.user?.branchId;
+            const queryBranchId = req.query.branchId as string;
+            const userBranchIds = req.user?.branchIds || [];
+            const branchId = queryBranchId || (userBranchIds.length > 0 ? userBranchIds[0] : undefined);
             const tenantId = req.user?.tenantId;
 
             if (!tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
             if (!branchId) {
-                return res.status(400).json({ error: 'Staff member not assigned to a branch' });
+                return res.status(400).json({ error: 'Branch ID missing' });
+            }
+
+            // Verify if manager/employee has access to this branch
+            if (req.user?.role === 'MANAGER' || req.user?.role === 'EMPLOYEE') {
+                if (!userBranchIds.includes(branchId)) {
+                    return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                }
             }
 
             const orders = await StaffService.getActiveOrders(branchId, tenantId);
@@ -30,14 +39,23 @@ export class StaffController {
     static async getOrdersByStatus(req: AuthRequest, res: Response) {
         try {
             const { status } = req.params as { status: string };
-            const branchId = req.user?.branchId;
+            const queryBranchId = req.query.branchId as string;
+            const userBranchIds = req.user?.branchIds || [];
+            const branchId = queryBranchId || (userBranchIds.length > 0 ? userBranchIds[0] : undefined);
             const tenantId = req.user?.tenantId;
 
             if (!tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
             if (!branchId) {
-                return res.status(400).json({ error: 'Staff member not assigned to a branch' });
+                return res.status(400).json({ error: 'Branch ID missing' });
+            }
+
+            // Verify if manager/employee has access to this branch
+            if (req.user?.role === 'MANAGER' || req.user?.role === 'EMPLOYEE') {
+                if (!userBranchIds.includes(branchId)) {
+                    return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                }
             }
 
             const orders = await StaffService.getOrdersByStatus(branchId, status, tenantId);
@@ -130,7 +148,9 @@ export class StaffController {
 
     static async getSharedItemNotifications(req: AuthRequest, res: Response) {
         try {
-            const branchId = req.user?.branchId;
+            const queryBranchId = req.query.branchId as string;
+            const userBranchIds = req.user?.branchIds || [];
+            const branchId = queryBranchId || (userBranchIds.length > 0 ? userBranchIds[0] : undefined);
             const tenantId = req.user?.tenantId;
             const sinceRaw = req.query?.since as string | undefined;
 
@@ -138,7 +158,14 @@ export class StaffController {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
             if (!branchId) {
-                return res.status(400).json({ error: 'Staff member not assigned to a branch' });
+                return res.status(400).json({ error: 'Branch ID missing' });
+            }
+
+            // Verify branch access for shared notifications
+            if (req.user?.role === 'MANAGER' || req.user?.role === 'EMPLOYEE') {
+                if (!userBranchIds.includes(branchId)) {
+                    return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                }
             }
 
             const since = sinceRaw ? new Date(sinceRaw) : undefined;

@@ -9,7 +9,7 @@ import Spinner from '@/components/ui/Spinner';
 import { useAuthStore } from '@/lib/store/auth-store';
 
 export default function StaffDashboardPage() {
-    const { user } = useAuthStore();
+    const { user, selectedBranchId } = useAuthStore();
     const [stats, setStats] = useState({
         active: 0,
         completed: 0,
@@ -18,8 +18,9 @@ export default function StaffDashboardPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
-    const branchName = user?.branch?.name || 'Your branch';
-    const branchQrCode = user?.branch?.qrCode;
+    const currentBranch = user?.branches?.find(b => b.id === selectedBranchId) || user?.branches?.[0];
+    const branchName = currentBranch?.name || 'Your branch';
+    const branchQrCode = currentBranch?.qrCode;
 
     useEffect(() => {
         loadStats();
@@ -35,7 +36,7 @@ export default function StaffDashboardPage() {
                 totalToday: activeOrders.length,
             });
         } catch (error) {
-            console.error('Failed to load stats:', error);
+            // console.error('Failed to load stats:', error);
         } finally {
             setIsLoading(false);
         }

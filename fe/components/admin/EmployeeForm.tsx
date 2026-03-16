@@ -17,7 +17,8 @@ const employeeSchema = z.object({
     email: z.string().email('Invalid email address'),
     password: z.string().optional(),
     role: z.nativeEnum(UserRole),
-    branchId: z.string().optional(),
+    branchIds: z.array(z.string()).optional(),
+    branchId: z.string().optional(), // Legacy for single branch roles
 });
 
 export type EmployeeFormData = z.infer<typeof employeeSchema>;
@@ -35,13 +36,6 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
     const [branches, setBranches] = useState<Branch[]>([]);
     const { user } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
-    const lockedBranchId = isManager ? user?.branchId : undefined;
-
-    const resolvedInitialBranchId =
-        initialData?.branchId ||
-        initialData?.branch?.id ||
-        lockedBranchId ||
-        '';
 
     const {
         register,
@@ -50,44 +44,43 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
         setError,
         setValue,
         reset,
+        watch,
     } = useForm<EmployeeFormData>({
         resolver: zodResolver(employeeSchema),
         defaultValues: {
             name: initialData?.name || '',
             email: initialData?.email || '',
             role: initialData?.role || UserRole.EMPLOYEE,
-            branchId: resolvedInitialBranchId,
+            branchIds: initialData?.branchIds || [],
+            branchId: initialData?.branchIds?.[0] || '',
             password: '',
         },
     });
+
+    const selectedRole = watch('role');
 
     useEffect(() => {
         reset({
             name: initialData?.name || '',
             email: initialData?.email || '',
             role: initialData?.role || UserRole.EMPLOYEE,
-            branchId: resolvedInitialBranchId,
+            branchIds: initialData?.branchIds || [],
+            branchId: initialData?.branchIds?.[0] || '',
             password: '',
         });
-    }, [initialData, reset, resolvedInitialBranchId]);
+    }, [initialData, reset]);
 
     useEffect(() => {
         const loadBranches = async () => {
             try {
                 const data = await branchService.getBranches();
                 setBranches(data);
-
-                const preferredBranch = resolvedInitialBranchId || (data.length === 1 ? data[0].id : '');
-
-                if (preferredBranch) {
-                    setValue('branchId', preferredBranch, { shouldValidate: true });
-                }
             } catch (error) {
                 console.error('Failed to load branches:', error);
             }
         };
         loadBranches();
-    }, [resolvedInitialBranchId, setValue]);
+    }, []);
 
     const handleFormSubmit = async (data: EmployeeFormData) => {
         if (!isEdit && !data.password) {
@@ -97,7 +90,14 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
             });
             return;
         }
-        await onSubmit(data);
+
+        // Handle the mismatch between single branchId and multiple branchIds
+        const finalData = {
+            ...data,
+            branchIds: data.role === UserRole.MANAGER ? data.branchIds : (data.branchId ? [data.branchId] : []),
+        };
+
+        await onSubmit(finalData as any);
     };
 
     return (
@@ -146,26 +146,36 @@ export default function EmployeeForm({ initialData, onSubmit, isLoading, isEdit 
                     ]}
                 />
 
-                <Select
-                    label="Branch (Optional)"
-                    {...register('branchId')}
-                    error={errors.branchId?.message}
-                    options={
-                        isManager && lockedBranchId
-                            ? branches
-                                .filter((b) => b.id === lockedBranchId)
-                                .map((b) => ({ value: b.id, label: formatBranchLabel(b) }))
-                            : [
-                                { value: '', label: 'No Branch Assigned' },
-                                ...branches.map((b) => ({ value: b.id, label: formatBranchLabel(b) })),
-                            ]
-                    }
-                    disabled={isManager}
-                />
-                {isManager && (
-                    <p className="text-xs text-[#1f1c17] mt-1">
-                        Branch is locked to your assignment.
-                    </p>
+                {selectedRole === UserRole.MANAGER ? (
+                    <div className="space-y-3">
+                        <label className="text-sm font-medium text-[#1f1c17]">Assigned Branches</label>
+                        <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-4 border rounded-lg bg-gray-50">
+                            {branches.map((branch) => (
+                                <label key={branch.id} className="flex items-center space-x-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        value={branch.id}
+                                        {...register('branchIds')}
+                                        className="rounded border-gray-300 text-brown-600 focus:ring-brown-500"
+                                    />
+                                    <span>{formatBranchLabel(branch)}</span>
+                                </label>
+                            ))}
+                        </div>
+                        {errors.branchIds?.message && (
+                            <p className="text-xs text-red-500 mt-1">{errors.branchIds.message}</p>
+                        )}
+                    </div>
+                ) : (
+                    <Select
+                        label="Branch (Optional)"
+                        {...register('branchId')}
+                        error={errors.branchId?.message}
+                        options={[
+                            { value: '', label: 'No Branch Assigned' },
+                            ...branches.map((b) => ({ value: b.id, label: formatBranchLabel(b) })),
+                        ]}
+                    />
                 )}
             </div>
 

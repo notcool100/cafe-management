@@ -6,7 +6,7 @@ export class AuthService {
     static async login(email: string, password: string) {
         const user = await prisma.user.findUnique({
             where: { email },
-            include: { branch: true, tenant: true },
+            include: { branches: true, tenant: true },
         });
 
         if (!user || !user.isActive) {
@@ -29,8 +29,8 @@ export class AuthService {
                 email: user.email,
                 name: user.name,
                 role: user.role,
-                branchId: user.branchId,
-                branch: user.branch,
+                branchIds: user.branches.map((b: any) => b.id),
+                branches: user.branches,
                 tenantId: user.tenantId,
             },
         };
@@ -41,7 +41,7 @@ export class AuthService {
         password: string;
         name: string;
         role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | 'SUPER_ADMIN';
-        branchId?: string;
+        branchIds?: string[];
         tenantId?: string;
     }) {
         const existingUser = await prisma.user.findUnique({
@@ -55,9 +55,9 @@ export class AuthService {
         const hashedPassword = await bcrypt.hash(data.password, 10);
 
         let resolvedTenantId = data.tenantId;
-        if (!resolvedTenantId && data.branchId) {
+        if (!resolvedTenantId && data.branchIds && data.branchIds.length > 0) {
             const branch = await prisma.branch.findUnique({
-                where: { id: data.branchId },
+                where: { id: data.branchIds[0] },
                 select: { tenantId: true },
             });
 
@@ -107,13 +107,18 @@ export class AuthService {
             throw new Error('Tenant is required for registration');
         }
 
+        const { branchIds, ...userData } = data;
+
         const user = await prisma.user.create({
             data: {
-                ...data,
+                ...userData,
                 tenantId: resolvedTenantId,
                 password: hashedPassword,
+                branches: branchIds ? {
+                    connect: branchIds.map(id => ({ id }))
+                } : undefined
             },
-            include: { branch: true, tenant: true },
+            include: { branches: true, tenant: true },
         });
 
         const tokens = await this.generateTokens(user);
@@ -126,8 +131,8 @@ export class AuthService {
                 email: user.email,
                 name: user.name,
                 role: user.role,
-                branchId: user.branchId,
-                branch: user.branch,
+                branchIds: user.branches.map((b: any) => b.id),
+                branches: user.branches,
                 tenantId: user.tenantId,
             },
         };
@@ -140,6 +145,7 @@ export class AuthService {
 
             const user = await prisma.user.findUnique({
                 where: { id: decoded.id },
+                include: { branches: true }
             });
 
             if (!user || !user.refreshToken) {
@@ -177,7 +183,7 @@ export class AuthService {
                 email: user.email,
                 role: user.role,
                 tenantId: user.tenantId,
-                branchId: user.branchId,
+                branchIds: user.branches?.map((b: any) => b.id) || [],
             },
             secret,
             { expiresIn: '15m' }
@@ -190,6 +196,35 @@ export class AuthService {
         );
 
         return { accessToken, refreshToken };
+    }
+
+    static async getMe(userId: string) {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: { branches: true, tenant: true },
+        });
+
+        if (!user || !user.isActive) {
+            throw new Error('User not found or inactive');
+        }
+
+        // For ADMIN/SUPER_ADMIN, provide ALL branches of the tenant
+        let branches = user.branches;
+        if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+            branches = await prisma.branch.findMany({
+                where: { tenantId: user.tenantId, isActive: true }
+            });
+        }
+
+        return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            branchIds: branches.map((b: any) => b.id),
+            branches: branches,
+            tenantId: user.tenantId,
+        };
     }
 
     private static async updateRefreshToken(userId: string, refreshToken: string) {

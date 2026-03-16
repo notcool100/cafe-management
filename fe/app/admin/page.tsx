@@ -68,7 +68,7 @@ export default function AdminDashboardPage() {
             setTodayEarnings(today);
             setEarningsChange(change);
         } catch (error) {
-            console.error('Failed to load stats:', error);
+            // console.error('Failed to load stats:', error);
         } finally {
             setIsLoading(false);
         }

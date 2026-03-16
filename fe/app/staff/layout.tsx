@@ -24,7 +24,7 @@ const managerNavigation = [
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { user, logout } = useAuthStore();
+    const { user, logout, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const isManager = user?.role === 'MANAGER';
     const isNavItemActive = (href: string) =>
@@ -34,6 +34,10 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         logout();
         router.push('/login');
     };
+
+    useEffect(() => {
+        refreshUser();
+    }, []);
 
     useEffect(() => {
         const originalOverflow = document.body.style.overflow;
@@ -54,6 +58,27 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                         <div className="flex items-center flex-shrink-0 px-6 py-6 border-b border-[#e4d7c2]">
                             <h1 className="text-xl font-semibold tracking-tight text-[#5a3a2e]">Cafe Staff</h1>
                         </div>
+
+                        {/* Branch Selector for Multi-branch users */}
+                        {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER') && (
+                            <div className="px-3 py-4 border-b border-[#e4d7c2] bg-[#fdfaf3]">
+                                <label className="block text-[10px] uppercase tracking-wider font-bold text-[#8b6f5f] mb-2 px-3">
+                                    Current Branch
+                                </label>
+                                <select
+                                    className="w-full bg-[#fdfaf3] border border-[#e4d7c2] text-[#5a3a2e] text-sm rounded-lg focus:ring-[#5a3a2e] focus:border-[#5a3a2e] block p-2.5 transition-all outline-none"
+                                    value={selectedBranchId || ''}
+                                    onChange={(e) => {
+                                        setSelectedBranchId(e.target.value);
+                                        console.log('Staff Branch switched to:', e.target.value);
+                                    }}
+                                >
+                                    {user.branches?.map(b => (
+                                        <option key={b.id} value={b.id}>{b.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
                         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
                             {navigation.map((item) => {
@@ -175,6 +200,27 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                                         <CloseIcon className="h-5 w-5" />
                                     </button>
                                 </div>
+
+                                {/* Mobile Branch Selector */}
+                                {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER') && (
+                                    <div className="px-3 py-4 border-b border-[#e4d7c2] bg-[#fdfaf3]">
+                                        <label className="block text-[10px] uppercase tracking-wider font-bold text-[#8b6f5f] mb-2 px-3">
+                                            Current Branch
+                                        </label>
+                                        <select
+                                            className="w-full bg-[#fdfaf3] border border-[#e4d7c2] text-[#5a3a2e] text-sm rounded-lg focus:ring-[#5a3a2e] focus:border-[#5a3a2e] block p-2.5 transition-all outline-none"
+                                            value={selectedBranchId || ''}
+                                            onChange={(e) => {
+                                                setSelectedBranchId(e.target.value);
+                                                setSidebarOpen(false);
+                                            }}
+                                        >
+                                            {user.branches?.map(b => (
+                                                <option key={b.id} value={b.id}>{b.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
 
                                 <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
                                     {navigation.map((item) => {

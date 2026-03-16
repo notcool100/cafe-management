@@ -11,8 +11,8 @@ export interface User {
     name: string;
     email: string;
     role: UserRole;
-    branchId?: string;
-    branch?: Branch;
+    branchIds?: string[];
+    branches?: Branch[];
     tenantId: string;
     createdAt: string;
     updatedAt: string;
@@ -34,7 +34,7 @@ export interface RegisterData {
     email: string;
     password: string;
     role: UserRole;
-    branchId?: string;
+    branchIds?: string[];
     tenantId?: string;
 }
 
