@@ -2,6 +2,7 @@ trigger:
   branches:
     include:
       - main
+      - uat
   paths:
     include:
       - fe/**
@@ -28,16 +29,9 @@ stages:
     - task: DownloadSecureFile@1
       name: downloadFeEnv
       inputs:
-        secureFile: 'fe.env'
-      displayName: 'Download frontend env file'
+        secureFile: 'fe.env.uat'
+      displayName: 'Download frontend UAT env file'
     
-    # - script: |
-    #     echo "Building shared packages..."
-    #     cd packages/nepali-date-converter
-    #     pnpm install
-    #     pnpm run build
-    #   displayName: 'Build Shared Packages'
-
     - script: |
         cd fe
         npm install -g pnpm
@@ -66,13 +60,13 @@ stages:
         includeRootFolder: false
         archiveType: 'tar'
         tarCompression: 'gz'
-        archiveFile: '$(Build.ArtifactStagingDirectory)/cafe-frontend.tar.gz'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/cafe-frontend-uat.tar.gz'
         replaceExistingArchive: true
     
     - task: PublishBuildArtifacts@1
       inputs:
-        PathtoPublish: '$(Build.ArtifactStagingDirectory)/cafe-frontend.tar.gz'
-        ArtifactName: 'cafe-frontend'
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/cafe-frontend-uat.tar.gz'
+        ArtifactName: 'cafe-frontend-uat'
         publishLocation: 'Container'
 
 - stage: BuildBackend
@@ -89,8 +83,8 @@ stages:
     - task: DownloadSecureFile@1
       name: downloadBeEnv
       inputs:
-        secureFile: 'be.env'
-      displayName: 'Download backend env file'
+        secureFile: 'be.env.uat'
+      displayName: 'Download backend UAT env file'
     
     # - script: |
     #     echo "Building shared packages..."
@@ -127,29 +121,29 @@ stages:
         includeRootFolder: false
         archiveType: 'tar'
         tarCompression: 'gz'
-        archiveFile: '$(Build.ArtifactStagingDirectory)/cafe-backend.tar.gz'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/cafe-backend-uat.tar.gz'
         replaceExistingArchive: true
     
     - task: PublishBuildArtifacts@1
       inputs:
-        PathtoPublish: '$(Build.ArtifactStagingDirectory)/cafe-backend.tar.gz'
-        ArtifactName: 'cafe-backend'
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/cafe-backend-uat.tar.gz'
+        ArtifactName: 'cafe-backend-uat'
         publishLocation: 'Container'
-- stage: DeployDev
-  displayName: 'Deploy to Development'
+- stage: DeployUAT
+  displayName: 'Deploy to UAT'
   dependsOn: 
     - BuildFrontend
     - BuildBackend
-  condition: and(succeeded('BuildFrontend'), succeeded('BuildBackend'), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  condition: and(succeeded('BuildFrontend'), succeeded('BuildBackend'), eq(variables['Build.SourceBranch'], 'refs/heads/uat'))
   jobs:
-  - job: DeployFrontendDev
-    displayName: 'Deploy Frontend to Dev'
+  - job: DeployFrontendUAT
+    displayName: 'Deploy Frontend to UAT'
     steps:
     - task: DownloadBuildArtifacts@1
       inputs:
         buildType: 'current'
         downloadType: 'single'
-        artifactName: 'cafe-frontend'
+        artifactName: 'cafe-frontend-uat'
         downloadPath: '$(System.ArtifactsDirectory)'
 
     - script: |
@@ -161,23 +155,23 @@ stages:
          echo "Created temporary directory: $TEMP_DIR"
          
          # Extract to temporary directory first
-         tar -xzf $(System.ArtifactsDirectory)/cafe-frontend/cafe-frontend.tar.gz -C $TEMP_DIR
+         tar -xzf $(System.ArtifactsDirectory)/cafe-frontend-uat/cafe-frontend-uat.tar.gz -C $TEMP_DIR
          
          # Ensure target directory exists with proper permissions
-         mkdir -p /var/www/cafe-management/frontend
+         mkdir -p /var/www/cafe-management-uat/frontend
          
          # Remove existing .next directory if it exists to avoid permission issues
-         if [ -d "/var/www/cafe-management/frontend/.next" ]; then
-           rm -rf /var/www/cafe-management/frontend/.next
+         if [ -d "/var/www/cafe-management-uat/frontend/.next" ]; then
+           rm -rf /var/www/cafe-management-uat/frontend/.next
          fi
          
          # Copy files from temp directory to target directory
-         rsync -av --exclude='.next/cache' $TEMP_DIR/ /var/www/cafe-management/frontend/
+         rsync -av --exclude='.next/cache' $TEMP_DIR/ /var/www/cafe-management-uat/frontend/
          
          # Clean up temporary directory
          rm -rf $TEMP_DIR
          
-         echo "Frontend deployed to /var/www/cafe-management/frontend"
+         echo "Frontend deployed to /var/www/cafe-management-uat/frontend"
       displayName: 'Extract Frontend Build'
 
     - script: |
@@ -186,8 +180,8 @@ stages:
           # Running as astroagent, no need for sudo
           export PATH=$PATH:/home/astroagent/.nvm/versions/node/v24.4.1/bin
           export PM2_HOME=/home/astroagent/.pm2
-          cd /var/www/cafe-management/frontend
-          pm2 restart cafe-frontend || pm2 start npm --name "cafe-frontend" --cwd /var/www/cafe-management/frontend -- start
+          cd /var/www/cafe-management-uat/frontend
+          PORT=4300 pm2 restart cafe-frontend-uat --update-env || PORT=4300 pm2 start npm --name "cafe-frontend-uat" --cwd /var/www/cafe-management-uat/frontend -- start
           pm2 save
         else
           # We need to use a different approach since sudo is not available
@@ -197,14 +191,14 @@ stages:
         fi
       displayName: 'Restart Frontend with PM2'
 
-  - job: DeployBackendDev
-    displayName: 'Deploy Backend to Dev'
+  - job: DeployBackendUAT
+    displayName: 'Deploy Backend to UAT'
     steps:
     - task: DownloadBuildArtifacts@1
       inputs:
         buildType: 'current'
         downloadType: 'single'
-        artifactName: 'cafe-backend'
+        artifactName: 'cafe-backend-uat'
         downloadPath: '$(System.ArtifactsDirectory)'
 
     - script: |
@@ -216,23 +210,23 @@ stages:
         echo "Created temporary directory: $TEMP_DIR"
         
         # Extract to temporary directory first
-        tar -xzf $(System.ArtifactsDirectory)/cafe-backend/cafe-backend.tar.gz -C $TEMP_DIR
+        tar -xzf $(System.ArtifactsDirectory)/cafe-backend-uat/cafe-backend-uat.tar.gz -C $TEMP_DIR
         
         # Ensure target directory exists with proper permissions
-        mkdir -p /var/www/cafe-management/backend
+        mkdir -p /var/www/cafe-management-uat/backend
         
         # Copy files from temp directory to target directory
-        rsync -av $TEMP_DIR/ /var/www/cafe-management/backend/
+        rsync -av $TEMP_DIR/ /var/www/cafe-management-uat/backend/
         
         # Clean up temporary directory
         rm -rf $TEMP_DIR
         
-        echo "Backend deployed to /var/www/cafe-management/backend"
+        echo "Backend deployed to /var/www/cafe-management-uat/backend"
       displayName: 'Extract Backend Build'
     - script: |
         if [ "$(whoami)" = "astroagent" ]; then
           export PATH=$PATH:/home/astroagent/.nvm/versions/node/v24.4.1/bin
-          cd /var/www/cafe-management/backend
+          cd /var/www/cafe-management-uat/backend
 
           # Install prod deps (or full deps if you need)
           npm install -g pnpm
@@ -254,8 +248,7 @@ stages:
           # Running as astroagent, no need for sudo
           export PATH=$PATH:/home/astroagent/.nvm/versions/node/v24.4.1/bin
           export PM2_HOME=/home/astroagent/.pm2
-          cd /var/www/cafe-management/backend
-          pm2 restart cafe-backend || pm2 start npm --name "cafe-backend" --cwd /var/www/cafe-management/backend -- start
+          pm2 restart cafe-backend-uat || pm2 start npm --name "cafe-backend-uat" --cwd /var/www/cafe-management-uat/backend -- start
           pm2 save
         else
           # We need to use a different approach since sudo is not available
