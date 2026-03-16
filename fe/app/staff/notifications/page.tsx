@@ -39,7 +39,8 @@ const mergeNotifications = (
 };
 
 export default function StaffNotificationsPage() {
-    const { user } = useAuthStore();
+    const { user, selectedBranchId } = useAuthStore();
+    const currentBranchId = selectedBranchId || '';
 
     const [notifications, setNotifications] = useState<SharedItemNotification[]>([]);
     const [sharedNotifySince, setSharedNotifySince] = useState<string | null>(null);
@@ -52,12 +53,12 @@ export default function StaffNotificationsPage() {
     });
 
     const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const sharedNotifyKey = user?.branchId ? `shared-item-notify-since:${user.branchId}` : 'shared-item-notify-since';
-    const sharedNotifyHistoryKey = user?.branchId
-        ? `shared-item-notify-history:${user.branchId}`
+    const sharedNotifyKey = currentBranchId ? `shared-item-notify-since:${currentBranchId}` : 'shared-item-notify-since';
+    const sharedNotifyHistoryKey = currentBranchId
+        ? `shared-item-notify-history:${currentBranchId}`
         : 'shared-item-notify-history';
-    const sharedNotifyLastSeenKey = user?.branchId
-        ? `shared-item-notify-last-seen:${user.branchId}`
+    const sharedNotifyLastSeenKey = currentBranchId
+        ? `shared-item-notify-last-seen:${currentBranchId}`
         : 'shared-item-notify-last-seen';
 
     const hydrateFromStorage = useCallback(() => {
@@ -79,7 +80,7 @@ export default function StaffNotificationsPage() {
 
     const fetchNotifications = useCallback(
         async (showInitialLoader = false) => {
-            if (!user?.branchId) {
+            if (!currentBranchId) {
                 setIsLoading(false);
                 return;
             }
@@ -136,7 +137,7 @@ export default function StaffNotificationsPage() {
                 }
             }
         },
-        [sharedNotifyHistoryKey, sharedNotifyKey, sharedNotifyLastSeenKey, sharedNotifySince, user?.branchId]
+        [sharedNotifyHistoryKey, sharedNotifyKey, sharedNotifyLastSeenKey, sharedNotifySince, currentBranchId]
     );
 
     const handleRefresh = useCallback(() => {
@@ -145,7 +146,7 @@ export default function StaffNotificationsPage() {
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
-        if (!user?.branchId) {
+        if (!currentBranchId) {
             setIsLoading(false);
             return;
         }
@@ -157,10 +158,10 @@ export default function StaffNotificationsPage() {
 
         window.localStorage.setItem(sharedNotifyLastSeenKey, new Date().toISOString());
         hydrateFromStorage();
-    }, [hydrateFromStorage, sharedNotifyKey, sharedNotifyLastSeenKey, user?.branchId]);
+    }, [hydrateFromStorage, sharedNotifyKey, sharedNotifyLastSeenKey, currentBranchId]);
 
     useEffect(() => {
-        if (!user?.branchId) return;
+        if (!currentBranchId) return;
 
         void fetchNotifications(true);
         refreshIntervalRef.current = setInterval(() => {
@@ -172,7 +173,7 @@ export default function StaffNotificationsPage() {
                 clearInterval(refreshIntervalRef.current);
             }
         };
-    }, [fetchNotifications, sharedNotifySince, user?.branchId]);
+    }, [fetchNotifications, currentBranchId]);
 
     return (
         <div className="space-y-6">

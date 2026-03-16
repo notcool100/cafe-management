@@ -15,9 +15,9 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import { formatBranchLabel } from '@/lib/utils/format';
 
 export default function MenuPage() {
-    const { user } = useAuthStore();
+    const { user, selectedBranchId } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
-    const managerBranchId = isManager ? user?.branchId : undefined;
+    const currentBranchId = selectedBranchId || '';
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -25,7 +25,7 @@ export default function MenuPage() {
     const [filters, setFilters] = useState({
         search: '',
         category: '',
-        branchId: managerBranchId || '',
+        branchId: currentBranchId,
     });
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; isVisible: boolean }>({
         message: '',
@@ -44,9 +44,9 @@ export default function MenuPage() {
             setMenuItems(itemsData);
 
             // Auto-apply branch filter for managers or single-branch tenants
-            if (managerBranchId) {
-                setFilters((prev) => ({ ...prev, branchId: managerBranchId }));
-            } else if (!managerBranchId && filters.branchId === '' && branchesData.length === 1) {
+            if (currentBranchId) {
+                setFilters((prev) => ({ ...prev, branchId: currentBranchId }));
+            } else if (!currentBranchId && filters.branchId === '' && branchesData.length === 1) {
                 setFilters((prev) => ({ ...prev, branchId: branchesData[0].id }));
             }
         } catch (error) {
@@ -59,7 +59,7 @@ export default function MenuPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [filters.branchId, managerBranchId]);
+    }, [filters.branchId, currentBranchId]);
 
     // Reload menu items when filters change (except search which is client-side filtered for responsiveness)
     const loadMenuItems = useCallback(async () => {
@@ -153,9 +153,9 @@ export default function MenuPage() {
                             disabled={isManager}
                             className="w-full rounded-lg border border-[#5b3629] bg-[#5b3629] px-4 py-2 text-lg font-medium text-[#f8efe1] outline-none disabled:cursor-not-allowed disabled:opacity-70"
                         >
-                            {isManager && managerBranchId
+                            {isManager && currentBranchId
                                 ? branches
-                                    .filter((b) => b.id === managerBranchId)
+                                    .filter((b) => b.id === currentBranchId)
                                     .map((b) => (
                                         <option key={b.id} value={b.id}>
                                             {formatBranchLabel(b)}
