@@ -32,13 +32,13 @@ const LIVE_ORDER_STATUSES: OrderStatus[] = [
 ];
 
 export default function AdminOrdersPage() {
-    const { user } = useAuthStore();
+    const { user, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
-    const managerBranchId = isManager ? user?.branchId : undefined;
+    const managerBranchId = isManager ? selectedBranchId : undefined;
 
     const [orders, setOrders] = useState<Order[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
-    const [branchFilter, setBranchFilter] = useState<string>(managerBranchId ?? 'all');
+    const [branchFilter, setBranchFilter] = useState<string>(selectedBranchId ?? 'all');
     const [orderView, setOrderView] = useState<OrderView>('LIVE');
     const [statusFilter, setStatusFilter] = useState<LiveStatusFilter>('ALL');
     const [dateFilter, setDateFilter] = useState<DateFilter>('TODAY');
@@ -58,8 +58,8 @@ export default function AdminOrdersPage() {
             const data = await branchService.getBranches();
             setBranches(data);
 
-            if (managerBranchId) {
-                setBranchFilter(managerBranchId);
+            if (selectedBranchId && selectedBranchId !== 'all') {
+                setBranchFilter(selectedBranchId);
             } else if (branchFilter === 'all' && data.length === 1) {
                 setBranchFilter(data[0].id);
             }
@@ -98,6 +98,10 @@ export default function AdminOrdersPage() {
     useEffect(() => {
         void loadBranches();
     }, [loadBranches]);
+
+    useEffect(() => {
+        refreshUser();
+    }, []);
 
     useEffect(() => {
         void loadOrders();

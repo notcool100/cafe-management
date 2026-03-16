@@ -4,7 +4,8 @@ import { AdminService } from './admin.service';
 import { body, validationResult } from 'express-validator';
 
 const isManager = (req: AuthRequest) => req.user?.role === 'MANAGER';
-const managerBranchId = (req: AuthRequest) => req.user?.branchId;
+const managerBranchIds = (req: AuthRequest) => req.user?.branchIds || [];
+const firstManagerBranchId = (req: AuthRequest) => managerBranchIds(req)[0];
 
 export class AdminController {
     private static readonly DEFAULT_REPORT_RANGE_DAYS = 30;
@@ -28,16 +29,19 @@ export class AdminController {
                 return res.status(400).json({ errors: errors.array() });
             }
 
-            const { email, password, name, role, branchId } = req.body;
+            const { email, password, name, role, branchId, branchIds } = req.body;
+            const finalBranchIds = branchIds || (branchId ? [branchId] : []);
+
             if (isManager(req)) {
-                if (!managerBranchId(req)) {
-                    return res.status(400).json({ error: 'Manager is not assigned to a branch' });
+                if (managerBranchIds(req).length === 0) {
+                    return res.status(400).json({ error: 'Manager is not assigned to any branch' });
                 }
                 if (role === 'ADMIN') {
                     return res.status(403).json({ error: 'Managers cannot create admins' });
                 }
-                if (branchId && branchId !== managerBranchId(req)) {
-                    return res.status(403).json({ error: 'Managers can only create users in their branch' });
+                // If creating a user, verify the picked branches are within manager's scope
+                if (finalBranchIds.some((id: string) => !managerBranchIds(req).includes(id))) {
+                    return res.status(403).json({ error: 'Managers can only create users in their assigned branches' });
                 }
             }
             if (!req.user?.tenantId) {
@@ -48,7 +52,7 @@ export class AdminController {
                 password,
                 name,
                 role,
-                branchId: isManager(req) ? managerBranchId(req) : branchId,
+                branchIds: isManager(req) && finalBranchIds.length === 0 ? managerBranchIds(req) : finalBranchIds,
                 tenantId: req.user.tenantId,
             });
 
@@ -66,9 +70,10 @@ export class AdminController {
             if (!req.user?.tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
+            const providedBranchId = branchId as string | undefined;
             const effectiveBranchId = isManager(req)
-                ? managerBranchId(req)
-                : (branchId as string | undefined);
+                ? providedBranchId || firstManagerBranchId(req)
+                : providedBranchId;
             const employees = await AdminService.listEmployees(req.user.tenantId, effectiveBranchId);
 
             res.json(employees);
@@ -86,8 +91,12 @@ export class AdminController {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
             const employee = await AdminService.getEmployee(id as string, req.user.tenantId);
-            if (isManager(req) && managerBranchId(req) && employee.branchId !== managerBranchId(req)) {
-                return res.status(403).json({ error: 'Forbidden: Not your branch' });
+            if (isManager(req)) {
+                const mBranchIds = managerBranchIds(req);
+                const hasAccess = employee.branchIds.some((id: string) => mBranchIds.includes(id));
+                if (!hasAccess) {
+                    return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                }
             }
             res.json(employee);
         } catch (error) {
@@ -100,7 +109,7 @@ export class AdminController {
     static async updateEmployee(req: AuthRequest, res: Response) {
         try {
             const { id } = req.params;
-            const { name, role, branchId } = req.body;
+            const { name, role, branchId, branchIds } = req.body;
             if (!req.user?.tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
@@ -109,22 +118,25 @@ export class AdminController {
                 if (role === 'ADMIN') {
                     return res.status(403).json({ error: 'Managers cannot promote to admin' });
                 }
-                if (branchId && branchId !== managerBranchId(req)) {
-                    return res.status(403).json({ error: 'Managers can only reassign within their branch' });
+                const finalBranchIds = branchIds || (branchId ? [branchId] : []);
+                if (finalBranchIds.some((id: string) => !managerBranchIds(req).includes(id))) {
+                    return res.status(403).json({ error: 'Managers can only reassign within their assigned branches' });
                 }
                 const employee = await AdminService.getEmployee(id as string, req.user.tenantId);
-                if (employee.branchId && employee.branchId !== managerBranchId(req)) {
+                const hasAccess = employee.branchIds.some((bid: string) => managerBranchIds(req).includes(bid));
+                if (!hasAccess) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
             }
 
+            const finalBranchIds = branchIds || (branchId ? [branchId] : []);
             const employee = await AdminService.updateEmployee(
                 id as string,
                 req.user.tenantId,
                 {
-                name,
-                role,
-                branchId: isManager(req) ? managerBranchId(req) : branchId,
+                    name,
+                    role,
+                    branchIds: finalBranchIds.length > 0 ? finalBranchIds : undefined,
                 }
             );
 
@@ -144,7 +156,8 @@ export class AdminController {
             }
             if (isManager(req)) {
                 const employee = await AdminService.getEmployee(id as string, req.user.tenantId);
-                if (employee.branchId && employee.branchId !== managerBranchId(req)) {
+                const hasAccess = employee.branchIds.some((bid: string) => managerBranchIds(req).includes(bid));
+                if (!hasAccess) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
                 if (employee.role === 'ADMIN') {
@@ -235,17 +248,22 @@ export class AdminController {
 
     static async listBranches(req: AuthRequest, res: Response) {
         try {
-            if (!req.user?.tenantId) {
-                return res.status(400).json({ error: 'Tenant context missing' });
+            if (!req.user?.tenantId || !req.user?.id) {
+                return res.status(400).json({ error: 'Context missing' });
             }
-            const isBranchScoped = req.user.role === 'EMPLOYEE';
-            const branchConstraint = isBranchScoped ? req.user.branchId : undefined;
 
-            if (req.user.role === 'EMPLOYEE' && !branchConstraint) {
+            const isAdmin = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
+
+            // For non-admins, we filter by their user ID to get all assigned branches from the DB
+            // This is more robust than relying on the token's branchIds
+            const branches = await AdminService.listBranches(req.user.tenantId, {
+                userId: isAdmin ? undefined : req.user.id
+            });
+
+            if (!isAdmin && branches.length === 0) {
                 return res.status(403).json({ error: 'No branch assigned to this user' });
             }
 
-            const branches = await AdminService.listBranches(req.user.tenantId, branchConstraint || undefined);
             res.json(branches);
         } catch (error) {
             res.status(500).json({
@@ -262,7 +280,8 @@ export class AdminController {
             }
 
             const isBranchScoped = req.user.role === 'MANAGER' || req.user.role === 'EMPLOYEE';
-            if (isBranchScoped && req.user.branchId && req.user.branchId !== id) {
+            const mBranchIds = managerBranchIds(req);
+            if (isBranchScoped && mBranchIds.length > 0 && !mBranchIds.includes(id as string)) {
                 return res.status(403).json({ error: 'Forbidden: Not your branch' });
             }
 
@@ -365,12 +384,13 @@ export class AdminController {
                     ? undefined
                     : (branchId as string | undefined);
 
-            if (isStaffManager && !req.user?.branchId) {
-                return res.status(400).json({ error: 'Staff member is not assigned to a branch' });
+            if (isStaffManager && managerBranchIds(req).length === 0) {
+                return res.status(400).json({ error: 'Staff member is not assigned to any branch' });
             }
 
+            const providedBranchId = branchId as string | undefined;
             const report = await AdminService.getReportOverview({
-                branchId: isStaffManager ? req.user?.branchId : resolvedBranchId,
+                branchId: isStaffManager ? (providedBranchId || firstManagerBranchId(req)) : (providedBranchId || resolvedBranchId),
                 startDate: parsedStartDate,
                 endDate: parsedEndDate,
                 tenantId: req.user.tenantId,

@@ -7,7 +7,8 @@ export interface AuthRequest extends Request {
         email: string;
         role: string;
         tenantId?: string;
-        branchId?: string;
+        branchIds?: string[];
+        branchId?: string; // Keep for legacy compatibility during transition
     };
 }
 
@@ -31,8 +32,14 @@ export const authenticate = (
             email: string;
             role: string;
             tenantId?: string;
+            branchIds?: string[];
             branchId?: string;
         };
+
+        // For backward compatibility, set branchId to the first branch if available
+        if (!decoded.branchId && decoded.branchIds && decoded.branchIds.length > 0) {
+            decoded.branchId = decoded.branchIds[0];
+        }
 
         (req as AuthRequest).user = decoded;
         next();

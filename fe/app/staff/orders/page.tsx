@@ -30,7 +30,7 @@ interface MenuItemPreview {
 
 export default function StaffOrdersPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [viewMode, setViewMode] = useState<'menu' | 'live-orders' | 'history'>('menu');
@@ -53,18 +53,20 @@ export default function StaffOrdersPage() {
   const [historyEndDate, setHistoryEndDate] = useState('');
   const historyStartDateRef = useRef<HTMLInputElement | null>(null);
   const historyEndDateRef = useRef<HTMLInputElement | null>(null);
+  // Remove local selectedBranchId state as we use the one from store
   const [branchInfo, setBranchInfo] = useState<Branch | null>(null);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<SharedItemNotification[]>([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
-  const branchQrCode = branchInfo?.qrCode || user?.branch?.qrCode;
+  const branchQrCode = branchInfo?.qrCode || user?.branches?.find(b => b.id === selectedBranchId)?.qrCode;
 
   // Fetch live orders from API
   const fetchLiveOrders = async () => {
+    if (!selectedBranchId) return;
     try {
       setIsLoadingOrders(true);
-      const orders = await orderService.getActiveOrders();
+      const orders = await orderService.getActiveOrders(selectedBranchId);
       setLiveOrders(orders);
     } catch (error) {
       console.error('Failed to fetch live orders:', error);
@@ -75,11 +77,12 @@ export default function StaffOrdersPage() {
   };
 
   const fetchHistoryOrders = async () => {
+    if (!selectedBranchId) return;
     try {
       setIsLoadingHistory(true);
       const [completed, cancelled] = await Promise.all([
-        orderService.getOrdersByStatus(OrderStatus.COMPLETED),
-        orderService.getOrdersByStatus(OrderStatus.CANCELLED),
+        orderService.getOrdersByStatus(OrderStatus.COMPLETED, selectedBranchId),
+        orderService.getOrdersByStatus(OrderStatus.CANCELLED, selectedBranchId),
       ]);
       const combined = [...completed, ...cancelled].sort((a, b) => {
         const aTime = new Date(a.updatedAt || a.createdAt).getTime();
@@ -95,8 +98,9 @@ export default function StaffOrdersPage() {
     }
   };
 
-  // Fetch orders on component mount and when switching views
+  // Fetch orders on component mount and when switching views or branch
   useEffect(() => {
+    if (!selectedBranchId) return;
     if (viewMode === 'live-orders') {
       fetchLiveOrders();
       return;
@@ -104,15 +108,15 @@ export default function StaffOrdersPage() {
     if (viewMode === 'history') {
       fetchHistoryOrders();
     }
-  }, [viewMode]);
+  }, [viewMode, selectedBranchId]);
 
   // Auto-refresh orders every 10 seconds when in live orders view
   useEffect(() => {
-    if (viewMode !== 'live-orders') return;
+    if (viewMode !== 'live-orders' || !selectedBranchId) return;
 
     const interval = setInterval(fetchLiveOrders, 10000);
     return () => clearInterval(interval);
-  }, [viewMode]);
+  }, [viewMode, selectedBranchId]);
 
   useEffect(() => {
     if (!previewImage) return;
@@ -189,11 +193,11 @@ export default function StaffOrdersPage() {
 
   // Fetch menu items from API
   const fetchMenuItems = async () => {
-    if (!user?.branchId) return;
+    if (!selectedBranchId) return;
 
     try {
       setIsLoadingMenu(true);
-      const items = await menuService.getMenuItems({ branchId: user.branchId });
+      const items = await menuService.getMenuItems({ branchId: selectedBranchId });
       setMenuItems(items);
     } catch (error) {
       console.error('Failed to fetch menu items:', error);
@@ -203,20 +207,20 @@ export default function StaffOrdersPage() {
     }
   };
 
-  // Fetch menu items on component mount
+  // Fetch menu items on component mount or branch change
   useEffect(() => {
     fetchMenuItems();
-  }, [user?.branchId]);
+  }, [selectedBranchId]);
 
   // Fetch branch info for header display
   useEffect(() => {
     const loadBranch = async () => {
-      if (!user?.branchId) {
+      if (!selectedBranchId) {
         setBranchInfo(null);
         return;
       }
       try {
-        const menuData = await menuService.getPublicMenu(user.branchId);
+        const menuData = await menuService.getPublicMenu(selectedBranchId);
         setBranchInfo(menuData.branch);
       } catch (error) {
         console.error('Failed to fetch branch info:', error);
@@ -224,7 +228,7 @@ export default function StaffOrdersPage() {
       }
     };
     loadBranch();
-  }, [user?.branchId]);
+  }, [selectedBranchId]);
 
   const addToCart = (item: any) => {
     setCartItems(prevItems => {
@@ -276,8 +280,8 @@ export default function StaffOrdersPage() {
   };
 
   const handleConfirmOrder = async () => {
-    if (!user?.branchId) {
-      alert('You must be assigned to a branch to create orders');
+    if (!selectedBranchId) {
+      alert('Please select a branch to create orders');
       return;
     }
 
@@ -291,7 +295,7 @@ export default function StaffOrdersPage() {
     try {
       // Create order data
       const orderData: CreateOrderData = {
-        branchId: user.branchId,
+        branchId: selectedBranchId,
         customerName: customerInfo.name || undefined,
         customerPhone: customerInfo.phone || undefined,
         orderType: customerInfo.orderType === 'dine-in' ? OrderType.DINE_IN : OrderType.TAKEAWAY,
@@ -387,7 +391,7 @@ export default function StaffOrdersPage() {
       const incoming = await orderService.getSharedItemNotifications();
       setNotifications(incoming.slice(0, 10)); // Show latest 10
 
-      const lastSeen = localStorage.getItem(`last-seen-notifications-${user?.branchId}`);
+      const lastSeen = localStorage.getItem(`last-seen-notifications-${selectedBranchId}`);
       if (lastSeen) {
         const count = incoming.filter(n => new Date(n.completedAt) > new Date(lastSeen)).length;
         setUnreadNotificationsCount(count);
@@ -400,18 +404,23 @@ export default function StaffOrdersPage() {
   };
 
   useEffect(() => {
-    if (user?.branchId) {
+    if (selectedBranchId) {
       fetchNotifications();
       const interval = setInterval(fetchNotifications, 30000); // Check every 30s
       return () => clearInterval(interval);
     }
-  }, [user?.branchId]);
+  }, [selectedBranchId]);
+
+  // Initial branch selection and user refresh
+  useEffect(() => {
+    refreshUser();
+  }, []);
 
   const handleToggleNotifications = () => {
     setIsNotificationsOpen(!isNotificationsOpen);
     if (!isNotificationsOpen) {
       setUnreadNotificationsCount(0);
-      localStorage.setItem(`last-seen-notifications-${user?.branchId}`, new Date().toISOString());
+      localStorage.setItem(`last-seen-notifications-${selectedBranchId}`, new Date().toISOString());
     }
   };
 
@@ -473,6 +482,23 @@ export default function StaffOrdersPage() {
                 <h1 className="text-xl font-bold text-gray-900 lg:hidden block">Orders</h1>
               )}
             </div>
+
+            {/* Branch Selector for Multi-branch users */}
+            {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER') && (
+              <div className="flex-none max-w-xs mx-4">
+                <select
+                  value={selectedBranchId || ''}
+                  onChange={(e) => setSelectedBranchId(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-100 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
+                >
+                  {(user.branches || []).map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.location || 'No Location'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Search Bar - Centered */}
             <div className="flex-1 max-w-md mx-auto">

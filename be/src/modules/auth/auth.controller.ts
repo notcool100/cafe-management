@@ -45,13 +45,13 @@ export class AuthController {
                 return res.status(400).json({ errors: errors.array() });
             }
 
-            const { email, password, name, role, branchId, tenantId } = req.body;
+            const { email, password, name, role, branchIds, tenantId } = req.body;
             const result = await AuthService.register({
                 email,
                 password,
                 name,
                 role,
-                branchId,
+                branchIds,
                 tenantId,
             });
 
@@ -59,6 +59,21 @@ export class AuthController {
         } catch (error) {
             res.status(400).json({
                 error: error instanceof Error ? error.message : 'Registration failed',
+            });
+        }
+    }
+
+    static async getMe(req: any, res: Response) {
+        try {
+            if (!req.user?.id) {
+                return res.status(401).json({ error: 'Unauthorized' });
+            }
+
+            const result = await AuthService.getMe(req.user.id);
+            res.json(result);
+        } catch (error) {
+            res.status(400).json({
+                error: error instanceof Error ? error.message : 'Failed to fetch profile',
             });
         }
     }

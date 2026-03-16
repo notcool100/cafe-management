@@ -56,7 +56,7 @@ export default function EditEmployeePage() {
                 name: data.name,
                 email: data.email,
                 role: data.role,
-                branchId: data.branchId || undefined,
+                branchIds: data.branchIds,
                 // Only send password if it's provided (optional in update)
                 ...(data.password ? { password: data.password } : {}),
             });
@@ -107,7 +107,7 @@ export default function EditEmployeePage() {
                     <p className="text-black">Update staff member details</p>
                 </div>
                 <Link href="/admin/employees">
-                    <Button  className="!text-black hover:!text-black">
+                    <Button className="!text-black hover:!text-black">
                         Back to List
                     </Button>
                 </Link>

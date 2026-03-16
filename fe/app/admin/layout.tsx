@@ -25,7 +25,7 @@ const managerNavigation = [{ name: 'Create Order', href: '/staff/orders', icon: 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { user, logout } = useAuthStore();
+    const { user, logout, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const isStaffManager = user?.role === UserRole.MANAGER || user?.role === UserRole.EMPLOYEE;
     const staffAllowed = useMemo(
@@ -60,6 +60,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }, [pathname]);
 
     useEffect(() => {
+        refreshUser();
+    }, []);
+
+    useEffect(() => {
         const originalOverflow = document.body.style.overflow;
         if (sidebarOpen) {
             document.body.style.overflow = 'hidden';
@@ -80,6 +84,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         <div className="flex items-center flex-shrink-0 px-6 py-6 border-b border-[#e4d7c2]">
                             <h1 className="text-xl font-semibold tracking-tight text-[#5a3a2e]">Cafe Admin</h1>
                         </div>
+
+                        {/* Branch Selector */}
+                        {user?.branchIds && user.branchIds.length > 1 && (
+                            <div className="px-3 py-4 border-b border-[#e4d7c2] bg-[#fdfaf3]">
+                                <label className="block text-[10px] uppercase tracking-wider font-bold text-[#8b6f5f] mb-2 px-3">
+                                    Current Branch
+                                </label>
+                                <select
+                                    className="w-full bg-[#fdfaf3] border border-[#e4d7c2] text-[#5a3a2e] text-sm rounded-lg focus:ring-[#5a3a2e] focus:border-[#5a3a2e] block p-2.5 transition-all outline-none"
+                                    value={selectedBranchId || ''}
+                                    onChange={(e) => {
+                                        setSelectedBranchId(e.target.value);
+                                        console.log('Branch switched to:', e.target.value);
+                                    }}
+                                >
+                                    {user.branches?.map(b => (
+                                        <option key={b.id} value={b.id}>{b.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
                         {/* Navigation */}
                         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
@@ -175,6 +200,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         <CloseIcon className="h-5 w-5" />
                                     </button>
                                 </div>
+
+                                {/* Mobile Branch Selector */}
+                                {user?.branchIds && user.branchIds.length > 1 && (
+                                    <div className="px-6 py-4 border-b border-[#e4d7c2] bg-[#fdfaf3]">
+                                        <label className="block text-[10px] uppercase tracking-wider font-bold text-[#8b6f5f] mb-2">
+                                            Current Branch
+                                        </label>
+                                        <select
+                                            className="w-full bg-[#fbf5e8] border border-[#e4d7c2] text-[#5a3a2e] text-sm rounded-lg block p-2.5"
+                                            value={selectedBranchId || ''}
+                                            onChange={(e) => setSelectedBranchId(e.target.value)}
+                                        >
+                                            {user.branches?.map(b => (
+                                                <option key={b.id} value={b.id}>{b.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
 
                                 <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
                                     {visibleNavigation.map((item) => {

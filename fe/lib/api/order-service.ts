@@ -69,13 +69,15 @@ export const orderService = {
     },
 
     // Staff endpoints
-    async getActiveOrders(): Promise<Order[]> {
-        const response = await apiClient.get<Order[]>('/staff/orders/active');
+    async getActiveOrders(branchId?: string): Promise<Order[]> {
+        const url = branchId ? `/staff/orders/active?branchId=${branchId}` : '/staff/orders/active';
+        const response = await apiClient.get<Order[]>(url);
         return normalizeOrders(response.data);
     },
 
-    async getOrdersByStatus(status: OrderStatus): Promise<Order[]> {
-        const response = await apiClient.get<Order[]>(`/staff/orders/status/${status}`);
+    async getOrdersByStatus(status: OrderStatus, branchId?: string): Promise<Order[]> {
+        const url = `/staff/orders/status/${status}${branchId ? `?branchId=${branchId}` : ''}`;
+        const response = await apiClient.get<Order[]>(url);
         return normalizeOrders(response.data);
     },
 
