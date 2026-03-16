@@ -45,9 +45,9 @@ export default function CategoryForm({
     const [isTransferable, setIsTransferable] = useState<boolean>(
         (initialData?.sharedBranchIds?.length || 0) > 0
     );
-    const { user } = useAuthStore();
+    const { user, selectedBranchId: storeSelectedBranchId } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
-    const lockedBranchId = isManager ? user?.branchId : undefined;
+    const lockedBranchId = isManager ? storeSelectedBranchId : undefined;
     const initialBranchName = initialData?.branch?.name?.trim() || '';
     const initialBranchId = initialData?.branchId || initialData?.branch?.id || lockedBranchId || '';
 
