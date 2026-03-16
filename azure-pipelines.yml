@@ -187,7 +187,7 @@ stages:
           export PATH=$PATH:/home/astroagent/.nvm/versions/node/v24.4.1/bin
           export PM2_HOME=/home/astroagent/.pm2
           cd /var/www/cafe-management/frontend
-          pm2 restart cafe-frontend || pm2 start npm --name "cafe-frontend" --cwd /var/www/cafe-management/frontend -- start
+          PORT=4000 pm2 restart cafe-frontend --update-env || PORT=4000 pm2 start npm --name "cafe-frontend" --cwd /var/www/cafe-management/frontend -- start
           pm2 save
         else
           # We need to use a different approach since sudo is not available
