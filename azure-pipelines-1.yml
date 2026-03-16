@@ -248,7 +248,6 @@ stages:
           # Running as astroagent, no need for sudo
           export PATH=$PATH:/home/astroagent/.nvm/versions/node/v24.4.1/bin
           export PM2_HOME=/home/astroagent/.pm2
-          cd /var/www/cafe-management-uat/backend
           pm2 restart cafe-backend-uat || pm2 start npm --name "cafe-backend-uat" --cwd /var/www/cafe-management-uat/backend -- start
           pm2 save
         else
