@@ -7,8 +7,8 @@ Type=simple
 User=astroagent
 WorkingDirectory=/var/www/cafe-management-uat/frontend
 Environment=NODE_ENV=production
-Environment=PORT=4320
-ExecStart=/home/astroagent/.nvm/versions/node/v24.4.1/bin/node /var/www/cafe-management-uat/frontend/node_modules/.bin/next start -p 4320
+Environment=PORT=4321
+ExecStart=/home/astroagent/.nvm/versions/node/v24.4.1/bin/node /var/www/cafe-management-uat/frontend/node_modules/.bin/next start -p 4321
 Restart=always
 RestartSec=10
 StandardOutput=syslog
