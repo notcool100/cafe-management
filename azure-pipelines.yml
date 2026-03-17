@@ -144,6 +144,12 @@ stages:
          mkdir -p /var/www/cafe-management/frontend
          tar -xzf $(System.ArtifactsDirectory)/cafe-frontend/cafe-frontend.tar.gz -C /var/www/cafe-management/frontend
          
+         # Crucial: Install dependencies on the VPS because pnpm symlinks are not portable
+         cd /var/www/cafe-management/frontend
+         # Node is already in /usr/bin/node which is in PATH
+         npm install -g pnpm
+         pnpm install --frozen-lockfile
+         
          sudo systemctl restart cafe-frontend-prod
          sudo systemctl status cafe-frontend-prod --no-pager
       displayName: 'Deploy and Restart Frontend Production'
