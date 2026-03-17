@@ -33,7 +33,6 @@ stages:
     
     - script: |
         cd fe
-        npm install -g pnpm
         pnpm install
         
         # Ensure environment files are properly set up
@@ -87,7 +86,6 @@ stages:
     
     - script: |
         cd be
-        npm install -g pnpm
         pnpm install
       displayName: 'Install Backend Dependencies'
 
@@ -147,7 +145,6 @@ stages:
          # Crucial: Install dependencies on the VPS because pnpm symlinks are not portable
          cd /var/www/cafe-management/frontend
          # Node is already in /usr/bin/node which is in PATH
-         npm install -g pnpm
          pnpm install --frozen-lockfile
          
          sudo systemctl restart cafe-frontend-prod
@@ -170,7 +167,6 @@ stages:
          tar -xzf $(System.ArtifactsDirectory)/cafe-backend/cafe-backend.tar.gz -C /var/www/cafe-management/backend
          
          cd /var/www/cafe-management/backend
-         npm install -g pnpm
          pnpm install --frozen-lockfile
          pnpm prisma:generate
          
