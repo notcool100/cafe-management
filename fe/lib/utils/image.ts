@@ -6,13 +6,18 @@ export const resolveImageUrl = (imageUrl?: string | null) => {
         return imageUrl;
     }
     try {
-        const baseOrigin = new URL(API_BASE_URL).origin;
+        // Remove /api if present for images as they are served from root /uploads
+        const cleanBase = API_BASE_URL.endsWith('/api')
+            ? API_BASE_URL.slice(0, -4)
+            : (API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL);
+
+        const baseOrigin = new URL(cleanBase).origin;
         const normalized = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
         return `${baseOrigin}${normalized}`;
     } catch {
-        if (imageUrl.startsWith('/')) {
-            return `${API_BASE_URL}${imageUrl}`;
-        }
-        return `${API_BASE_URL}/${imageUrl}`;
+        // Fallback for relative paths
+        const cleanBase = API_BASE_URL.endsWith('/api') ? API_BASE_URL.slice(0, -4) : API_BASE_URL;
+        const divider = (cleanBase.endsWith('/') || imageUrl.startsWith('/')) ? '' : '/';
+        return `${cleanBase}${divider}${imageUrl}`;
     }
 };

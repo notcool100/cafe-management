@@ -2,9 +2,15 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4100';
 
+// Normalize URL to prevent double /api
+const getApiBaseUrl = (url: string) => {
+    const clean = url.endsWith('/') ? url.slice(0, -1) : url;
+    return clean.endsWith('/api') ? clean : `${clean}/api`;
+};
+
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
-    baseURL: `${API_BASE_URL}/api`,
+    baseURL: getApiBaseUrl(API_BASE_URL),
     headers: {
         'Content-Type': 'application/json',
     },

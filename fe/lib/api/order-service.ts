@@ -26,9 +26,14 @@ const normalizeOrders = (orders: Order[]): Order[] => orders.map(normalizeOrder)
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4100';
 
+const getApiBaseUrl = (url: string) => {
+    const clean = url.endsWith('/') ? url.slice(0, -1) : url;
+    return clean.endsWith('/api') ? clean : `${clean}/api`;
+};
+
 // Public client avoids auth headers/redirects for customer flows (menu/checkout/token)
 const publicClient = axios.create({
-    baseURL: `${API_BASE_URL}/api`,
+    baseURL: getApiBaseUrl(API_BASE_URL),
     headers: {
         'Content-Type': 'application/json',
     },
