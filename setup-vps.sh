@@ -42,7 +42,7 @@ chown -R astroagent:astroagent /var/www/cafe-management*
 
 # 6. Setup permissions for astroagent in sudoers
 echo "Configuring sudoers for astroagent..."
-SUDO_ENTRY="astroagent ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart cafe-frontend-uat, /usr/bin/systemctl restart cafe-backend-uat, /usr/bin/systemctl restart cafe-frontend-prod, /usr/bin/systemctl restart cafe-backend-prod, /usr/bin/systemctl status cafe-frontend-uat, /usr/bin/systemctl status cafe-backend-uat, /usr/bin/systemctl status cafe-frontend-prod, /usr/bin/systemctl status cafe-backend-prod"
+SUDO_ENTRY="astroagent ALL=(ALL) NOPASSWD: /usr/bin/systemctl"
 
 # Clean up any old duplicate entries and add the new one
 sed -i '/astroagent ALL=(ALL) NOPASSWD/d' /etc/sudoers

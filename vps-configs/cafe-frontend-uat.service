@@ -11,9 +11,6 @@ Environment=PORT=4321
 ExecStart=/usr/bin/node /var/www/cafe-management-uat/frontend/node_modules/next/dist/bin/next start -p 4321
 Restart=always
 RestartSec=10
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=cafe-frontend-uat
 
 [Install]
 WantedBy=multi-user.target

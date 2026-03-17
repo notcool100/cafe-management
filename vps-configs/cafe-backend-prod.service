@@ -11,9 +11,6 @@ Environment=PORT=4100
 ExecStart=/usr/bin/node /var/www/cafe-management/backend/dist/index.js
 Restart=always
 RestartSec=10
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=cafe-backend-prod
 
 [Install]
 WantedBy=multi-user.target
