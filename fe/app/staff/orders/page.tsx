@@ -59,6 +59,7 @@ export default function StaffOrdersPage() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<SharedItemNotification[]>([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [failedMenuImageIds, setFailedMenuImageIds] = useState<Set<string>>(new Set());
   const branchQrCode = branchInfo?.qrCode || user?.branches?.find(b => b.id === selectedBranchId)?.qrCode;
 
   // Fetch live orders from API
@@ -703,90 +704,123 @@ export default function StaffOrdersPage() {
                       <p className="text-gray-400 text-sm mt-2">Contact your manager to set up the menu</p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {filteredItems.map((item) => (
-                        <article key={item.id} className="py-6 border-b border-gray-900/10 last:border-0">
-                          <div className="flex justify-between items-start gap-6">
-                            {/* Left Column: Info */}
-                            <div className="flex-1 min-w-0 flex flex-col items-start">
-                              <div style={{ width: '276px', padding: '5px' }} className="mb-[5px]">
-                                <h3 style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, fontSize: '20px', lineHeight: '125%', letterSpacing: '0%' }} className="text-gray-900">
-                                  {item.name}
-                                </h3>
-                              </div>
-                              <div style={{ width: '276px', padding: '5px' }} className="mb-[5px]">
-                                <span style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, fontSize: '15px', lineHeight: '125%', letterSpacing: '0%' }} className="text-gray-900">
-                                  Rs {item.price}
-                                </span>
-                              </div>
-                              <div style={{ width: '276px', padding: '5px' }}>
-                                <p style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, fontSize: '10px', lineHeight: '125%', letterSpacing: '0%' }} className="text-gray-900 leading-relaxed">
-                                  {item.description || 'No description available'}
-                                </p>
-                              </div>
-                            </div>
+                    <div className="space-y-0">
+                      {filteredItems.map((item) => {
+                        const imageKey = String(item.id);
+                        const imageSrc = failedMenuImageIds.has(imageKey) ? undefined : getMenuItemImage(item);
 
-                            {/* Right Column: Image & Order Control */}
-                            <div className="flex flex-col items-center gap-4 flex-shrink-0">
-                              <div className="relative" style={{ width: '84px', height: '84px' }}>
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    handleOpenImagePreview(item);
-                                  }}
-                                  className="w-full h-full rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  style={{ backgroundColor: '#D9D9D9' }}
-                                  aria-label={`Preview ${item.name} image`}
-                                >
-                                  <img
-                                    src={getMenuItemImage(item)}
-                                    alt={item.name}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </button>
-                              </div>
-
-                              {getItemQuantity(item.id) === 0 ? (
-                                <button
-                                  onClick={() => addToCart(item)}
-                                  className="flex items-center justify-center border-2 border-green-700/60 text-green-700 rounded-full hover:bg-green-700 hover:text-white transition-all duration-200"
-                                  style={{
-                                    fontFamily: "'Quicksand', sans-serif",
-                                    width: '82px',
-                                    height: '26px',
-                                    fontSize: '12px',
-                                    fontWeight: 600,
-                                    lineHeight: '125%'
-                                  }}
-                                >
-                                  ADD
-                                </button>
-                              ) : (
-                                <div className="flex items-center bg-gray-100 rounded-full px-2 py-1 gap-3">
-                                  <button
-                                    onClick={() => updateQuantity(item.id, getItemQuantity(item.id) - 1)}
-                                    className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors"
-                                    aria-label={`Decrease ${item.name}`}
+                        return (
+                          <article key={item.id} className="border-b border-gray-900/10 py-3 sm:py-4 lg:py-6 last:border-0">
+                            <div className="flex items-start justify-between gap-3 sm:gap-4">
+                              {/* Left Column: Info */}
+                              <div className="min-w-0 flex-1 pr-1 sm:pr-2">
+                                <div className="mb-1 max-w-[276px]">
+                                  <h3
+                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, lineHeight: '125%', letterSpacing: '0%' }}
+                                    className="text-[17px] text-gray-900 sm:text-[19px] lg:text-[20px]"
                                   >
-                                    <span className="text-lg font-bold">-</span>
-                                  </button>
-                                  <span className="text-sm font-bold text-gray-900 min-w-[1ch] text-center" style={{ fontFamily: "'Quicksand', sans-serif" }}>
-                                    {getItemQuantity(item.id)}
+                                    {item.name}
+                                  </h3>
+                                </div>
+                                <div className="mb-1 max-w-[276px]">
+                                  <span
+                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '125%', letterSpacing: '0%' }}
+                                    className="text-sm text-gray-900 sm:text-[15px]"
+                                  >
+                                    Rs {item.price}
                                   </span>
-                                  <button
-                                    onClick={() => updateQuantity(item.id, getItemQuantity(item.id) + 1)}
-                                    className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors"
-                                    aria-label={`Increase ${item.name}`}
+                                </div>
+                                <div className="max-w-[276px]">
+                                  <p
+                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '125%', letterSpacing: '0%' }}
+                                    className="line-clamp-1 break-words text-[10px] leading-relaxed text-gray-900 sm:line-clamp-2 sm:text-[11px]"
                                   >
-                                    <span className="text-lg font-bold">+</span>
+                                    {item.description || 'No description available'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Right Column: Image & Order Control */}
+                              <div className="flex shrink-0 flex-col items-center gap-2 sm:gap-3 lg:gap-4">
+                                <div className="relative h-14 w-14 sm:h-16 sm:w-16 lg:h-[72px] lg:w-[72px]">
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      if (imageSrc) {
+                                        handleOpenImagePreview(item);
+                                      }
+                                    }}
+                                    disabled={!imageSrc}
+                                    className={`w-full h-full overflow-hidden rounded-full shadow-sm ring-1 ring-black/5 transition-shadow duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${imageSrc ? 'hover:shadow-md cursor-pointer' : 'cursor-default'}`}
+                                    style={{ backgroundColor: '#D9D9D9' }}
+                                    aria-label={imageSrc ? `Preview ${item.name} image` : `${item.name} image unavailable`}
+                                  >
+                                    {imageSrc ? (
+                                      <img
+                                        src={imageSrc}
+                                        alt={item.name}
+                                        className="w-full h-full object-cover"
+                                        onError={() => {
+                                          setFailedMenuImageIds((previous) => {
+                                            if (previous.has(imageKey)) {
+                                              return previous;
+                                            }
+
+                                            const next = new Set(previous);
+                                            next.add(imageKey);
+                                            return next;
+                                          });
+                                        }}
+                                      />
+                                    ) : (
+                                      <span className="flex h-full w-full items-center justify-center text-gray-500">
+                                        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14m-8-5h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                      </span>
+                                    )}
                                   </button>
                                 </div>
-                              )}
+
+                                {getItemQuantity(item.id) === 0 ? (
+                                  <button
+                                    onClick={() => addToCart(item)}
+                                    className="flex h-6 w-[68px] items-center justify-center rounded-full border-2 border-green-700/60 text-[11px] text-green-700 transition-all duration-200 hover:bg-green-700 hover:text-white sm:h-[26px] sm:w-[76px] sm:text-xs lg:w-[82px]"
+                                    style={{
+                                      fontFamily: "'Quicksand', sans-serif",
+                                      fontWeight: 600,
+                                      lineHeight: '125%'
+                                    }}
+                                  >
+                                    ADD
+                                  </button>
+                                ) : (
+                                  <div className="flex items-center gap-2 rounded-full bg-gray-100 px-2 py-0.5 sm:gap-3 sm:py-1">
+                                    <button
+                                      onClick={() => updateQuantity(item.id, getItemQuantity(item.id) - 1)}
+                                      className="flex h-5 w-5 items-center justify-center text-gray-600 transition-colors hover:text-gray-900 sm:h-6 sm:w-6"
+                                      aria-label={`Decrease ${item.name}`}
+                                    >
+                                      <span className="text-lg font-bold">-</span>
+                                    </button>
+                                    <span className="min-w-[1ch] text-center text-xs font-bold text-gray-900 sm:text-sm" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                      {getItemQuantity(item.id)}
+                                    </span>
+                                    <button
+                                      onClick={() => updateQuantity(item.id, getItemQuantity(item.id) + 1)}
+                                      className="flex h-5 w-5 items-center justify-center text-gray-600 transition-colors hover:text-gray-900 sm:h-6 sm:w-6"
+                                      aria-label={`Increase ${item.name}`}
+                                    >
+                                      <span className="text-lg font-bold">+</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </article>
-                      ))}
+                          </article>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
