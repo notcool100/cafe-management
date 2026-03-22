@@ -188,7 +188,7 @@ export default function CategoriesPage() {
                                     {categories.length} total
                                 </p>
                             </div>
-                            <div className="w-full sm:w-[220px]">
+                            {/* <div className="w-full sm:w-[220px]">
                                 <label htmlFor="branch-filter" className="sr-only">Filter by branch</label>
                                 <select
                                     id="branch-filter"
@@ -216,7 +216,7 @@ export default function CategoriesPage() {
                                             </>
                                         )}
                                 </select>
-                            </div>
+                            </div> */}
                         </div>
 
                         {categories.length === 0 ? (

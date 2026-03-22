@@ -144,7 +144,7 @@ export default function MenuPage() {
                 <h2 className="mb-6 text-center text-2xl font-semibold tracking-wide text-[#20110b] sm:mb-8 sm:text-3xl">MENU</h2>
 
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="w-full sm:max-w-[260px]">
+                    {/* <div className="w-full sm:max-w-[260px]">
                         <label htmlFor="branch-filter" className="sr-only">Filter by branch</label>
                         <select
                             id="branch-filter"
@@ -172,7 +172,7 @@ export default function MenuPage() {
                                     </>
                                 )}
                         </select>
-                    </div>
+                    </div> */}
 
                     <Link
                         href="/admin/menu/new"

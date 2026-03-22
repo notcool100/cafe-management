@@ -282,7 +282,7 @@ export default function AdminOrdersPage() {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <Select
+                        {/* <Select
                             value={branchFilter}
                             onChange={(e) => setBranchFilter(e.target.value)}
                             options={
@@ -296,7 +296,7 @@ export default function AdminOrdersPage() {
                                     ]
                             }
                             className="min-w-[150px] border-0 bg-red-900 shadow-sm rounded-lg"
-                        />
+                        /> */}
                         <div className="flex bg-white rounded-lg shadow-sm p-1 border border-gray-100">
                             <FilterChip active={orderView === 'LIVE'} label="Live" onClick={() => { setOrderView('LIVE'); setIsDetailView(false); }} />
                             <FilterChip active={orderView === 'COMPLETED'} label="Completed" onClick={() => { setOrderView('COMPLETED'); setIsDetailView(false); }} />
