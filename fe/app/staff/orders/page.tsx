@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orderService } from '@/lib/api/order-service';
 import { menuService } from '@/lib/api/menu-service';
-import { Order, CreateOrderData, OrderType, OrderStatus, Branch } from '@/lib/types';
+import { Order, CreateOrderData, OrderType, OrderStatus, Branch, OrderNotification, SharedItemNotification } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { resolveImageUrl } from '@/lib/utils/image';
-import { SharedItemNotification } from '@/lib/types';
+type NotificationItem =
+  | { kind: 'shared'; timestamp: string; data: SharedItemNotification }
+  | { kind: 'order'; timestamp: string; data: OrderNotification };
 
 interface CartItem {
   id: string;
@@ -57,7 +59,7 @@ export default function StaffOrdersPage() {
   const [branchInfo, setBranchInfo] = useState<Branch | null>(null);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<SharedItemNotification[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [failedMenuImageIds, setFailedMenuImageIds] = useState<Set<string>>(new Set());
   const branchQrCode = branchInfo?.qrCode || user?.branches?.find(b => b.id === selectedBranchId)?.qrCode;
@@ -389,15 +391,31 @@ export default function StaffOrdersPage() {
 
   const fetchNotifications = async () => {
     try {
-      const incoming = await orderService.getSharedItemNotifications();
-      setNotifications(incoming.slice(0, 10)); // Show latest 10
+      const [sharedIncoming, orderIncoming] = await Promise.all([
+        orderService.getSharedItemNotifications(),
+        orderService.getOrderNotifications(),
+      ]);
+      const combined: NotificationItem[] = [
+        ...sharedIncoming.map((n) => ({
+          kind: 'shared' as const,
+          timestamp: n.completedAt,
+          data: n,
+        })),
+        ...orderIncoming.map((n) => ({
+          kind: 'order' as const,
+          timestamp: n.createdAt,
+          data: n,
+        })),
+      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      setNotifications(combined.slice(0, 10)); // Show latest 10
 
       const lastSeen = localStorage.getItem(`last-seen-notifications-${selectedBranchId}`);
       if (lastSeen) {
-        const count = incoming.filter(n => new Date(n.completedAt) > new Date(lastSeen)).length;
+        const count = combined.filter(n => new Date(n.timestamp) > new Date(lastSeen)).length;
         setUnreadNotificationsCount(count);
       } else {
-        setUnreadNotificationsCount(incoming.length);
+        setUnreadNotificationsCount(combined.length);
       }
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
@@ -556,14 +574,27 @@ export default function StaffOrdersPage() {
                         <div className="divide-y divide-gray-50">
                           {notifications.map((notification, idx) => (
                             <div key={idx} className="p-4 hover:bg-gray-50 transition-colors">
-                              <p className="text-sm font-semibold text-gray-900 leading-tight">
-                                {notification.itemNames.join(', ')}
-                              </p>
-                              <p className="text-xs text-gray-800 mt-1">
-                                used at {notification.orderBranchName || 'branch'}
-                              </p>
+                              {notification.kind === 'shared' ? (
+                                <>
+                                  <p className="text-sm font-semibold text-gray-900 leading-tight">
+                                    {notification.data.itemNames.join(', ')}
+                                  </p>
+                                  <p className="text-xs text-gray-800 mt-1">
+                                    used at {notification.data.orderBranchName || 'branch'}
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-sm font-semibold text-gray-900 leading-tight">
+                                    Order {notification.data.tokenNumber ? `#${notification.data.tokenNumber}` : `#${notification.data.orderId.slice(0, 6).toUpperCase()}`}
+                                  </p>
+                                  <p className="text-xs text-gray-800 mt-1">
+                                    {notification.data.itemNames.length ? notification.data.itemNames.join(', ') : 'Order items'}
+                                  </p>
+                                </>
+                              )}
                               <p className="text-[10px] text-gray-800 mt-1">
-                                {format(new Date(notification.completedAt), 'p')}
+                                {format(new Date(notification.timestamp), 'p')}
                               </p>
                             </div>
                           ))}

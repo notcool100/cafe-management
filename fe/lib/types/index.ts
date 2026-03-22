@@ -212,6 +212,17 @@ export interface SharedItemNotification {
     itemNames: string[];
 }
 
+export interface OrderNotification {
+    orderId: string;
+    createdAt: string;
+    status: OrderStatus;
+    totalAmount: number;
+    tokenNumber?: number;
+    orderType?: OrderType;
+    customerName?: string;
+    itemNames: string[];
+}
+
 // Reporting Types
 export interface ReportTotals {
     totalSales: number;

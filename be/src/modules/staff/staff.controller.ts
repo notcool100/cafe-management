@@ -184,4 +184,39 @@ export class StaffController {
             });
         }
     }
+
+    static async getOrderNotifications(req: AuthRequest, res: Response) {
+        try {
+            const queryBranchId = req.query.branchId as string;
+            const userBranchIds = req.user?.branchIds || [];
+            const branchId = queryBranchId || (userBranchIds.length > 0 ? userBranchIds[0] : undefined);
+            const tenantId = req.user?.tenantId;
+            const sinceRaw = req.query?.since as string | undefined;
+
+            if (!tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
+            if (!branchId) {
+                return res.status(400).json({ error: 'Branch ID missing' });
+            }
+
+            // Verify branch access for order notifications
+            if (req.user?.role === 'MANAGER' || req.user?.role === 'EMPLOYEE') {
+                if (!userBranchIds.includes(branchId)) {
+                    return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                }
+            }
+
+            const since = sinceRaw ? new Date(sinceRaw) : undefined;
+            const sinceDate = since && !isNaN(since.getTime()) ? since : undefined;
+
+            const notifications = await StaffService.getOrderNotifications(branchId, tenantId, sinceDate);
+
+            res.json(notifications);
+        } catch (error) {
+            res.status(500).json({
+                error: error instanceof Error ? error.message : 'Failed to fetch order notifications',
+            });
+        }
+    }
 }
