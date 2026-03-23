@@ -185,6 +185,7 @@ export class MenuService {
                     { sharedBranchIds: { has: branchId } },
                 ],
             },
+            include: { branch: true },
             orderBy: [{ category: 'asc' }, { name: 'asc' }],
         });
 

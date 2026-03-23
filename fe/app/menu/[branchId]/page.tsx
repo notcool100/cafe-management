@@ -5,10 +5,7 @@ import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { menuService } from '@/lib/api/menu-service';
 import { MenuItem, Branch, Order } from '@/lib/types';
-import { Card, CardContent } from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
-import Badge from '@/components/ui/Badge';
 import CartSidebar from '@/components/CartSidebar';
 import { useCartStore } from '@/lib/store/cart-store';
 import Toast from '@/components/ui/Toast';
@@ -39,16 +36,40 @@ export default function PublicMenuPage() {
         isVisible: false,
     });
 
+    const getItemCategory = useCallback((item: MenuItem) => (item.category || 'Uncategorized').trim() || 'Uncategorized', []);
+
+    const resolveMenuCategoryForBranch = useCallback((items: MenuItem[], currentBranchId: string, previousCategory: string) => {
+        const availableItems = items.filter(item => item.available !== false);
+        const availableCategories = Array.from(new Set(availableItems.map(getItemCategory)));
+
+        if (previousCategory !== 'ALL' && availableCategories.includes(previousCategory)) {
+            return previousCategory;
+        }
+
+        const hasLocalItems = availableItems.some(item => item.branchId === currentBranchId);
+        const firstTransferredItem = availableItems.find(item => item.branchId !== currentBranchId);
+
+        if (!hasLocalItems && firstTransferredItem) {
+            return getItemCategory(firstTransferredItem);
+        }
+
+        return 'ALL';
+    }, [getItemCategory]);
+
     const loadData = useCallback(async () => {
         try {
             setIsLoading(true);
             const data = await menuService.getPublicMenu(branchId);
             setBranch(data.branch);
             setMenuItems(data.menuItems);
+            setSelectedCategory(previousCategory =>
+                resolveMenuCategoryForBranch(data.menuItems, branchId, previousCategory)
+            );
         } catch (error) {
             console.error('Failed to load menu:', error);
             setBranch(null);
             setMenuItems([]);
+            setSelectedCategory('ALL');
             setToast({
                 message: 'Failed to load menu. Please check the URL or try again.',
                 type: 'error',
@@ -57,7 +78,7 @@ export default function PublicMenuPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [branchId]);
+    }, [branchId, resolveMenuCategoryForBranch]);
 
     useEffect(() => {
         loadData();
@@ -105,8 +126,15 @@ export default function PublicMenuPage() {
         };
     }, [previewImage]);
 
+    const isItemFromOtherBranch = (item: MenuItem) =>
+        Boolean(item.branchId && item.branchId !== branchId);
+
+    const hasOtherBranchItems = menuItems.some(isItemFromOtherBranch);
+
     const filteredItems = menuItems.filter(item => {
-        const matchesCategory = selectedCategory === 'ALL' || item.category === selectedCategory;
+        const matchesCategory = selectedCategory === 'ALL'
+            ? !isItemFromOtherBranch(item)
+            : item.category === selectedCategory;
         const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
         return item.available !== false && matchesCategory && matchesSearch;
@@ -115,14 +143,13 @@ export default function PublicMenuPage() {
     const categories = useMemo(() => {
         const unique = new Set<string>();
         menuItems.forEach((item) => {
-            if (!item.category) return;
-            const value = item.category.trim();
+            const value = getItemCategory(item);
             if (value) {
                 unique.add(value);
             }
         });
         return ['ALL', ...Array.from(unique)];
-    }, [menuItems]);
+    }, [getItemCategory, menuItems]);
 
     useEffect(() => {
         if (selectedCategory === 'ALL') return;
@@ -258,6 +285,11 @@ export default function PublicMenuPage() {
                 {selectedCategory !== 'ALL' && (
                     <h2 className="text-lg text-gray-700 mb-2">{selectedCategory}</h2>
                 )}
+                {selectedCategory === 'ALL' && hasOtherBranchItems && (
+                    <p className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        Items from other branches are hidden in All. Choose a category to view them.
+                    </p>
+                )}
 
                 {/* Menu List */}
                 <main className="mt-4">
@@ -274,11 +306,23 @@ export default function PublicMenuPage() {
                                     const imageSrc = failedItemImageIds.has(imageKey)
                                         ? undefined
                                         : resolveImageUrl(item.imageUrl);
+                                    const isFromOtherBranch = isItemFromOtherBranch(item);
+                                    const sourceBranchName = item.branch?.name?.trim();
 
                                     return (
                                         <div key={item.id} className="flex items-start justify-between gap-3 border-b border-gray-200 px-3 py-3 last:border-b-0 sm:px-4 sm:py-4">
                                             <div className="min-w-0 flex-1 pr-1">
                                                 <h3 className="text-sm font-semibold text-black sm:text-base">{item.name}</h3>
+                                                {isFromOtherBranch && (
+                                                    <div className="mt-1">
+                                                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800 ring-1 ring-amber-200">
+                                                            From other branch
+                                                        </span>
+                                                        {sourceBranchName ? (
+                                                            <p className="mt-1 text-[11px] font-medium text-amber-800">{sourceBranchName}</p>
+                                                        ) : null}
+                                                    </div>
+                                                )}
                                                 {description ? (
                                                     <p className="mt-0.5 line-clamp-1 text-[11px] text-gray-600 sm:mt-1 sm:line-clamp-2 sm:text-xs">{description}</p>
                                                 ) : null}

@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orderService } from '@/lib/api/order-service';
 import { menuService } from '@/lib/api/menu-service';
-import { Order, CreateOrderData, OrderType, OrderStatus, Branch, OrderNotification, SharedItemNotification } from '@/lib/types';
+import { Order, CreateOrderData, OrderType, OrderStatus, Branch, OrderNotification, SharedItemNotification, MenuItem } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { resolveImageUrl } from '@/lib/utils/image';
@@ -180,19 +180,33 @@ export default function StaffOrdersPage() {
   });
 
   // Menu items state - starts empty, will be fetched from API
-  const [menuItems, setMenuItems] = useState<any[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isLoadingMenu, setIsLoadingMenu] = useState(false);
 
-  const categories = [
+  const getItemCategory = (item: MenuItem) => (item.category || 'Uncategorized').trim() || 'Uncategorized';
+
+  const resolveMenuCategoryForBranch = (items: MenuItem[], branchId: string, previousCategory: string) => {
+    const availableItems = items.filter(item => item.available !== false);
+    const availableCategories = Array.from(new Set(availableItems.map(getItemCategory)));
+
+    if (previousCategory !== 'All' && availableCategories.includes(previousCategory)) {
+      return previousCategory;
+    }
+
+    const hasLocalItems = availableItems.some(item => item.branchId === branchId);
+    const firstTransferredItem = availableItems.find(item => item.branchId !== branchId);
+
+    if (!hasLocalItems && firstTransferredItem) {
+      return getItemCategory(firstTransferredItem);
+    }
+
+    return 'All';
+  };
+
+  const categories = useMemo(() => [
     'All',
-    ...Array.from(
-      new Set(
-        menuItems
-          .map(item => (item.category || 'Uncategorized').trim())
-          .filter(Boolean)
-      )
-    ),
-  ];
+    ...Array.from(new Set(menuItems.map(getItemCategory).filter(Boolean))),
+  ], [menuItems]);
 
   // Fetch menu items from API
   const fetchMenuItems = async () => {
@@ -202,9 +216,13 @@ export default function StaffOrdersPage() {
       setIsLoadingMenu(true);
       const items = await menuService.getMenuItems({ branchId: selectedBranchId });
       setMenuItems(items);
+      setSelectedCategory(previousCategory =>
+        resolveMenuCategoryForBranch(items, selectedBranchId, previousCategory)
+      );
     } catch (error) {
       console.error('Failed to fetch menu items:', error);
       setMenuItems([]);
+      setSelectedCategory('All');
     } finally {
       setIsLoadingMenu(false);
     }
@@ -233,7 +251,7 @@ export default function StaffOrdersPage() {
     loadBranch();
   }, [selectedBranchId]);
 
-  const addToCart = (item: any) => {
+  const addToCart = (item: MenuItem) => {
     setCartItems(prevItems => {
       const existingItem = prevItems.find(cartItem => cartItem.id === item.id);
       if (existingItem) {
@@ -243,7 +261,18 @@ export default function StaffOrdersPage() {
             : cartItem
         );
       }
-      return [...prevItems, { ...item, quantity: 1 }];
+      return [
+        ...prevItems,
+        {
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          category: item.category || 'Uncategorized',
+          imageUrl: item.imageUrl,
+          description: item.description || '',
+          quantity: 1,
+        },
+      ];
     });
   };
 
@@ -365,7 +394,7 @@ export default function StaffOrdersPage() {
   // Remove order function
   const handleRemoveOrder = async (orderId: string) => {
     try {
-      await orderService.updateOrderStatus(orderId, 'CANCELLED' as any);
+      await orderService.updateOrderStatus(orderId, OrderStatus.CANCELLED);
       // Refresh the live orders list
       await fetchLiveOrders();
     } catch (error) {
@@ -418,7 +447,7 @@ export default function StaffOrdersPage() {
         setUnreadNotificationsCount(combined.length);
       }
     } catch (error) {
-      console.error('Failed to fetch notifications:', error);
+      // console.error('Failed to fetch notifications:', error);
     }
   };
 
@@ -453,12 +482,21 @@ export default function StaffOrdersPage() {
     }
   }, [categories, selectedCategory]);
 
+  const isItemFromOtherBranch = (item: MenuItem) =>
+    Boolean(selectedBranchId && item.branchId && item.branchId !== selectedBranchId);
+
+  const hasOtherBranchItems = menuItems.some(isItemFromOtherBranch);
+
   const filteredItems = menuItems.filter(item => {
-    const itemCategory = (item.category || 'Uncategorized').trim();
+    const itemCategory = getItemCategory(item);
+    const matchesCategory = selectedCategory === 'All'
+      ? !isItemFromOtherBranch(item)
+      : itemCategory === selectedCategory;
+
     return (
       item.available !== false &&
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      (selectedCategory === 'All' || itemCategory === selectedCategory)
+      matchesCategory
     );
   });
 
@@ -717,6 +755,11 @@ export default function StaffOrdersPage() {
               <section className="px-4 pb-32 lg:px-8">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-6">{selectedCategory}</h2>
+                  {selectedCategory === 'All' && hasOtherBranchItems && (
+                    <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                      Items from other branches are hidden in All. Pick a category to view them.
+                    </p>
+                  )}
 
                   {isLoadingMenu ? (
                     <div className="text-center py-12">
@@ -739,6 +782,8 @@ export default function StaffOrdersPage() {
                       {filteredItems.map((item) => {
                         const imageKey = String(item.id);
                         const imageSrc = failedMenuImageIds.has(imageKey) ? undefined : getMenuItemImage(item);
+                        const isFromOtherBranch = isItemFromOtherBranch(item);
+                        const sourceBranchName = item.branch?.name?.trim();
 
                         return (
                           <article key={item.id} className="border-b border-gray-900/10 py-3 sm:py-4 lg:py-6 last:border-0">
@@ -761,6 +806,18 @@ export default function StaffOrdersPage() {
                                     Rs {item.price}
                                   </span>
                                 </div>
+                                {isFromOtherBranch && (
+                                  <div className="mb-2 max-w-[276px]">
+                                    <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800 ring-1 ring-amber-200 sm:text-[11px]">
+                                      From other branch
+                                    </span>
+                                    {sourceBranchName && (
+                                      <p className="mt-1 text-[10px] font-medium text-amber-800 sm:text-[11px]">
+                                        {sourceBranchName}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
                                 <div className="max-w-[276px]">
                                   <p
                                     style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '125%', letterSpacing: '0%' }}
