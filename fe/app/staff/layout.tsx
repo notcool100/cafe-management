@@ -28,6 +28,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     const { user, logout, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const isManager = user?.role === 'MANAGER';
+    const contentKey = `${pathname}:${selectedBranchId || 'all'}`;
     const isNavItemActive = (href: string) =>
         href === '/staff' ? pathname === href : pathname === href || pathname.startsWith(href + '/');
 
@@ -326,7 +327,12 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                         "bg-[#fbf5e8]",
                         pathname === '/staff/orders' ? "p-0 lg:p-8" : "p-6 lg:p-8"
                     )}>
-                        <div className={cn("max-w-7xl mx-auto", pathname === '/staff/orders' && "max-w-none")}>{children}</div>
+                        <div
+                            key={contentKey}
+                            className={cn("max-w-7xl mx-auto", pathname === '/staff/orders' && "max-w-none")}
+                        >
+                            {children}
+                        </div>
                     </main>
                 </div>
             </div>

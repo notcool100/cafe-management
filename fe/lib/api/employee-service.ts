@@ -2,8 +2,14 @@ import apiClient from './api-client';
 import { User, RegisterData } from '../types';
 
 export const employeeService = {
-    async getEmployees(): Promise<User[]> {
-        const response = await apiClient.get<User[]>('/admin/employees');
+    async getEmployees(branchId?: string): Promise<User[]> {
+        const params = new URLSearchParams();
+        if (branchId) {
+            params.append('branchId', branchId);
+        }
+
+        const endpoint = params.size > 0 ? `/admin/employees?${params.toString()}` : '/admin/employees';
+        const response = await apiClient.get<User[]>(endpoint);
         return response.data;
     },
 

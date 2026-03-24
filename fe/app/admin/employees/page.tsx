@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { employeeService } from '@/lib/api/employee-service';
 import { User } from '@/lib/types';
@@ -10,8 +10,10 @@ import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Toast from '@/components/ui/Toast';
+import { useAuthStore } from '@/lib/store/auth-store';
 
 export default function EmployeesPage() {
+    const { selectedBranchId } = useAuthStore();
     const [employees, setEmployees] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -22,14 +24,10 @@ export default function EmployeesPage() {
         isVisible: false,
     });
 
-    useEffect(() => {
-        loadEmployees();
-    }, []);
-
-    const loadEmployees = async () => {
+    const loadEmployees = useCallback(async () => {
         try {
             setIsLoading(true);
-            const data = await employeeService.getEmployees();
+            const data = await employeeService.getEmployees(selectedBranchId || undefined);
             setEmployees(data);
         } catch (error: unknown) {
             console.error('Failed to load employees:', error);
@@ -41,7 +39,11 @@ export default function EmployeesPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [selectedBranchId]);
+
+    useEffect(() => {
+        loadEmployees();
+    }, [loadEmployees]);
 
     const handleDelete = async (id: string) => {
         try {

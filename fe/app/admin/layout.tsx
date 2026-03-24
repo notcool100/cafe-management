@@ -36,6 +36,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const visibleNavigation = isStaffManager
         ? [...managerNavigation, ...navigation.filter((item) => staffAllowed.includes(item.href))]
         : navigation;
+    const contentKey = `${pathname}:${selectedBranchId || 'all'}`;
     const isNavItemActive = (href: string) =>
         href === '/admin'
             ? pathname === href
@@ -203,7 +204,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         <BranchSelector
                                             branches={user.branches || []}
                                             value={selectedBranchId}
-                                            onChange={setSelectedBranchId}
+                                            onChange={(branchId) => {
+                                                setSelectedBranchId(branchId);
+                                                setSidebarOpen(false);
+                                            }}
                                         />
                                     </div>
                                 )}
@@ -283,7 +287,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                     {/* Page content */}
                     <main className="bg-[#fbf5e8] p-6 lg:p-8">
-                        <div className="max-w-7xl mx-auto">
+                        <div key={contentKey} className="max-w-7xl mx-auto">
                             {children}
                         </div>
                     </main>
