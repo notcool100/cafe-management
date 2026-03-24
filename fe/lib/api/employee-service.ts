@@ -1,6 +1,19 @@
 import apiClient from './api-client';
 import { User, RegisterData } from '../types';
 
+const dedupeById = <T extends { id: string }>(items: T[]): T[] => {
+    const seen = new Set<string>();
+
+    return items.filter((item) => {
+        if (!item.id || seen.has(item.id)) {
+            return false;
+        }
+
+        seen.add(item.id);
+        return true;
+    });
+};
+
 const buildEmployeeFormData = (data: Partial<RegisterData> & { branchId?: string }) => {
     const formData = new FormData();
 
@@ -27,7 +40,7 @@ export const employeeService = {
 
         const endpoint = params.size > 0 ? `/admin/employees?${params.toString()}` : '/admin/employees';
         const response = await apiClient.get<User[]>(endpoint);
-        return response.data;
+        return dedupeById(response.data);
     },
 
     async getEmployee(id: string): Promise<User> {

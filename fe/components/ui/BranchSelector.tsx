@@ -69,7 +69,16 @@ export default function BranchSelector({
     const [isOpen, setIsOpen] = useState(false);
     const rootRef = useRef<HTMLDivElement | null>(null);
     const listboxId = useId();
-    const selectedBranch = branches.find((branch) => branch.id === value) ?? branches[0] ?? null;
+    const seenBranchIds = new Set<string>();
+    const uniqueBranches = branches.filter((branch) => {
+        if (!branch.id || seenBranchIds.has(branch.id)) {
+            return false;
+        }
+
+        seenBranchIds.add(branch.id);
+        return true;
+    });
+    const selectedBranch = uniqueBranches.find((branch) => branch.id === value) ?? uniqueBranches[0] ?? null;
     const styles = variantStyles[variant];
 
     useEffect(() => {
@@ -110,7 +119,7 @@ export default function BranchSelector({
                 aria-haspopup="listbox"
                 aria-controls={listboxId}
                 aria-expanded={isOpen}
-                disabled={disabled || branches.length === 0}
+                disabled={disabled || uniqueBranches.length === 0}
                 onClick={() => setIsOpen((open) => !open)}
                 className={cn(
                     'flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60',
@@ -145,7 +154,7 @@ export default function BranchSelector({
                     )}
                 >
                     <ul id={listboxId} role="listbox" className="max-h-80 overflow-y-auto py-1">
-                        {branches.map((branch) => {
+                        {uniqueBranches.map((branch) => {
                             const isSelected = branch.id === selectedBranch?.id;
 
                             return (

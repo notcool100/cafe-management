@@ -13,6 +13,16 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 
 const Select = forwardRef<HTMLSelectElement, SelectProps>(
     ({ className, label, error, description, labelClassName, descriptionClassName, optionClassName, options, ...props }, ref) => {
+        const seenOptionValues = new Set<string>();
+        const uniqueOptions = options.filter((option) => {
+            if (seenOptionValues.has(option.value)) {
+                return false;
+            }
+
+            seenOptionValues.add(option.value);
+            return true;
+        });
+
         return (
             <div className="w-full">
                 {label && (
@@ -33,8 +43,12 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
                         ref={ref}
                         {...props}
                     >
-                        {options.map((option) => (
-                            <option key={option.value} value={option.value} className={cn('bg-gray-900 text-white', optionClassName)}>
+                        {uniqueOptions.map((option, index) => (
+                            <option
+                                key={`${option.value || 'empty'}-${index}`}
+                                value={option.value}
+                                className={cn('bg-gray-900 text-white', optionClassName)}
+                            >
                                 {option.label}
                             </option>
                         ))}

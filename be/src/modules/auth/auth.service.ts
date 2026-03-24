@@ -4,9 +4,23 @@ import jwt from 'jsonwebtoken';
 
 export class AuthService {
     static async login(email: string, password: string) {
+        const normalizedEmail = email.trim().toLowerCase();
         const user = await prisma.user.findUnique({
-            where: { email },
-            include: { branches: true, tenant: true },
+            where: { email: normalizedEmail },
+            select: {
+                id: true,
+                email: true,
+                password: true,
+                name: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                refreshToken: true,
+                isActive: true,
+                tenantId: true,
+                branches: true,
+                tenant: true,
+            },
         });
 
         if (!user || !user.isActive) {
@@ -28,7 +42,7 @@ export class AuthService {
                 id: user.id,
                 email: user.email,
                 name: user.name,
-                imageUrl: user.imageUrl,
+                imageUrl: null,
                 role: user.role,
                 branchIds: user.branches.map((b: any) => b.id),
                 branches: user.branches,
@@ -47,8 +61,9 @@ export class AuthService {
         branchIds?: string[];
         tenantId?: string;
     }) {
+        const normalizedEmail = data.email.trim().toLowerCase();
         const existingUser = await prisma.user.findUnique({
-            where: { email: data.email },
+            where: { email: normalizedEmail },
         });
 
         if (existingUser) {
@@ -85,7 +100,8 @@ export class AuthService {
                 },
             });
 
-            const slugBase = data.email.split('@')[0]?.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'tenant';
+            const slugBase =
+                normalizedEmail.split('@')[0]?.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'tenant';
             const tenant = await prisma.tenant.create({
                 data: {
                     name: `${data.name}'s Cafe`,
@@ -115,13 +131,24 @@ export class AuthService {
         const user = await prisma.user.create({
             data: {
                 ...userData,
+                email: normalizedEmail,
                 tenantId: resolvedTenantId,
                 password: hashedPassword,
                 branches: branchIds ? {
                     connect: branchIds.map(id => ({ id }))
                 } : undefined
             },
-            include: { branches: true, tenant: true },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                tenantId: true,
+                branches: true,
+                tenant: true,
+            },
         });
 
         const tokens = await this.generateTokens(user);
@@ -133,7 +160,7 @@ export class AuthService {
                 id: user.id,
                 email: user.email,
                 name: user.name,
-                imageUrl: user.imageUrl,
+                imageUrl: null,
                 role: user.role,
                 branchIds: user.branches.map((b: any) => b.id),
                 branches: user.branches,
@@ -151,7 +178,14 @@ export class AuthService {
 
             const user = await prisma.user.findUnique({
                 where: { id: decoded.id },
-                include: { branches: true }
+                select: {
+                    id: true,
+                    email: true,
+                    role: true,
+                    refreshToken: true,
+                    tenantId: true,
+                    branches: true,
+                }
             });
 
             if (!user || !user.refreshToken) {
@@ -173,7 +207,7 @@ export class AuthService {
     }
 
     static async logout(userId: string) {
-        await prisma.user.update({
+        await prisma.user.updateMany({
             where: { id: userId },
             data: { refreshToken: null },
         });
@@ -207,7 +241,18 @@ export class AuthService {
     static async getMe(userId: string) {
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            include: { branches: true, tenant: true },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                isActive: true,
+                tenantId: true,
+                branches: true,
+                tenant: true,
+            },
         });
 
         if (!user || !user.isActive) {
@@ -226,7 +271,7 @@ export class AuthService {
             id: user.id,
             email: user.email,
             name: user.name,
-            imageUrl: user.imageUrl,
+            imageUrl: null,
             role: user.role,
             branchIds: branches.map((b: any) => b.id),
             branches: branches,
@@ -238,7 +283,7 @@ export class AuthService {
 
     private static async updateRefreshToken(userId: string, refreshToken: string) {
         const hash = await bcrypt.hash(refreshToken, 10);
-        await prisma.user.update({
+        await prisma.user.updateMany({
             where: { id: userId },
             data: { refreshToken: hash },
         });
