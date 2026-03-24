@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth-store';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import BranchSelector from '@/components/ui/BranchSelector';
 import { cn } from '@/lib/utils/cn';
 
 const navigation = [
@@ -65,18 +66,14 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                                 <label className="block text-[10px] uppercase tracking-wider font-bold text-[#8b6f5f] mb-2 px-3">
                                     Current Branch
                                 </label>
-                                <select
-                                    className="w-full bg-[#fdfaf3] border border-[#e4d7c2] text-[#5a3a2e] text-sm rounded-lg focus:ring-[#5a3a2e] focus:border-[#5a3a2e] block p-2.5 transition-all outline-none"
-                                    value={selectedBranchId || ''}
-                                    onChange={(e) => {
-                                        setSelectedBranchId(e.target.value);
-                                        console.log('Staff Branch switched to:', e.target.value);
+                                <BranchSelector
+                                    branches={user.branches || []}
+                                    value={selectedBranchId}
+                                    onChange={(branchId) => {
+                                        setSelectedBranchId(branchId);
+                                        console.log('Staff Branch switched to:', branchId);
                                     }}
-                                >
-                                    {user.branches?.map(b => (
-                                        <option key={b.id} value={b.id}>{b.name}</option>
-                                    ))}
-                                </select>
+                                />
                             </div>
                         )}
 
@@ -207,18 +204,14 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                                         <label className="block text-[10px] uppercase tracking-wider font-bold text-[#8b6f5f] mb-2 px-3">
                                             Current Branch
                                         </label>
-                                        <select
-                                            className="w-full bg-[#fdfaf3] border border-[#e4d7c2] text-[#5a3a2e] text-sm rounded-lg focus:ring-[#5a3a2e] focus:border-[#5a3a2e] block p-2.5 transition-all outline-none"
-                                            value={selectedBranchId || ''}
-                                            onChange={(e) => {
-                                                setSelectedBranchId(e.target.value);
+                                        <BranchSelector
+                                            branches={user.branches || []}
+                                            value={selectedBranchId}
+                                            onChange={(branchId) => {
+                                                setSelectedBranchId(branchId);
                                                 setSidebarOpen(false);
                                             }}
-                                        >
-                                            {user.branches?.map(b => (
-                                                <option key={b.id} value={b.id}>{b.name}</option>
-                                            ))}
-                                        </select>
+                                        />
                                     </div>
                                 )}
 

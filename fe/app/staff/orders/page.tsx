@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orderService } from '@/lib/api/order-service';
 import { menuService } from '@/lib/api/menu-service';
+import BranchSelector from '@/components/ui/BranchSelector';
 import { Order, CreateOrderData, OrderType, OrderStatus, Branch, OrderNotification, SharedItemNotification, MenuItem } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuthStore } from '@/lib/store/auth-store';
@@ -542,18 +543,13 @@ export default function StaffOrdersPage() {
 
             {/* Branch Selector for Multi-branch users */}
             {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER') && (
-              <div className="flex-none max-w-xs mx-4">
-                <select
-                  value={selectedBranchId || ''}
-                  onChange={(e) => setSelectedBranchId(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-100 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
-                >
-                  {(user.branches || []).map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} ({b.location || 'No Location'})
-                    </option>
-                  ))}
-                </select>
+              <div className="mx-4 hidden w-72 flex-none lg:block">
+                <BranchSelector
+                  branches={user.branches || []}
+                  value={selectedBranchId}
+                  onChange={setSelectedBranchId}
+                  variant="slate"
+                />
               </div>
             )}
 
