@@ -2,10 +2,32 @@ import { Response } from 'express';
 import { AuthRequest } from '../../middleware/auth';
 import { AdminService } from './admin.service';
 import { body, validationResult } from 'express-validator';
+import { getEmployeeUploadDirName } from '../../middleware/upload';
 
 const isManager = (req: AuthRequest) => req.user?.role === 'MANAGER';
 const managerBranchIds = (req: AuthRequest) => req.user?.branchIds || [];
 const firstManagerBranchId = (req: AuthRequest) => managerBranchIds(req)[0];
+const parseBranchIds = (value: unknown) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map(String).filter(Boolean);
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            if (Array.isArray(parsed)) {
+                return parsed.map(String).filter(Boolean);
+            }
+        } catch {
+            return value
+                .split(',')
+                .map((id) => id.trim())
+                .filter(Boolean);
+        }
+
+        return value.trim() ? [value.trim()] : [];
+    }
+
+    return [];
+};
 
 export class AdminController {
     private static readonly DEFAULT_REPORT_RANGE_DAYS = 30;
@@ -30,7 +52,10 @@ export class AdminController {
             }
 
             const { email, password, name, role, branchId, branchIds } = req.body;
-            const finalBranchIds = branchIds || (branchId ? [branchId] : []);
+            const parsedBranchIds = parseBranchIds(branchIds);
+            const finalBranchIds = parsedBranchIds.length > 0 ? parsedBranchIds : (branchId ? [branchId] : []);
+            const file = (req as AuthRequest & { file?: Express.Multer.File }).file;
+            const imageUrl = file ? `/uploads/${getEmployeeUploadDirName()}/${file.filename}` : undefined;
 
             if (isManager(req)) {
                 if (managerBranchIds(req).length === 0) {
@@ -53,6 +78,7 @@ export class AdminController {
                 name,
                 role,
                 branchIds: isManager(req) && finalBranchIds.length === 0 ? managerBranchIds(req) : finalBranchIds,
+                imageUrl,
                 tenantId: req.user.tenantId,
             });
 
@@ -110,6 +136,10 @@ export class AdminController {
         try {
             const { id } = req.params;
             const { name, role, branchId, branchIds } = req.body;
+            const parsedBranchIds = parseBranchIds(branchIds);
+            const finalBranchIds = parsedBranchIds.length > 0 ? parsedBranchIds : (branchId ? [branchId] : []);
+            const file = (req as AuthRequest & { file?: Express.Multer.File }).file;
+            const imageUrl = file ? `/uploads/${getEmployeeUploadDirName()}/${file.filename}` : undefined;
             if (!req.user?.tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
@@ -118,7 +148,6 @@ export class AdminController {
                 if (role === 'ADMIN') {
                     return res.status(403).json({ error: 'Managers cannot promote to admin' });
                 }
-                const finalBranchIds = branchIds || (branchId ? [branchId] : []);
                 if (finalBranchIds.some((id: string) => !managerBranchIds(req).includes(id))) {
                     return res.status(403).json({ error: 'Managers can only reassign within their assigned branches' });
                 }
@@ -129,7 +158,6 @@ export class AdminController {
                 }
             }
 
-            const finalBranchIds = branchIds || (branchId ? [branchId] : []);
             const employee = await AdminService.updateEmployee(
                 id as string,
                 req.user.tenantId,
@@ -137,6 +165,7 @@ export class AdminController {
                     name,
                     role,
                     branchIds: finalBranchIds.length > 0 ? finalBranchIds : undefined,
+                    imageUrl,
                 }
             );
 

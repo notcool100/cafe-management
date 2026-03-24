@@ -27,6 +27,7 @@ export default function NewEmployeePage() {
                 password: data.password!, // Validated in form to be present
                 role: data.role,
                 branchIds: data.branchIds,
+                imageFile: data.imageFile,
             });
 
             setToast({

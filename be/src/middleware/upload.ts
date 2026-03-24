@@ -9,20 +9,28 @@ export const getBranchUploadDirName = (branchId?: string) => {
     return safeBranchId || 'unassigned';
 };
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const branchDirName = getBranchUploadDirName(req.body?.branchId);
-        const targetDir = path.join(uploadRoot, branchDirName);
-        fs.mkdirSync(targetDir, { recursive: true });
-        cb(null, targetDir);
-    },
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase();
-        const baseName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '');
-        const safeBase = baseName || 'image';
-        cb(null, `${safeBase}-${Date.now()}${ext}`);
-    },
-});
+export const getEmployeeUploadDirName = () => 'employees';
+
+const createImageUpload = (
+    resolveDirName: (req: Express.Request, file: Express.Multer.File) => string
+) =>
+    multer({
+        storage: multer.diskStorage({
+            destination: (req, file, cb) => {
+                const targetDir = path.join(uploadRoot, resolveDirName(req, file));
+                fs.mkdirSync(targetDir, { recursive: true });
+                cb(null, targetDir);
+            },
+            filename: (req, file, cb) => {
+                const ext = path.extname(file.originalname).toLowerCase();
+                const baseName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '');
+                const safeBase = baseName || 'image';
+                cb(null, `${safeBase}-${Date.now()}${ext}`);
+            },
+        }),
+        fileFilter,
+        limits: { fileSize: 5 * 1024 * 1024 },
+    });
 
 const fileFilter: multer.Options['fileFilter'] = (req, file, cb) => {
     if (!file.mimetype.startsWith('image/')) {
@@ -32,7 +40,22 @@ const fileFilter: multer.Options['fileFilter'] = (req, file, cb) => {
 };
 
 export const uploadMenuImage = multer({
-    storage,
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+            const branchDirName = getBranchUploadDirName(req.body?.branchId);
+            const targetDir = path.join(uploadRoot, branchDirName);
+            fs.mkdirSync(targetDir, { recursive: true });
+            cb(null, targetDir);
+        },
+        filename: (req, file, cb) => {
+            const ext = path.extname(file.originalname).toLowerCase();
+            const baseName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '');
+            const safeBase = baseName || 'image';
+            cb(null, `${safeBase}-${Date.now()}${ext}`);
+        },
+    }),
     fileFilter,
     limits: { fileSize: 5 * 1024 * 1024 },
 });
+
+export const uploadEmployeeImage = createImageUpload(() => getEmployeeUploadDirName());

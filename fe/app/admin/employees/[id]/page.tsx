@@ -57,6 +57,7 @@ export default function EditEmployeePage() {
                 email: data.email,
                 role: data.role,
                 branchIds: data.branchIds,
+                imageFile: data.imageFile,
                 // Only send password if it's provided (optional in update)
                 ...(data.password ? { password: data.password } : {}),
             });

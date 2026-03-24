@@ -28,10 +28,13 @@ export class AuthService {
                 id: user.id,
                 email: user.email,
                 name: user.name,
+                imageUrl: user.imageUrl,
                 role: user.role,
                 branchIds: user.branches.map((b: any) => b.id),
                 branches: user.branches,
                 tenantId: user.tenantId,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt,
             },
         };
     }
@@ -130,10 +133,13 @@ export class AuthService {
                 id: user.id,
                 email: user.email,
                 name: user.name,
+                imageUrl: user.imageUrl,
                 role: user.role,
                 branchIds: user.branches.map((b: any) => b.id),
                 branches: user.branches,
                 tenantId: user.tenantId,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt,
             },
         };
     }
@@ -220,10 +226,13 @@ export class AuthService {
             id: user.id,
             email: user.email,
             name: user.name,
+            imageUrl: user.imageUrl,
             role: user.role,
             branchIds: branches.map((b: any) => b.id),
             branches: branches,
             tenantId: user.tenantId,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
         };
     }
 

@@ -1,6 +1,23 @@
 import apiClient from './api-client';
 import { User, RegisterData } from '../types';
 
+const buildEmployeeFormData = (data: Partial<RegisterData> & { branchId?: string }) => {
+    const formData = new FormData();
+
+    if (data.name !== undefined) formData.append('name', data.name);
+    if (data.email !== undefined) formData.append('email', data.email);
+    if (data.password !== undefined) formData.append('password', data.password);
+    if (data.role !== undefined) formData.append('role', data.role);
+    if (data.branchId !== undefined) formData.append('branchId', data.branchId);
+    if (data.tenantId !== undefined) formData.append('tenantId', data.tenantId);
+    if (data.branchIds !== undefined) {
+        data.branchIds.forEach((branchId) => formData.append('branchIds', branchId));
+    }
+    if (data.imageFile) formData.append('image', data.imageFile);
+
+    return formData;
+};
+
 export const employeeService = {
     async getEmployees(branchId?: string): Promise<User[]> {
         const params = new URLSearchParams();
@@ -19,12 +36,18 @@ export const employeeService = {
     },
 
     async createEmployee(data: RegisterData): Promise<User> {
-        const response = await apiClient.post<User>('/admin/employees', data);
+        const response = await apiClient.post<User>('/admin/employees', buildEmployeeFormData(data), {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
         return response.data;
     },
 
     async updateEmployee(id: string, data: Partial<RegisterData>): Promise<User> {
-        const response = await apiClient.put<User>(`/admin/employees/${id}`, data);
+        const response = await apiClient.put<User>(
+            `/admin/employees/${id}`,
+            buildEmployeeFormData(data),
+            { headers: { 'Content-Type': 'multipart/form-data' } }
+        );
         return response.data;
     },
 

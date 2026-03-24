@@ -8,6 +8,7 @@ export class AdminService {
         email: string;
         password: string;
         name: string;
+        imageUrl?: string;
         role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | 'SUPER_ADMIN';
         branchIds?: string[];
         tenantId: string;
@@ -59,11 +60,13 @@ export class AdminService {
             id: user.id,
             email: user.email,
             name: user.name,
+            imageUrl: user.imageUrl,
             role: user.role,
             branchIds: user.branches.map(b => b.id),
             branches: user.branches,
             tenantId: user.tenantId,
             createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
         };
     }
 
@@ -82,11 +85,13 @@ export class AdminService {
             id: user.id,
             email: user.email,
             name: user.name,
+            imageUrl: user.imageUrl,
             role: user.role,
             branchIds: user.branches.map((b: any) => b.id),
             branches: user.branches,
             tenantId: user.tenantId,
             createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
         }));
     }
 
@@ -108,11 +113,13 @@ export class AdminService {
             id: user.id,
             email: user.email,
             name: user.name,
+            imageUrl: user.imageUrl,
             role: user.role,
             branchIds: user.branches.map(b => b.id),
             branches: user.branches,
             tenantId: user.tenantId,
             createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
         };
     }
 
@@ -123,6 +130,7 @@ export class AdminService {
             name?: string;
             role?: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
             branchIds?: string[];
+            imageUrl?: string;
         }
     ) {
         const existing = await prisma.user.findFirst({
@@ -150,10 +158,13 @@ export class AdminService {
             id: user.id,
             email: user.email,
             name: user.name,
+            imageUrl: user.imageUrl,
             role: user.role,
             branchIds: user.branches.map(b => b.id),
             branches: user.branches,
             tenantId: user.tenantId,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
         };
     }
 
