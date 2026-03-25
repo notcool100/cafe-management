@@ -66,8 +66,13 @@ apiClient.interceptors.response.use(
     (response) => {
         return response;
     },
-    async (error: AxiosError<{ message?: string; errors?: Record<string, unknown> }>) => {
+    async (error: AxiosError<{ error?: string; message?: string; errors?: Record<string, unknown> }>) => {
         const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
+        const requestUrl = originalRequest?.url || '';
+        const isAuthHandshakeRequest =
+            requestUrl.includes('/auth/login') ||
+            requestUrl.includes('/auth/register') ||
+            requestUrl.includes('/auth/refresh-token');
 
         // Prevent infinite loops
         if (originalRequest?._retry) {
@@ -76,7 +81,7 @@ apiClient.interceptors.response.use(
 
         const hadAuthHeader = Boolean(originalRequest?.headers?.Authorization);
 
-        if (error.response?.status === 401) {
+        if (error.response?.status === 401 && !isAuthHandshakeRequest) {
             console.log('🚨 [API] 401 Unauthorized - Token may be expired');
 
             if (isRefreshing && originalRequest) {
@@ -155,9 +160,13 @@ apiClient.interceptors.response.use(
         }
 
         // Transform error for better handling
-        const responseData = (error.response?.data || {}) as { message?: string; errors?: Record<string, unknown> };
+        const responseData = (error.response?.data || {}) as {
+            error?: string;
+            message?: string;
+            errors?: Record<string, unknown>;
+        };
         const apiError = {
-            message: responseData.message || error.message || 'An error occurred',
+            message: responseData.error || responseData.message || error.message || 'An error occurred',
             errors: responseData.errors || {},
             status: error.response?.status,
         };

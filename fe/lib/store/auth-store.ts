@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User, UserRole } from '../types';
+import { Branch, User, UserRole } from '../types';
 import { authService } from '../api/auth-service';
 
 interface AuthState {
@@ -26,6 +26,46 @@ interface AuthState {
     isManager: () => boolean;
 }
 
+const dedupeBranchIds = (branchIds?: string[]) => {
+    const seen = new Set<string>();
+
+    return (branchIds || []).filter((branchId) => {
+        if (!branchId || seen.has(branchId)) {
+            return false;
+        }
+
+        seen.add(branchId);
+        return true;
+    });
+};
+
+const dedupeBranches = (branches?: Branch[]) => {
+    const seen = new Set<string>();
+
+    return (branches || []).filter((branch) => {
+        if (!branch.id || seen.has(branch.id)) {
+            return false;
+        }
+
+        seen.add(branch.id);
+        return true;
+    });
+};
+
+const normalizeUser = (user: User): User => {
+    const branches = dedupeBranches(user.branches);
+    const branchIds = dedupeBranchIds([
+        ...(user.branchIds || []),
+        ...branches.map((branch) => branch.id),
+    ]);
+
+    return {
+        ...user,
+        branches,
+        branchIds,
+    };
+};
+
 export const useAuthStore = create<AuthState>()(
     persist(
         (set, get) => ({
@@ -38,6 +78,7 @@ export const useAuthStore = create<AuthState>()(
             selectedBranchId: null,
 
             setAuth: (user: User, accessToken: string, refreshToken: string) => {
+                const normalizedUser = normalizeUser(user);
                 console.log('🔐 [AuthStore] setAuth called:', {
                     userId: user.id,
                     email: user.email,
@@ -55,11 +96,14 @@ export const useAuthStore = create<AuthState>()(
                 }
 
                 set({
-                    user,
+                    user: normalizedUser,
                     accessToken,
                     refreshToken,
                     isAuthenticated: true,
-                    selectedBranchId: user.branchIds && user.branchIds.length > 0 ? user.branchIds[0] : null,
+                    selectedBranchId:
+                        normalizedUser.branchIds && normalizedUser.branchIds.length > 0
+                            ? normalizedUser.branchIds[0]
+                            : null,
                 });
 
                 console.log('✅ [AuthStore] Auth state updated');
@@ -121,7 +165,7 @@ export const useAuthStore = create<AuthState>()(
 
             refreshUser: async () => {
                 try {
-                    const user = await authService.getMe();
+                    const user = normalizeUser(await authService.getMe());
                     set((state) => ({
                         user,
                         selectedBranchId: state.selectedBranchId || (user.branchIds && user.branchIds.length > 0 ? user.branchIds[0] : null)

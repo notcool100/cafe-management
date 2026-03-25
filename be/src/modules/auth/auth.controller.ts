@@ -32,9 +32,10 @@ export class AuthController {
 
             res.json(result);
         } catch (error) {
-            res.status(401).json({
-                error: error instanceof Error ? error.message : 'Login failed',
-            });
+            const message = error instanceof Error ? error.message : 'Login failed';
+            const status = message === 'Invalid credentials' ? 401 : 500;
+
+            res.status(status).json({ error: message });
         }
     }
 

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth-store';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import BranchSelector from '@/components/ui/BranchSelector';
 import { cn } from '@/lib/utils/cn';
 import { UserRole } from '@/lib/types';
 
@@ -35,6 +36,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const visibleNavigation = isStaffManager
         ? [...managerNavigation, ...navigation.filter((item) => staffAllowed.includes(item.href))]
         : navigation;
+    const contentKey = `${pathname}:${selectedBranchId || 'all'}`;
     const isNavItemActive = (href: string) =>
         href === '/admin'
             ? pathname === href
@@ -54,10 +56,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             }
         }
     }, [isStaffManager, pathname, router, staffAllowed]);
-
-    useEffect(() => {
-        setSidebarOpen(false);
-    }, [pathname]);
 
     useEffect(() => {
         refreshUser();
@@ -91,18 +89,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 <label className="block text-[10px] uppercase tracking-wider font-bold text-[#8b6f5f] mb-2 px-3">
                                     Current Branch
                                 </label>
-                                <select
-                                    className="w-full bg-[#fdfaf3] border border-[#e4d7c2] text-[#5a3a2e] text-sm rounded-lg focus:ring-[#5a3a2e] focus:border-[#5a3a2e] block p-2.5 transition-all outline-none"
-                                    value={selectedBranchId || ''}
-                                    onChange={(e) => {
-                                        setSelectedBranchId(e.target.value);
-                                        console.log('Branch switched to:', e.target.value);
+                                <BranchSelector
+                                    branches={user.branches || []}
+                                    value={selectedBranchId}
+                                    onChange={(branchId) => {
+                                        setSelectedBranchId(branchId);
+                                        console.log('Branch switched to:', branchId);
                                     }}
-                                >
-                                    {user.branches?.map(b => (
-                                        <option key={b.id} value={b.id}>{b.name}</option>
-                                    ))}
-                                </select>
+                                />
                             </div>
                         )}
 
@@ -207,15 +201,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                         <label className="block text-[10px] uppercase tracking-wider font-bold text-[#8b6f5f] mb-2">
                                             Current Branch
                                         </label>
-                                        <select
-                                            className="w-full bg-[#fbf5e8] border border-[#e4d7c2] text-[#5a3a2e] text-sm rounded-lg block p-2.5"
-                                            value={selectedBranchId || ''}
-                                            onChange={(e) => setSelectedBranchId(e.target.value)}
-                                        >
-                                            {user.branches?.map(b => (
-                                                <option key={b.id} value={b.id}>{b.name}</option>
-                                            ))}
-                                        </select>
+                                        <BranchSelector
+                                            branches={user.branches || []}
+                                            value={selectedBranchId}
+                                            onChange={(branchId) => {
+                                                setSelectedBranchId(branchId);
+                                                setSidebarOpen(false);
+                                            }}
+                                        />
                                     </div>
                                 )}
 
@@ -294,7 +287,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                     {/* Page content */}
                     <main className="bg-[#fbf5e8] p-6 lg:p-8">
-                        <div className="max-w-7xl mx-auto">
+                        <div key={contentKey} className="max-w-7xl mx-auto">
                             {children}
                         </div>
                     </main>

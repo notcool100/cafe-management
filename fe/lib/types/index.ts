@@ -10,6 +10,7 @@ export interface User {
     id: string;
     name: string;
     email: string;
+    imageUrl?: string;
     role: UserRole;
     branchIds?: string[];
     branches?: Branch[];
@@ -36,6 +37,7 @@ export interface RegisterData {
     role: UserRole;
     branchIds?: string[];
     tenantId?: string;
+    imageFile?: File | null;
 }
 
 // Branch Types

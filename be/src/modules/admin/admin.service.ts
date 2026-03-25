@@ -8,6 +8,7 @@ export class AdminService {
         email: string;
         password: string;
         name: string;
+        imageUrl?: string;
         role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | 'SUPER_ADMIN';
         branchIds?: string[];
         tenantId: string;
@@ -15,6 +16,8 @@ export class AdminService {
         if (!data.tenantId) {
             throw new Error('Tenant is required to create an employee');
         }
+
+        const normalizedEmail = data.email.trim().toLowerCase();
 
         await assertSeatEntitlement(data.tenantId);
 
@@ -33,7 +36,7 @@ export class AdminService {
         }
 
         const existingUser = await prisma.user.findUnique({
-            where: { email: data.email },
+            where: { email: normalizedEmail },
         });
 
         if (existingUser) {
@@ -42,28 +45,41 @@ export class AdminService {
 
         const hashedPassword = await bcrypt.hash(data.password, 10);
 
-        const { branchIds, ...userData } = data;
+        const { branchIds, imageUrl: _imageUrl, ...userData } = data;
 
         const user = await prisma.user.create({
             data: {
                 ...userData,
+                email: normalizedEmail,
                 password: hashedPassword,
                 branches: branchIds ? {
                     connect: branchIds.map(id => ({ id }))
                 } : undefined,
             },
-            include: { branches: true, tenant: true },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                tenantId: true,
+                branches: true,
+                tenant: true,
+            },
         });
 
         return {
             id: user.id,
             email: user.email,
             name: user.name,
+            imageUrl: null,
             role: user.role,
             branchIds: user.branches.map(b => b.id),
             branches: user.branches,
             tenantId: user.tenantId,
             createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
         };
     }
 
@@ -74,7 +90,17 @@ export class AdminService {
                 isActive: true,
                 ...(branchId ? { branches: { some: { id: branchId } } } : {}),
             },
-            include: { branches: true, tenant: true },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                tenantId: true,
+                branches: true,
+                tenant: true,
+            },
             orderBy: { createdAt: 'desc' },
         });
 
@@ -82,11 +108,13 @@ export class AdminService {
             id: user.id,
             email: user.email,
             name: user.name,
+            imageUrl: null,
             role: user.role,
             branchIds: user.branches.map((b: any) => b.id),
             branches: user.branches,
             tenantId: user.tenantId,
             createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
         }));
     }
 
@@ -97,7 +125,17 @@ export class AdminService {
                 isActive: true,
                 tenantId,
             },
-            include: { branches: true, tenant: true },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                tenantId: true,
+                branches: true,
+                tenant: true,
+            },
         });
 
         if (!user) {
@@ -108,11 +146,13 @@ export class AdminService {
             id: user.id,
             email: user.email,
             name: user.name,
+            imageUrl: null,
             role: user.role,
             branchIds: user.branches.map(b => b.id),
             branches: user.branches,
             tenantId: user.tenantId,
             createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
         };
     }
 
@@ -123,17 +163,19 @@ export class AdminService {
             name?: string;
             role?: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
             branchIds?: string[];
+            imageUrl?: string;
         }
     ) {
         const existing = await prisma.user.findFirst({
             where: { id, tenantId, isActive: true },
+            select: { id: true },
         });
 
         if (!existing) {
             throw new Error('Employee not found');
         }
 
-        const { branchIds, ...updateData } = data;
+        const { branchIds, imageUrl: _imageUrl, ...updateData } = data;
 
         const user = await prisma.user.update({
             where: { id },
@@ -143,17 +185,29 @@ export class AdminService {
                     set: branchIds.map(id => ({ id }))
                 } : undefined,
             },
-            include: { branches: true },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                tenantId: true,
+                branches: true,
+            },
         });
 
         return {
             id: user.id,
             email: user.email,
             name: user.name,
+            imageUrl: null,
             role: user.role,
             branchIds: user.branches.map(b => b.id),
             branches: user.branches,
             tenantId: user.tenantId,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
         };
     }
 
@@ -167,7 +221,7 @@ export class AdminService {
             throw new Error('Employee not found');
         }
 
-        await prisma.user.update({
+        await prisma.user.updateMany({
             where: { id },
             data: { isActive: false },
         });
