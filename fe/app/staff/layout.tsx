@@ -27,7 +27,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     const router = useRouter();
     const { user, logout, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const isManager = user?.role === 'MANAGER';
+    const isManagement = user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
     const contentKey = `${pathname}:${selectedBranchId || 'all'}`;
     const isNavItemActive = (href: string) =>
         href === '/staff' ? pathname === href : pathname === href || pathname.startsWith(href + '/');
@@ -105,7 +105,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                                 );
                             })}
 
-                            {isManager && (
+                            {isManagement && (
                                 <div className="mt-6 pt-4 border-t border-[#e4d7c2] space-y-1">
                                     <p className="px-3 text-xs font-semibold uppercase tracking-wider text-[#8b6f5f]">
                                         Manager Tools
@@ -246,7 +246,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                                         );
                                     })}
 
-                                    {isManager && (
+                                    {isManagement && (
                                         <div className="mt-6 pt-4 border-t border-[#e4d7c2] space-y-1">
                                             <p className="px-3 text-xs font-semibold uppercase tracking-wider text-[#8b6f5f]">
                                                 Manager Tools
