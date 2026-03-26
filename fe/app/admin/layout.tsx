@@ -28,14 +28,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const router = useRouter();
     const { user, logout, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const isStaffManager = user?.role === UserRole.MANAGER || user?.role === UserRole.EMPLOYEE;
-    const staffAllowed = useMemo(
-        () => ['/admin/reports', '/admin/orders', '/admin/employees', '/admin/menu', '/admin/category'],
-        []
-    );
-    const visibleNavigation = isStaffManager || user?.role === UserRole.ADMIN || user?.role === UserRole.SUPER_ADMIN
-        ? [...managerNavigation, ...navigation.filter((item) => staffAllowed.includes(item.href))]
-        : navigation;
+   const isStaffManager =
+    user?.role === UserRole.MANAGER || user?.role === UserRole.EMPLOYEE;
+
+const staffAllowed = useMemo(
+    () => [
+        '/admin/reports',
+        '/admin/orders',
+        '/admin/employees',
+        '/admin/menu',
+        '/admin/category',
+    ],
+    []
+);
+
+const visibleNavigation = isStaffManager
+    ? [...managerNavigation, ...navigation.filter((item) => staffAllowed.includes(item.href))]
+    : navigation;
     const contentKey = `${pathname}:${selectedBranchId || 'all'}`;
     const isNavItemActive = (href: string) =>
         href === '/admin'
