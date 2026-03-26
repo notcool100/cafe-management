@@ -31,6 +31,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
    const isStaffManager =
     user?.role === UserRole.MANAGER || user?.role === UserRole.EMPLOYEE;
 
+const isAdminLike =
+    user?.role === UserRole.ADMIN || user?.role === UserRole.SUPER_ADMIN;
+
 const staffAllowed = useMemo(
     () => [
         '/admin/reports',
@@ -42,9 +45,20 @@ const staffAllowed = useMemo(
     []
 );
 
-const visibleNavigation = isStaffManager
-    ? [...managerNavigation, ...navigation.filter((item) => staffAllowed.includes(item.href))]
-    : navigation;
+const visibleNavigation = useMemo(() => {
+    if (isAdminLike) {
+        return [...managerNavigation, ...navigation];
+    }
+
+    if (isStaffManager) {
+        return [
+            ...managerNavigation,
+            ...navigation.filter((item) => staffAllowed.includes(item.href)),
+        ];
+    }
+
+    return navigation;
+}, [isAdminLike, isStaffManager, staffAllowed]);
     const contentKey = `${pathname}:${selectedBranchId || 'all'}`;
     const isNavItemActive = (href: string) =>
         href === '/admin'

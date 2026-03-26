@@ -89,7 +89,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
 
         // DEBUGGER: Pause here to inspect state
         if (!hasHydrated && !isAuthenticated) {
-            debugger; // This will pause execution - check localStorage and Zustand state in DevTools
+            // debugger; // This will pause execution - check localStorage and Zustand state in DevTools
         }
 
         // Don't check auth until Zustand persist has rehydrated
