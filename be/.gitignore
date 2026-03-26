@@ -5,3 +5,4 @@ node_modules
 /src/generated/prisma
 .pm2
 pm2.log
+be.env.uat

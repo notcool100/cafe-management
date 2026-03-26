@@ -17,15 +17,26 @@ const withConnectionLimit = (url?: string) => {
 
 const databaseUrl = withConnectionLimit(process.env.DATABASE_URL);
 
-const prisma = databaseUrl
-    ? new PrismaClient({
-        datasources: {
-            db: {
-                url: databaseUrl,
+// Prevent multiple instances of Prisma Client in development
+const globalForPrisma = globalThis as unknown as {
+    prisma: PrismaClient | undefined;
+};
+
+const prisma =
+    globalForPrisma.prisma ??
+    (databaseUrl
+        ? new PrismaClient({
+            datasources: {
+                db: {
+                    url: databaseUrl,
+                },
             },
-        },
-    })
-    : new PrismaClient();
+            log: ['query', 'error', 'warn'],
+        })
+        : new PrismaClient());
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 export { prisma };
 export default prisma;
+

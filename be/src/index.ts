@@ -40,18 +40,30 @@ app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'Cafe Management API is running' });
 });
-const shutdown = async () => {
+const shutdown = async (signal?: string) => {
+    if (signal) console.log(`\n🛑 Received ${signal}. Shutting down...`);
     await prisma.$disconnect();
     process.exit(0);
 };
 
 process.on('SIGINT', () => {
-    void shutdown();
+    void shutdown('SIGINT');
 });
 
 process.on('SIGTERM', () => {
-    void shutdown();
+    void shutdown('SIGTERM');
 });
+
+// Handle nodemon restarts
+process.on('SIGUSR2', () => {
+    void shutdown('SIGUSR2');
+});
+
+// Handle unexpected exits
+process.on('beforeExit', () => {
+    void shutdown('beforeExit');
+});
+
 
 // Routes
 app.use('/api/auth', authRoutes);
