@@ -5,7 +5,7 @@ import { CategoryService } from './category.service';
 
 const isManager = (req: AuthRequest) =>
     req.user?.role === 'MANAGER' || req.user?.role === 'EMPLOYEE';
-const managerBranchId = (req: AuthRequest) => req.user?.branchId;
+const managerBranchIds = (req: AuthRequest) => req.user?.branchIds || [];
 
 const parseSharedBranchIds = (value: unknown) => {
     if (!value) return [];
@@ -41,11 +41,12 @@ export class CategoryController {
             const sharedBranchIds = parseSharedBranchIds(req.body.sharedBranchIds);
 
             if (isManager(req)) {
-                if (!managerBranchId(req)) {
-                    return res.status(400).json({ error: 'Manager is not assigned to a branch' });
+                const allowedBranchIds = managerBranchIds(req);
+                if (allowedBranchIds.length === 0) {
+                    return res.status(400).json({ error: 'Manager is not assigned to any branch' });
                 }
-                if (branchId !== managerBranchId(req)) {
-                    return res.status(403).json({ error: 'Managers can only add categories for their branch' });
+                if (branchId !== allowedBranchIds.find(id => id === branchId)) {
+                    return res.status(403).json({ error: 'Managers can only add categories for their assigned branches' });
                 }
             }
 
@@ -70,18 +71,31 @@ export class CategoryController {
     static async listCategories(req: AuthRequest, res: Response) {
         try {
             const { branchId } = req.query;
-            if (!req.user?.tenantId) {
+            const tenantId = req.user?.tenantId;
+            if (!tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
-            if (isManager(req) && managerBranchId(req) && branchId && branchId !== managerBranchId(req)) {
-                return res.status(403).json({ error: 'Forbidden: Not your branch' });
-            }
 
-            const effectiveBranchId = isManager(req) ? managerBranchId(req) : (branchId as string | undefined);
+            let effectiveBranchId = branchId as string | undefined;
+
+            if (isManager(req)) {
+                const allowedBranchIds = managerBranchIds(req);
+                if (allowedBranchIds.length === 0) {
+                    return res.status(403).json({ error: 'Manager is not assigned to any branch' });
+                }
+
+                if (effectiveBranchId) {
+                    if (!allowedBranchIds.includes(effectiveBranchId)) {
+                        return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                    }
+                } else {
+                    effectiveBranchId = allowedBranchIds[0];
+                }
+            }
 
             const categories = await CategoryService.listCategories(
                 effectiveBranchId,
-                req.user.tenantId
+                tenantId
             );
 
             res.json(categories);
@@ -121,11 +135,12 @@ export class CategoryController {
             }
 
             if (isManager(req)) {
-                if (!managerBranchId(req)) {
-                    return res.status(400).json({ error: 'Manager is not assigned to a branch' });
+                const allowedBranchIds = managerBranchIds(req);
+                if (allowedBranchIds.length === 0) {
+                    return res.status(400).json({ error: 'Manager is not assigned to any branch' });
                 }
                 const existing = await CategoryService.getCategory(id as string, req.user.tenantId);
-                if (existing.branchId !== managerBranchId(req)) {
+                if (!allowedBranchIds.includes(existing.branchId)) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
             }
@@ -151,11 +166,12 @@ export class CategoryController {
             }
 
             if (isManager(req)) {
-                if (!managerBranchId(req)) {
-                    return res.status(400).json({ error: 'Manager is not assigned to a branch' });
+                const allowedBranchIds = managerBranchIds(req);
+                if (allowedBranchIds.length === 0) {
+                    return res.status(400).json({ error: 'Manager is not assigned to any branch' });
                 }
                 const existing = await CategoryService.getCategory(id as string, req.user.tenantId);
-                if (existing.branchId !== managerBranchId(req)) {
+                if (!allowedBranchIds.includes(existing.branchId)) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
             }

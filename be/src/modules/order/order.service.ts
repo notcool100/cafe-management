@@ -152,11 +152,10 @@ export class OrderService {
                 tenantId: filters.tenantId,
                 ...(filters.branchId && { branchId: filters.branchId }),
                 ...(filters.status && { status: filters.status as any }),
-                ...(filters.startDate &&
-                    filters.endDate && {
+                ...((filters.startDate || filters.endDate) && {
                     createdAt: {
-                        gte: filters.startDate,
-                        lte: filters.endDate,
+                        ...(filters.startDate && { gte: filters.startDate }),
+                        ...(filters.endDate && { lte: filters.endDate }),
                     },
                 }),
             },
@@ -194,13 +193,13 @@ export class OrderService {
         status: 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED' | 'CANCELLATION_PENDING',
         completedBy?: string,
         tenantId?: string,
-        branchConstraint?: string
+        branchIds?: string[]
     ) {
         const existing = await prisma.order.findFirst({
             where: {
                 id,
                 ...(tenantId ? { tenantId } : {}),
-                ...(branchConstraint ? { branchId: branchConstraint } : {}),
+                ...(branchIds && branchIds.length > 0 ? { branchId: { in: branchIds } } : {}),
             },
             select: { id: true, status: true },
         });
@@ -215,7 +214,7 @@ export class OrderService {
         }
 
         if (status === 'CANCELLED') {
-            return this.requestCancellation(id, completedBy, tenantId, branchConstraint);
+            return this.requestCancellation(id, completedBy, tenantId, branchIds);
         }
 
         const order = await prisma.order.update({
@@ -251,13 +250,13 @@ export class OrderService {
         orderId: string,
         userId?: string,
         tenantId?: string,
-        branchConstraint?: string
+        branchIds?: string[]
     ) {
         const existing = await prisma.order.findFirst({
             where: {
                 id: orderId,
                 ...(tenantId ? { tenantId } : {}),
-                ...(branchConstraint ? { branchId: branchConstraint } : {}),
+                ...(branchIds && branchIds.length > 0 ? { branchId: { in: branchIds } } : {}),
             },
             select: { status: true },
         });
@@ -293,13 +292,13 @@ export class OrderService {
         orderId: string,
         userId?: string,
         tenantId?: string,
-        branchConstraint?: string
+        branchIds?: string[]
     ) {
         const order = await prisma.order.findFirst({
             where: {
                 id: orderId,
                 ...(tenantId ? { tenantId } : {}),
-                ...(branchConstraint ? { branchId: branchConstraint } : {}),
+                ...(branchIds && branchIds.length > 0 ? { branchId: { in: branchIds } } : {}),
             },
         });
 

@@ -408,16 +408,23 @@ export class AdminController {
             }
 
             const isStaffManager = req.user?.role === 'MANAGER';
+            const providedBranchId = branchId as string | undefined;
+            const allowedBranchIds = isStaffManager ? managerBranchIds(req) : [];
+            
+            if (isStaffManager) {
+                if (allowedBranchIds.length === 0) {
+                    return res.status(400).json({ error: 'Staff member is not assigned to any branch' });
+                }
+                if (providedBranchId && !allowedBranchIds.includes(providedBranchId)) {
+                    return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                }
+            }
+
             const resolvedBranchId =
                 branchId === 'all'
                     ? undefined
-                    : (branchId as string | undefined);
+                    : (providedBranchId as string | undefined);
 
-            if (isStaffManager && managerBranchIds(req).length === 0) {
-                return res.status(400).json({ error: 'Staff member is not assigned to any branch' });
-            }
-
-            const providedBranchId = branchId as string | undefined;
             const report = await AdminService.getReportOverview({
                 branchId: isStaffManager ? (providedBranchId || firstManagerBranchId(req)) : (providedBranchId || resolvedBranchId),
                 startDate: parsedStartDate,

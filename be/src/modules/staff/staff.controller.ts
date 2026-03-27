@@ -73,13 +73,21 @@ export class StaffController {
             const { id } = req.params;
             const staffId = req.user?.id;
             const tenantId = req.user?.tenantId;
-            const branchId = req.user?.branchId;
+            const userBranchIds = req.user?.branchIds || [];
+            
+            // For managers/employees, retrieve the order first to check branch access
+            if (req.user?.role === 'MANAGER' || req.user?.role === 'EMPLOYEE') {
+                const order = await OrderService.getOrder(id as string, tenantId);
+                if (!userBranchIds.includes(order.branchId)) {
+                    return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                }
+            }
 
             if (!staffId) {
                 return res.status(401).json({ error: 'Unauthorized' });
             }
 
-            const order = await StaffService.completeOrder(id as string, staffId, tenantId, branchId);
+            const order = await StaffService.completeOrder(id as string, staffId, tenantId, userBranchIds);
 
             res.json(order);
         } catch (error) {
@@ -94,9 +102,17 @@ export class StaffController {
             const { id } = req.params;
             const staffId = req.user?.id;
             const tenantId = req.user?.tenantId;
-            const branchId = req.user?.branchId;
+            const userBranchIds = req.user?.branchIds || [];
 
-            const order = await OrderService.undoCancellation(id as string, staffId, tenantId, branchId);
+            // For managers/employees, retrieve the order first to check branch access
+            if (req.user?.role === 'MANAGER' || req.user?.role === 'EMPLOYEE') {
+                const order = await OrderService.getOrder(id as string, tenantId);
+                if (!userBranchIds.includes(order.branchId)) {
+                    return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                }
+            }
+
+            const order = await OrderService.undoCancellation(id as string, staffId, tenantId, userBranchIds);
 
             res.json(order);
         } catch (error) {

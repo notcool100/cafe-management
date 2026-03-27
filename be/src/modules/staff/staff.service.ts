@@ -48,12 +48,12 @@ export class StaffService {
         return orders;
     }
 
-    static async completeOrder(orderId: string, staffId: string, tenantId?: string, branchId?: string) {
+    static async completeOrder(orderId: string, staffId: string, tenantId?: string, branchIds?: string[]) {
         const existing = await prisma.order.findFirst({
             where: {
                 id: orderId,
                 ...(tenantId ? { tenantId } : {}),
-                ...(branchId ? { branchId } : {}),
+                ...(branchIds && branchIds.length > 0 ? { branchId: { in: branchIds } } : {}),
             },
             select: { id: true },
         });

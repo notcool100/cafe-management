@@ -134,7 +134,7 @@ export class OrderController {
 
             const branchConstraint =
                 req.user.role === 'MANAGER' || req.user.role === 'EMPLOYEE'
-                    ? ((req.user as any).branchIds?.[0] || undefined) // For now, we use the first branch or handle multi-branch in service
+                    ? ((req.user as any).branchIds || [])
                     : undefined;
 
             const order = await OrderService.updateOrderStatus(

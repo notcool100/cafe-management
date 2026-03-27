@@ -15,7 +15,7 @@ import OrderDetailModal from '@/components/staff/OrderDetailModal';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { formatBranchLabel } from '@/lib/utils/format';
 
-type DateFilter = 'TODAY' | 'LAST_24H' | 'THIS_WEEK' | 'ALL';
+type DateFilter = 'TODAY' | 'LAST_24H' | 'THIS_WEEK' | 'ALL' | 'CUSTOM';
 type OrderView = 'LIVE' | 'COMPLETED' | 'CANCELLED';
 type LiveStatusFilter =
     | 'ALL'
@@ -42,6 +42,8 @@ export default function AdminOrdersPage() {
     const [orderView, setOrderView] = useState<OrderView>('LIVE');
     const [statusFilter, setStatusFilter] = useState<LiveStatusFilter>('ALL');
     const [dateFilter, setDateFilter] = useState<DateFilter>('TODAY');
+    const [customStartDate, setCustomStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+    const [customEndDate, setCustomEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isDetailView, setIsDetailView] = useState(false);
@@ -71,7 +73,7 @@ export default function AdminOrdersPage() {
     const loadOrders = useCallback(async () => {
         setIsLoading(true);
         try {
-            const { startDate, endDate } = computeDates(dateFilter);
+            const { startDate, endDate } = computeDates(dateFilter, customStartDate, customEndDate);
             const apiStatus =
                 orderView === 'COMPLETED'
                     ? OrderStatus.COMPLETED
@@ -93,7 +95,7 @@ export default function AdminOrdersPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [branchFilter, dateFilter, managerBranchId, orderView, statusFilter]);
+    }, [branchFilter, dateFilter, customStartDate, customEndDate, managerBranchId, orderView, statusFilter]);
 
     useEffect(() => {
         void loadBranches();
@@ -297,11 +299,46 @@ export default function AdminOrdersPage() {
                             }
                             className="min-w-[150px] border-0 bg-red-900 shadow-sm rounded-lg"
                         /> */}
-                        <div className="flex bg-white rounded-lg shadow-sm p-1 border border-gray-100">
+                        <div className="flex bg-white rounded-lg shadow-sm p-1 border border-gray-100 overflow-x-auto">
                             <FilterChip active={orderView === 'LIVE'} label="Live" onClick={() => { setOrderView('LIVE'); setIsDetailView(false); }} />
                             <FilterChip active={orderView === 'COMPLETED'} label="Completed" onClick={() => { setOrderView('COMPLETED'); setIsDetailView(false); }} />
+                            <FilterChip active={orderView === 'CANCELLED'} label="Cancelled" onClick={() => { setOrderView('CANCELLED'); setIsDetailView(false); }} />
                         </div>
                     </div>
+                </div>
+
+                {/* Date Filters */}
+                <div className="mt-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex flex-wrap bg-white rounded-lg shadow-sm p-1 border border-gray-100 gap-1">
+                        <FilterChip active={dateFilter === 'TODAY'} label="Today" onClick={() => setDateFilter('TODAY')} />
+                        <FilterChip active={dateFilter === 'LAST_24H'} label="24h" onClick={() => setDateFilter('LAST_24H')} />
+                        <FilterChip active={dateFilter === 'THIS_WEEK'} label="Week" onClick={() => setDateFilter('THIS_WEEK')} />
+                        <FilterChip active={dateFilter === 'ALL'} label="All" onClick={() => setDateFilter('ALL')} />
+                        <FilterChip active={dateFilter === 'CUSTOM'} label="Custom" onClick={() => setDateFilter('CUSTOM')} />
+                    </div>
+
+                    {dateFilter === 'CUSTOM' && (
+                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-[#6f584f] font-semibold uppercase ml-1">From</span>
+                                <input
+                                    type="date"
+                                    value={customStartDate}
+                                    onChange={(e) => setCustomStartDate(e.target.value)}
+                                    className="px-3 py-1.5 border-0 rounded-lg bg-white shadow-sm ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-amber-500 text-xs text-[#4e2f27]"
+                                />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-[#6f584f] font-semibold uppercase ml-1">To</span>
+                                <input
+                                    type="date"
+                                    value={customEndDate}
+                                    onChange={(e) => setCustomEndDate(e.target.value)}
+                                    className="px-3 py-1.5 border-0 rounded-lg bg-white shadow-sm ring-1 ring-inset ring-gray-200 focus:ring-2 focus:ring-amber-500 text-xs text-[#4e2f27]"
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -627,7 +664,7 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
     );
 }
 
-function computeDates(filter: DateFilter) {
+function computeDates(filter: DateFilter, customStart?: string, customEnd?: string) {
     const now = new Date();
     switch (filter) {
         case 'TODAY':
@@ -636,6 +673,11 @@ function computeDates(filter: DateFilter) {
             return { startDate: subHours(now, 24).toISOString(), endDate: now.toISOString() };
         case 'THIS_WEEK':
             return { startDate: startOfWeek(now, { weekStartsOn: 1 }).toISOString(), endDate: now.toISOString() };
+        case 'CUSTOM':
+            return {
+                startDate: customStart ? new Date(customStart).toISOString() : undefined,
+                endDate: customEnd ? new Date(`${customEnd}T23:59:59.999Z`).toISOString() : undefined,
+            };
         default:
             return {};
     }

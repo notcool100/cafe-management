@@ -6,7 +6,7 @@ import { getBranchUploadDirName } from '../../middleware/upload';
 
 const isManager = (req: AuthRequest) =>
     req.user?.role === 'MANAGER' || req.user?.role === 'EMPLOYEE';
-const managerBranchId = (req: AuthRequest) => req.user?.branchId;
+const managerBranchIds = (req: AuthRequest) => req.user?.branchIds || [];
 
 const parseSharedBranchIds = (value: unknown) => {
     if (!value) return [];
@@ -57,11 +57,12 @@ export class MenuController {
             const { name, description, price, category, branchId } = req.body;
             const sharedBranchIds = parseSharedBranchIds(req.body.sharedBranchIds);
             if (isManager(req)) {
-                if (!managerBranchId(req)) {
-                    return res.status(400).json({ error: 'Manager is not assigned to a branch' });
+                const allowedBranchIds = managerBranchIds(req);
+                if (allowedBranchIds.length === 0) {
+                    return res.status(400).json({ error: 'Manager is not assigned to any branch' });
                 }
-                if (branchId !== managerBranchId(req)) {
-                    return res.status(403).json({ error: 'Managers can only add items for their branch' });
+                if (!allowedBranchIds.includes(branchId)) {
+                    return res.status(403).json({ error: 'Managers can only add items for their assigned branches' });
                 }
             }
             if (!req.user?.tenantId) {
@@ -91,17 +92,34 @@ export class MenuController {
     static async listMenuItems(req: AuthRequest, res: Response) {
         try {
             const { branchId, category } = req.query;
-            if (isManager(req) && managerBranchId(req) && branchId && branchId !== managerBranchId(req)) {
-                return res.status(403).json({ error: 'Forbidden: Not your branch' });
-            }
-            if (!req.user?.tenantId) {
+            const tenantId = req.user?.tenantId;
+            if (!tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
-            const effectiveBranchId = isManager(req) ? managerBranchId(req) : (branchId as string | undefined);
+
+            let effectiveBranchId = branchId as string | undefined;
+
+            if (isManager(req)) {
+                const allowedBranchIds = managerBranchIds(req);
+                if (allowedBranchIds.length === 0) {
+                    return res.status(403).json({ error: 'Manager is not assigned to any branch' });
+                }
+
+                if (effectiveBranchId) {
+                    // If a specific branch is requested, verify access
+                    if (!allowedBranchIds.includes(effectiveBranchId)) {
+                        return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                    }
+                } else {
+                    // Default to the first branch if none specified
+                    effectiveBranchId = allowedBranchIds[0];
+                }
+            }
+
             const menuItems = await MenuService.listMenuItems(
                 effectiveBranchId,
                 category as string,
-                req.user.tenantId
+                tenantId
             );
 
             res.json(menuItems);
@@ -140,15 +158,19 @@ export class MenuController {
             if (!req.user?.tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
             if (isManager(req)) {
-                if (!managerBranchId(req)) {
-                    return res.status(400).json({ error: 'Manager is not assigned to a branch' });
+                const allowedBranchIds = managerBranchIds(req);
+                if (allowedBranchIds.length === 0) {
+                    return res.status(400).json({ error: 'Manager is not assigned to any branch' });
                 }
-                if (branchId && branchId !== managerBranchId(req)) {
-                    return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                if (branchId && !allowedBranchIds.includes(branchId)) {
+                    return res.status(403).json({ error: 'Forbidden: Cannot move item to unassigned branch' });
                 }
                 const existing = await MenuService.getMenuItem(id as string, req.user.tenantId);
-                if (existing.branchId !== managerBranchId(req)) {
+                if (!allowedBranchIds.includes(existing.branchId)) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
             }
@@ -182,12 +204,16 @@ export class MenuController {
             if (!req.user?.tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
             if (isManager(req)) {
-                if (!managerBranchId(req)) {
-                    return res.status(400).json({ error: 'Manager is not assigned to a branch' });
+                const allowedBranchIds = managerBranchIds(req);
+                if (allowedBranchIds.length === 0) {
+                    return res.status(400).json({ error: 'Manager is not assigned to any branch' });
                 }
                 const existing = await MenuService.getMenuItem(id as string, req.user.tenantId);
-                if (existing.branchId !== managerBranchId(req)) {
+                if (!allowedBranchIds.includes(existing.branchId)) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
             }
