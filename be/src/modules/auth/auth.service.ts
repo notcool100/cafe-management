@@ -4,9 +4,23 @@ import jwt from 'jsonwebtoken';
 
 export class AuthService {
     static async login(email: string, password: string) {
+        const normalizedEmail = email.trim().toLowerCase();
         const user = await prisma.user.findUnique({
-            where: { email },
-            include: { branch: true, tenant: true },
+            where: { email: normalizedEmail },
+            select: {
+                id: true,
+                email: true,
+                password: true,
+                name: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                refreshToken: true,
+                isActive: true,
+                tenantId: true,
+                branches: true,
+                tenant: true,
+            },
         });
 
         if (!user || !user.isActive) {
@@ -28,10 +42,13 @@ export class AuthService {
                 id: user.id,
                 email: user.email,
                 name: user.name,
+                imageUrl: null,
                 role: user.role,
-                branchId: user.branchId,
-                branch: user.branch,
+                branchIds: user.branches.map((b: any) => b.id),
+                branches: user.branches,
                 tenantId: user.tenantId,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt,
             },
         };
     }
@@ -41,11 +58,12 @@ export class AuthService {
         password: string;
         name: string;
         role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | 'SUPER_ADMIN';
-        branchId?: string;
+        branchIds?: string[];
         tenantId?: string;
     }) {
+        const normalizedEmail = data.email.trim().toLowerCase();
         const existingUser = await prisma.user.findUnique({
-            where: { email: data.email },
+            where: { email: normalizedEmail },
         });
 
         if (existingUser) {
@@ -55,9 +73,9 @@ export class AuthService {
         const hashedPassword = await bcrypt.hash(data.password, 10);
 
         let resolvedTenantId = data.tenantId;
-        if (!resolvedTenantId && data.branchId) {
+        if (!resolvedTenantId && data.branchIds && data.branchIds.length > 0) {
             const branch = await prisma.branch.findUnique({
-                where: { id: data.branchId },
+                where: { id: data.branchIds[0] },
                 select: { tenantId: true },
             });
 
@@ -82,7 +100,8 @@ export class AuthService {
                 },
             });
 
-            const slugBase = data.email.split('@')[0]?.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'tenant';
+            const slugBase =
+                normalizedEmail.split('@')[0]?.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'tenant';
             const tenant = await prisma.tenant.create({
                 data: {
                     name: `${data.name}'s Cafe`,
@@ -107,13 +126,29 @@ export class AuthService {
             throw new Error('Tenant is required for registration');
         }
 
+        const { branchIds, ...userData } = data;
+
         const user = await prisma.user.create({
             data: {
-                ...data,
+                ...userData,
+                email: normalizedEmail,
                 tenantId: resolvedTenantId,
                 password: hashedPassword,
+                branches: branchIds ? {
+                    connect: branchIds.map(id => ({ id }))
+                } : undefined
             },
-            include: { branch: true, tenant: true },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                tenantId: true,
+                branches: true,
+                tenant: true,
+            },
         });
 
         const tokens = await this.generateTokens(user);
@@ -125,10 +160,13 @@ export class AuthService {
                 id: user.id,
                 email: user.email,
                 name: user.name,
+                imageUrl: null,
                 role: user.role,
-                branchId: user.branchId,
-                branch: user.branch,
+                branchIds: user.branches.map((b: any) => b.id),
+                branches: user.branches,
                 tenantId: user.tenantId,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt,
             },
         };
     }
@@ -140,6 +178,14 @@ export class AuthService {
 
             const user = await prisma.user.findUnique({
                 where: { id: decoded.id },
+                select: {
+                    id: true,
+                    email: true,
+                    role: true,
+                    refreshToken: true,
+                    tenantId: true,
+                    branches: true,
+                }
             });
 
             if (!user || !user.refreshToken) {
@@ -161,7 +207,7 @@ export class AuthService {
     }
 
     static async logout(userId: string) {
-        await prisma.user.update({
+        await prisma.user.updateMany({
             where: { id: userId },
             data: { refreshToken: null },
         });
@@ -177,7 +223,7 @@ export class AuthService {
                 email: user.email,
                 role: user.role,
                 tenantId: user.tenantId,
-                branchId: user.branchId,
+                branchIds: user.branches?.map((b: any) => b.id) || [],
             },
             secret,
             { expiresIn: '15m' }
@@ -192,9 +238,52 @@ export class AuthService {
         return { accessToken, refreshToken };
     }
 
+    static async getMe(userId: string) {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                isActive: true,
+                tenantId: true,
+                branches: true,
+                tenant: true,
+            },
+        });
+
+        if (!user || !user.isActive) {
+            throw new Error('User not found or inactive');
+        }
+
+        // For ADMIN/SUPER_ADMIN, provide ALL branches of the tenant
+        let branches = user.branches;
+        if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+            branches = await prisma.branch.findMany({
+                where: { tenantId: user.tenantId, isActive: true }
+            });
+        }
+
+        return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            imageUrl: null,
+            role: user.role,
+            branchIds: branches.map((b: any) => b.id),
+            branches: branches,
+            tenantId: user.tenantId,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+        };
+    }
+
     private static async updateRefreshToken(userId: string, refreshToken: string) {
         const hash = await bcrypt.hash(refreshToken, 10);
-        await prisma.user.update({
+        await prisma.user.updateMany({
             where: { id: userId },
             data: { refreshToken: hash },
         });

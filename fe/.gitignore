@@ -16,7 +16,7 @@
 # next.js
 /.next/
 /out/
-
+fe.env.uat
 # production
 /build
 
@@ -39,3 +39,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.pm2
+pm2.log

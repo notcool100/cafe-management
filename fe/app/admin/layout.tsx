@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth-store';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import BranchSelector from '@/components/ui/BranchSelector';
 import { cn } from '@/lib/utils/cn';
 import { UserRole } from '@/lib/types';
 
@@ -25,16 +26,40 @@ const managerNavigation = [{ name: 'Create Order', href: '/staff/orders', icon: 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { user, logout } = useAuthStore();
+    const { user, logout, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const isStaffManager = user?.role === UserRole.MANAGER || user?.role === UserRole.EMPLOYEE;
-    const staffAllowed = useMemo(
-        () => ['/admin/reports', '/admin/orders', '/admin/employees', '/admin/menu', '/admin/category'],
-        []
-    );
-    const visibleNavigation = isStaffManager
-        ? [...managerNavigation, ...navigation.filter((item) => staffAllowed.includes(item.href))]
-        : navigation;
+   const isStaffManager =
+    user?.role === UserRole.MANAGER || user?.role === UserRole.EMPLOYEE;
+
+const isAdminLike =
+    user?.role === UserRole.ADMIN || user?.role === UserRole.SUPER_ADMIN;
+
+const staffAllowed = useMemo(
+    () => [
+        '/admin/reports',
+        '/admin/orders',
+        '/admin/employees',
+        '/admin/menu',
+        '/admin/category',
+    ],
+    []
+);
+
+const visibleNavigation = useMemo(() => {
+    if (isAdminLike) {
+        return [...managerNavigation, ...navigation];
+    }
+
+    if (isStaffManager) {
+        return [
+            ...managerNavigation,
+            ...navigation.filter((item) => staffAllowed.includes(item.href)),
+        ];
+    }
+
+    return navigation;
+}, [isAdminLike, isStaffManager, staffAllowed]);
+    const contentKey = `${pathname}:${selectedBranchId || 'all'}`;
     const isNavItemActive = (href: string) =>
         href === '/admin'
             ? pathname === href
@@ -56,8 +81,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }, [isStaffManager, pathname, router, staffAllowed]);
 
     useEffect(() => {
-        setSidebarOpen(false);
-    }, [pathname]);
+        refreshUser();
+    }, []);
 
     useEffect(() => {
         const originalOverflow = document.body.style.overflow;
@@ -80,6 +105,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         <div className="flex items-center flex-shrink-0 px-6 py-6 border-b border-[#e4d7c2]">
                             <h1 className="text-xl font-semibold tracking-tight text-[#5a3a2e]">Cafe Admin</h1>
                         </div>
+
+                        {/* Branch Selector */}
+                        {user?.branchIds && user.branchIds.length > 1 && (
+                            <div className="px-3 py-4 border-b border-[#e4d7c2] bg-[#fdfaf3]">
+                                <label className="block text-[10px] uppercase tracking-wider font-bold text-[#8b6f5f] mb-2 px-3">
+                                    Current Branch
+                                </label>
+                                <BranchSelector
+                                    branches={user.branches || []}
+                                    value={selectedBranchId}
+                                    onChange={(branchId) => {
+                                        setSelectedBranchId(branchId);
+                                        console.log('Branch switched to:', branchId);
+                                    }}
+                                />
+                            </div>
+                        )}
 
                         {/* Navigation */}
                         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
@@ -176,6 +218,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     </button>
                                 </div>
 
+                                {/* Mobile Branch Selector */}
+                                {user?.branchIds && user.branchIds.length > 1 && (
+                                    <div className="px-6 py-4 border-b border-[#e4d7c2] bg-[#fdfaf3]">
+                                        <label className="block text-[10px] uppercase tracking-wider font-bold text-[#8b6f5f] mb-2">
+                                            Current Branch
+                                        </label>
+                                        <BranchSelector
+                                            branches={user.branches || []}
+                                            value={selectedBranchId}
+                                            onChange={(branchId) => {
+                                                setSelectedBranchId(branchId);
+                                                setSidebarOpen(false);
+                                            }}
+                                        />
+                                    </div>
+                                )}
+
                                 <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
                                     {visibleNavigation.map((item) => {
                                         const isActive = isNavItemActive(item.href);
@@ -251,7 +310,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                     {/* Page content */}
                     <main className="bg-[#fbf5e8] p-6 lg:p-8">
-                        <div className="max-w-7xl mx-auto">
+                        <div key={contentKey} className="max-w-7xl mx-auto">
                             {children}
                         </div>
                     </main>

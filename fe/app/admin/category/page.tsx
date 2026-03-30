@@ -13,15 +13,15 @@ import Button from '@/components/ui/Button';
 import { formatBranchLabel } from '@/lib/utils/format';
 
 export default function CategoriesPage() {
-    const { user } = useAuthStore();
+    const { user, selectedBranchId } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
-    const managerBranchId = isManager ? user?.branchId : undefined;
+    const currentBranchId = selectedBranchId || '';
 
     const [branches, setBranches] = useState<Branch[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [activeBranchId, setActiveBranchId] = useState(managerBranchId || '');
+    const [activeBranchId, setActiveBranchId] = useState(currentBranchId);
     const [editCategory, setEditCategory] = useState<Category | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<Category | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; isVisible: boolean }>({
@@ -31,8 +31,8 @@ export default function CategoriesPage() {
     });
 
     const effectiveBranchId = useMemo(
-        () => managerBranchId || activeBranchId || undefined,
-        [activeBranchId, managerBranchId]
+        () => activeBranchId || undefined,
+        [activeBranchId]
     );
 
     const loadBranches = useCallback(async () => {
@@ -66,12 +66,12 @@ export default function CategoriesPage() {
     }, [loadBranches]);
 
     useEffect(() => {
-        if (managerBranchId) {
-            setActiveBranchId(managerBranchId);
-        } else if (!activeBranchId && branches.length === 1) {
+        if (!activeBranchId && branches.length === 1) {
             setActiveBranchId(branches[0].id);
+        } else if (currentBranchId && currentBranchId !== activeBranchId) {
+            setActiveBranchId(currentBranchId);
         }
-    }, [branches, activeBranchId, managerBranchId]);
+    }, [branches, activeBranchId, currentBranchId]);
 
     useEffect(() => {
         loadCategories();
@@ -188,7 +188,7 @@ export default function CategoriesPage() {
                                     {categories.length} total
                                 </p>
                             </div>
-                            <div className="w-full sm:w-[220px]">
+                            {/* <div className="w-full sm:w-[220px]">
                                 <label htmlFor="branch-filter" className="sr-only">Filter by branch</label>
                                 <select
                                     id="branch-filter"
@@ -197,9 +197,9 @@ export default function CategoriesPage() {
                                     disabled={isManager}
                                     className="w-full rounded-lg border border-[#5b3629] bg-[#5b3629] px-3 py-2 text-sm font-medium text-[#f8efe1] outline-none disabled:cursor-not-allowed disabled:opacity-70"
                                 >
-                                    {isManager && managerBranchId
+                                    {isManager && currentBranchId
                                         ? branches
-                                            .filter((b) => b.id === managerBranchId)
+                                            .filter((b) => b.id === currentBranchId)
                                             .map((b) => (
                                                 <option key={b.id} value={b.id}>
                                                     {formatBranchLabel(b)}
@@ -216,7 +216,7 @@ export default function CategoriesPage() {
                                             </>
                                         )}
                                 </select>
-                            </div>
+                            </div> */}
                         </div>
 
                         {categories.length === 0 ? (
@@ -226,7 +226,7 @@ export default function CategoriesPage() {
                         ) : (
                             <div className="space-y-3">
                                 {categories.map((category) => {
-                                    const isOwner = !isManager || category.branchId === managerBranchId;
+                                    const isOwner = !isManager || category.branchId === currentBranchId;
                                     const isSharedFromOther =
                                         effectiveBranchId && category.branchId !== effectiveBranchId;
                                     const sharedCount = category.sharedBranchIds?.length || 0;

@@ -8,29 +8,35 @@ export class AdminService {
         email: string;
         password: string;
         name: string;
+        imageUrl?: string;
         role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | 'SUPER_ADMIN';
-        branchId?: string;
+        branchIds?: string[];
         tenantId: string;
     }) {
         if (!data.tenantId) {
             throw new Error('Tenant is required to create an employee');
         }
 
+        const normalizedEmail = data.email.trim().toLowerCase();
+
         await assertSeatEntitlement(data.tenantId);
 
-        if (data.branchId) {
-            const branch = await prisma.branch.findUnique({
-                where: { id: data.branchId, tenantId: data.tenantId },
+        if (data.branchIds && data.branchIds.length > 0) {
+            const branches = await prisma.branch.findMany({
+                where: {
+                    id: { in: data.branchIds },
+                    tenantId: data.tenantId
+                },
                 select: { id: true },
             });
 
-            if (!branch) {
-                throw new Error('Branch not found for this tenant');
+            if (branches.length !== data.branchIds.length) {
+                throw new Error('One or more branches not found for this tenant');
             }
         }
 
         const existingUser = await prisma.user.findUnique({
-            where: { email: data.email },
+            where: { email: normalizedEmail },
         });
 
         if (existingUser) {
@@ -39,23 +45,41 @@ export class AdminService {
 
         const hashedPassword = await bcrypt.hash(data.password, 10);
 
+        const { branchIds, imageUrl: _imageUrl, ...userData } = data;
+
         const user = await prisma.user.create({
             data: {
-                ...data,
+                ...userData,
+                email: normalizedEmail,
                 password: hashedPassword,
+                branches: branchIds ? {
+                    connect: branchIds.map(id => ({ id }))
+                } : undefined,
             },
-            include: { branch: true, tenant: true },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                tenantId: true,
+                branches: true,
+                tenant: true,
+            },
         });
 
         return {
             id: user.id,
             email: user.email,
             name: user.name,
+            imageUrl: null,
             role: user.role,
-            branchId: user.branchId,
-            branch: user.branch,
+            branchIds: user.branches.map(b => b.id),
+            branches: user.branches,
             tenantId: user.tenantId,
             createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
         };
     }
 
@@ -64,9 +88,19 @@ export class AdminService {
             where: {
                 tenantId,
                 isActive: true,
-                ...(branchId ? { branchId } : {}),
+                ...(branchId ? { branches: { some: { id: branchId } } } : {}),
             },
-            include: { branch: true, tenant: true },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                tenantId: true,
+                branches: true,
+                tenant: true,
+            },
             orderBy: { createdAt: 'desc' },
         });
 
@@ -74,11 +108,13 @@ export class AdminService {
             id: user.id,
             email: user.email,
             name: user.name,
+            imageUrl: null,
             role: user.role,
-            branchId: user.branchId,
-            branch: user.branch,
+            branchIds: user.branches.map((b: any) => b.id),
+            branches: user.branches,
             tenantId: user.tenantId,
             createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
         }));
     }
 
@@ -89,7 +125,17 @@ export class AdminService {
                 isActive: true,
                 tenantId,
             },
-            include: { branch: true, tenant: true },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                tenantId: true,
+                branches: true,
+                tenant: true,
+            },
         });
 
         if (!user) {
@@ -100,11 +146,13 @@ export class AdminService {
             id: user.id,
             email: user.email,
             name: user.name,
+            imageUrl: null,
             role: user.role,
-            branchId: user.branchId,
-            branch: user.branch,
+            branchIds: user.branches.map(b => b.id),
+            branches: user.branches,
             tenantId: user.tenantId,
             createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
         };
     }
 
@@ -114,31 +162,52 @@ export class AdminService {
         data: {
             name?: string;
             role?: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
-            branchId?: string;
+            branchIds?: string[];
+            imageUrl?: string;
         }
     ) {
         const existing = await prisma.user.findFirst({
             where: { id, tenantId, isActive: true },
+            select: { id: true },
         });
 
         if (!existing) {
             throw new Error('Employee not found');
         }
 
+        const { branchIds, imageUrl: _imageUrl, ...updateData } = data;
+
         const user = await prisma.user.update({
             where: { id },
-            data,
-            include: { branch: true },
+            data: {
+                ...updateData,
+                branches: branchIds ? {
+                    set: branchIds.map(id => ({ id }))
+                } : undefined,
+            },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                createdAt: true,
+                updatedAt: true,
+                tenantId: true,
+                branches: true,
+            },
         });
 
         return {
             id: user.id,
             email: user.email,
             name: user.name,
+            imageUrl: null,
             role: user.role,
-            branchId: user.branchId,
-            branch: user.branch,
+            branchIds: user.branches.map(b => b.id),
+            branches: user.branches,
             tenantId: user.tenantId,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
         };
     }
 
@@ -152,7 +221,7 @@ export class AdminService {
             throw new Error('Employee not found');
         }
 
-        await prisma.user.update({
+        await prisma.user.updateMany({
             where: { id },
             data: { isActive: false },
         });
@@ -192,12 +261,14 @@ export class AdminService {
         return updatedBranch;
     }
 
-    static async listBranches(tenantId: string, branchId?: string) {
+    static async listBranches(tenantId: string, options: { branchIds?: string[], userId?: string } = {}) {
+        const { branchIds, userId } = options;
         const branches = await prisma.branch.findMany({
             where: {
                 isActive: true,
                 tenantId,
-                ...(branchId ? { id: branchId } : {}),
+                ...(branchIds && branchIds.length > 0 ? { id: { in: branchIds } } : {}),
+                ...(userId ? { users: { some: { id: userId } } } : {}),
             },
             include: {
                 _count: {
@@ -276,7 +347,7 @@ export class AdminService {
         await prisma.$transaction([
             // Deactivate all staff/employees assigned to this branch
             prisma.user.updateMany({
-                where: { branchId: id, isActive: true },
+                where: { branches: { some: { id: id } }, isActive: true },
                 data: { isActive: false },
             }),
             // Delete all menu items for this branch

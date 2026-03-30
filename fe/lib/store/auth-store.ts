@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User, UserRole } from '../types';
+import { Branch, User, UserRole } from '../types';
+import { authService } from '../api/auth-service';
 
 interface AuthState {
     user: User | null;
@@ -9,6 +10,7 @@ interface AuthState {
     isAuthenticated: boolean;
     isLoading: boolean;
     hasHydrated: boolean;
+    selectedBranchId: string | null;
 
     // Actions
     setAuth: (user: User, accessToken: string, refreshToken: string) => void;
@@ -16,11 +18,53 @@ interface AuthState {
     logout: () => void;
     setLoading: (loading: boolean) => void;
     setHasHydrated: (state: boolean) => void;
+    setSelectedBranchId: (id: string | null) => void;
+    refreshUser: () => Promise<void>;
 
     // Computed values
     isAdmin: () => boolean;
     isManager: () => boolean;
 }
+
+const dedupeBranchIds = (branchIds?: string[]) => {
+    const seen = new Set<string>();
+
+    return (branchIds || []).filter((branchId) => {
+        if (!branchId || seen.has(branchId)) {
+            return false;
+        }
+
+        seen.add(branchId);
+        return true;
+    });
+};
+
+const dedupeBranches = (branches?: Branch[]) => {
+    const seen = new Set<string>();
+
+    return (branches || []).filter((branch) => {
+        if (!branch.id || seen.has(branch.id)) {
+            return false;
+        }
+
+        seen.add(branch.id);
+        return true;
+    });
+};
+
+const normalizeUser = (user: User): User => {
+    const branches = dedupeBranches(user.branches);
+    const branchIds = dedupeBranchIds([
+        ...(user.branchIds || []),
+        ...branches.map((branch) => branch.id),
+    ]);
+
+    return {
+        ...user,
+        branches,
+        branchIds,
+    };
+};
 
 export const useAuthStore = create<AuthState>()(
     persist(
@@ -31,8 +75,10 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false,
             isLoading: false,
             hasHydrated: false,
+            selectedBranchId: null,
 
             setAuth: (user: User, accessToken: string, refreshToken: string) => {
+                const normalizedUser = normalizeUser(user);
                 console.log('🔐 [AuthStore] setAuth called:', {
                     userId: user.id,
                     email: user.email,
@@ -50,10 +96,14 @@ export const useAuthStore = create<AuthState>()(
                 }
 
                 set({
-                    user,
+                    user: normalizedUser,
                     accessToken,
                     refreshToken,
                     isAuthenticated: true,
+                    selectedBranchId:
+                        normalizedUser.branchIds && normalizedUser.branchIds.length > 0
+                            ? normalizedUser.branchIds[0]
+                            : null,
                 });
 
                 console.log('✅ [AuthStore] Auth state updated');
@@ -83,6 +133,7 @@ export const useAuthStore = create<AuthState>()(
                     accessToken: null,
                     refreshToken: null,
                     isAuthenticated: false,
+                    selectedBranchId: null,
                 });
 
                 console.log('✅ [AuthStore] Logged out successfully');
@@ -107,6 +158,22 @@ export const useAuthStore = create<AuthState>()(
                 const { user } = get();
                 return user?.role === UserRole.MANAGER;
             },
+
+            setSelectedBranchId: (id: string | null) => {
+                set({ selectedBranchId: id });
+            },
+
+            refreshUser: async () => {
+                try {
+                    const user = normalizeUser(await authService.getMe());
+                    set((state) => ({
+                        user,
+                        selectedBranchId: state.selectedBranchId || (user.branchIds && user.branchIds.length > 0 ? user.branchIds[0] : null)
+                    }));
+                } catch (error) {
+                    console.error('Failed to refresh user:', error);
+                }
+            },
         }),
         {
             name: 'auth-storage',
@@ -115,6 +182,7 @@ export const useAuthStore = create<AuthState>()(
                 accessToken: state.accessToken,
                 refreshToken: state.refreshToken,
                 isAuthenticated: state.isAuthenticated,
+                selectedBranchId: state.selectedBranchId,
             }),
             onRehydrateStorage: () => {
                 console.log('🌊 [AuthStore] Starting rehydration from localStorage...');
@@ -123,7 +191,8 @@ export const useAuthStore = create<AuthState>()(
                         hasUser: !!state?.user,
                         isAuthenticated: state?.isAuthenticated,
                         hasAccessToken: !!state?.accessToken,
-                        hasRefreshToken: !!state?.refreshToken
+                        hasRefreshToken: !!state?.refreshToken,
+                        selectedBranchId: state?.selectedBranchId
                     });
                     state?.setHasHydrated(true);
                 };

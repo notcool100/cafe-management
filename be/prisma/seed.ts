@@ -100,7 +100,9 @@ async function main() {
             email: 'manager1@cafe.com',
             password: managerPassword,
             role: 'MANAGER',
-            branchId: mainBranch.id,
+            branches: {
+                connect: [{ id: mainBranch.id }]
+            },
             tenantId: tenant.id,
         },
     });
@@ -111,7 +113,9 @@ async function main() {
             email: 'manager2@cafe.com',
             password: managerPassword,
             role: 'MANAGER',
-            branchId: suburbanBranch.id,
+            branches: {
+                connect: [{ id: suburbanBranch.id }]
+            },
             tenantId: tenant.id,
         },
     });

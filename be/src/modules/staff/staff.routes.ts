@@ -29,5 +29,7 @@ router.get('/orders/:id/bill', StaffController.generateBill);
 
 // Notifications for shared items completed at other branches
 router.get('/notifications/shared-items', StaffController.getSharedItemNotifications);
+// Notifications for new orders in the current branch
+router.get('/notifications/orders', StaffController.getOrderNotifications);
 
 export default router;

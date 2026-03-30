@@ -1,6 +1,14 @@
 import axios from 'axios';
 import apiClient from './api-client';
-import { Order, CreateOrderData, OrderStatus, OrderFilters, OrderItem, SharedItemNotification } from '../types';
+import {
+    Order,
+    CreateOrderData,
+    OrderStatus,
+    OrderFilters,
+    OrderItem,
+    SharedItemNotification,
+    OrderNotification,
+} from '../types';
 
 const normalizeOrder = (order: Order): Order => {
     const rawItems = ((order as unknown as { items?: OrderItem[]; orderItems?: OrderItem[] }).items ??
@@ -26,9 +34,14 @@ const normalizeOrders = (orders: Order[]): Order[] => orders.map(normalizeOrder)
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4100';
 
+const getApiBaseUrl = (url: string) => {
+    const clean = url.endsWith('/') ? url.slice(0, -1) : url;
+    return clean.endsWith('/api') ? clean : `${clean}/api`;
+};
+
 // Public client avoids auth headers/redirects for customer flows (menu/checkout/token)
 const publicClient = axios.create({
-    baseURL: `${API_BASE_URL}/api`,
+    baseURL: getApiBaseUrl(API_BASE_URL),
     headers: {
         'Content-Type': 'application/json',
     },
@@ -69,13 +82,15 @@ export const orderService = {
     },
 
     // Staff endpoints
-    async getActiveOrders(): Promise<Order[]> {
-        const response = await apiClient.get<Order[]>('/staff/orders/active');
+    async getActiveOrders(branchId?: string): Promise<Order[]> {
+        const url = branchId ? `/staff/orders/active?branchId=${branchId}` : '/staff/orders/active';
+        const response = await apiClient.get<Order[]>(url);
         return normalizeOrders(response.data);
     },
 
-    async getOrdersByStatus(status: OrderStatus): Promise<Order[]> {
-        const response = await apiClient.get<Order[]>(`/staff/orders/status/${status}`);
+    async getOrdersByStatus(status: OrderStatus, branchId?: string): Promise<Order[]> {
+        const url = `/staff/orders/status/${status}${branchId ? `?branchId=${branchId}` : ''}`;
+        const response = await apiClient.get<Order[]>(url);
         return normalizeOrders(response.data);
     },
 
@@ -109,6 +124,16 @@ export const orderService = {
         const suffix = params.toString();
         const response = await apiClient.get<SharedItemNotification[]>(
             `/staff/notifications/shared-items${suffix ? `?${suffix}` : ''}`
+        );
+        return response.data;
+    },
+
+    async getOrderNotifications(since?: string): Promise<OrderNotification[]> {
+        const params = new URLSearchParams();
+        if (since) params.append('since', since);
+        const suffix = params.toString();
+        const response = await apiClient.get<OrderNotification[]>(
+            `/staff/notifications/orders${suffix ? `?${suffix}` : ''}`
         );
         return response.data;
     },

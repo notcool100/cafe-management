@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orderService } from '@/lib/api/order-service';
 import { menuService } from '@/lib/api/menu-service';
-import { Order, CreateOrderData, OrderType, OrderStatus, Branch } from '@/lib/types';
+import BranchSelector from '@/components/ui/BranchSelector';
+import { Order, CreateOrderData, OrderType, OrderStatus, Branch, OrderNotification, SharedItemNotification, MenuItem } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { resolveImageUrl } from '@/lib/utils/image';
-import { SharedItemNotification } from '@/lib/types';
+type NotificationItem =
+  | { kind: 'shared'; timestamp: string; data: SharedItemNotification }
+  | { kind: 'order'; timestamp: string; data: OrderNotification };
 
 interface CartItem {
   id: string;
@@ -30,7 +33,7 @@ interface MenuItemPreview {
 
 export default function StaffOrdersPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [viewMode, setViewMode] = useState<'menu' | 'live-orders' | 'history'>('menu');
@@ -53,18 +56,21 @@ export default function StaffOrdersPage() {
   const [historyEndDate, setHistoryEndDate] = useState('');
   const historyStartDateRef = useRef<HTMLInputElement | null>(null);
   const historyEndDateRef = useRef<HTMLInputElement | null>(null);
+  // Remove local selectedBranchId state as we use the one from store
   const [branchInfo, setBranchInfo] = useState<Branch | null>(null);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<SharedItemNotification[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
-  const branchQrCode = branchInfo?.qrCode || user?.branch?.qrCode;
+  const [failedMenuImageIds, setFailedMenuImageIds] = useState<Set<string>>(new Set());
+  const branchQrCode = branchInfo?.qrCode || user?.branches?.find(b => b.id === selectedBranchId)?.qrCode;
 
   // Fetch live orders from API
   const fetchLiveOrders = async () => {
+    if (!selectedBranchId) return;
     try {
       setIsLoadingOrders(true);
-      const orders = await orderService.getActiveOrders();
+      const orders = await orderService.getActiveOrders(selectedBranchId);
       setLiveOrders(orders);
     } catch (error) {
       console.error('Failed to fetch live orders:', error);
@@ -75,11 +81,12 @@ export default function StaffOrdersPage() {
   };
 
   const fetchHistoryOrders = async () => {
+    if (!selectedBranchId) return;
     try {
       setIsLoadingHistory(true);
       const [completed, cancelled] = await Promise.all([
-        orderService.getOrdersByStatus(OrderStatus.COMPLETED),
-        orderService.getOrdersByStatus(OrderStatus.CANCELLED),
+        orderService.getOrdersByStatus(OrderStatus.COMPLETED, selectedBranchId),
+        orderService.getOrdersByStatus(OrderStatus.CANCELLED, selectedBranchId),
       ]);
       const combined = [...completed, ...cancelled].sort((a, b) => {
         const aTime = new Date(a.updatedAt || a.createdAt).getTime();
@@ -95,8 +102,9 @@ export default function StaffOrdersPage() {
     }
   };
 
-  // Fetch orders on component mount and when switching views
+  // Fetch orders on component mount and when switching views or branch
   useEffect(() => {
+    if (!selectedBranchId) return;
     if (viewMode === 'live-orders') {
       fetchLiveOrders();
       return;
@@ -104,15 +112,15 @@ export default function StaffOrdersPage() {
     if (viewMode === 'history') {
       fetchHistoryOrders();
     }
-  }, [viewMode]);
+  }, [viewMode, selectedBranchId]);
 
   // Auto-refresh orders every 10 seconds when in live orders view
   useEffect(() => {
-    if (viewMode !== 'live-orders') return;
+    if (viewMode !== 'live-orders' || !selectedBranchId) return;
 
     const interval = setInterval(fetchLiveOrders, 10000);
     return () => clearInterval(interval);
-  }, [viewMode]);
+  }, [viewMode, selectedBranchId]);
 
   useEffect(() => {
     if (!previewImage) return;
@@ -173,50 +181,68 @@ export default function StaffOrdersPage() {
   });
 
   // Menu items state - starts empty, will be fetched from API
-  const [menuItems, setMenuItems] = useState<any[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isLoadingMenu, setIsLoadingMenu] = useState(false);
 
-  const categories = [
+  const getItemCategory = (item: MenuItem) => (item.category || 'Uncategorized').trim() || 'Uncategorized';
+
+  const resolveMenuCategoryForBranch = (items: MenuItem[], branchId: string, previousCategory: string) => {
+    const availableItems = items.filter(item => item.available !== false);
+    const availableCategories = Array.from(new Set(availableItems.map(getItemCategory)));
+
+    if (previousCategory !== 'All' && availableCategories.includes(previousCategory)) {
+      return previousCategory;
+    }
+
+    const hasLocalItems = availableItems.some(item => item.branchId === branchId);
+    const firstTransferredItem = availableItems.find(item => item.branchId !== branchId);
+
+    if (!hasLocalItems && firstTransferredItem) {
+      return getItemCategory(firstTransferredItem);
+    }
+
+    return 'All';
+  };
+
+  const categories = useMemo(() => [
     'All',
-    ...Array.from(
-      new Set(
-        menuItems
-          .map(item => (item.category || 'Uncategorized').trim())
-          .filter(Boolean)
-      )
-    ),
-  ];
+    ...Array.from(new Set(menuItems.map(getItemCategory).filter(Boolean))),
+  ], [menuItems]);
 
   // Fetch menu items from API
   const fetchMenuItems = async () => {
-    if (!user?.branchId) return;
+    if (!selectedBranchId) return;
 
     try {
       setIsLoadingMenu(true);
-      const items = await menuService.getMenuItems({ branchId: user.branchId });
+      const items = await menuService.getMenuItems({ branchId: selectedBranchId });
       setMenuItems(items);
+      setSelectedCategory(previousCategory =>
+        resolveMenuCategoryForBranch(items, selectedBranchId, previousCategory)
+      );
     } catch (error) {
       console.error('Failed to fetch menu items:', error);
       setMenuItems([]);
+      setSelectedCategory('All');
     } finally {
       setIsLoadingMenu(false);
     }
   };
 
-  // Fetch menu items on component mount
+  // Fetch menu items on component mount or branch change
   useEffect(() => {
     fetchMenuItems();
-  }, [user?.branchId]);
+  }, [selectedBranchId]);
 
   // Fetch branch info for header display
   useEffect(() => {
     const loadBranch = async () => {
-      if (!user?.branchId) {
+      if (!selectedBranchId) {
         setBranchInfo(null);
         return;
       }
       try {
-        const menuData = await menuService.getPublicMenu(user.branchId);
+        const menuData = await menuService.getPublicMenu(selectedBranchId);
         setBranchInfo(menuData.branch);
       } catch (error) {
         console.error('Failed to fetch branch info:', error);
@@ -224,9 +250,9 @@ export default function StaffOrdersPage() {
       }
     };
     loadBranch();
-  }, [user?.branchId]);
+  }, [selectedBranchId]);
 
-  const addToCart = (item: any) => {
+  const addToCart = (item: MenuItem) => {
     setCartItems(prevItems => {
       const existingItem = prevItems.find(cartItem => cartItem.id === item.id);
       if (existingItem) {
@@ -236,7 +262,18 @@ export default function StaffOrdersPage() {
             : cartItem
         );
       }
-      return [...prevItems, { ...item, quantity: 1 }];
+      return [
+        ...prevItems,
+        {
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          category: item.category || 'Uncategorized',
+          imageUrl: item.imageUrl,
+          description: item.description || '',
+          quantity: 1,
+        },
+      ];
     });
   };
 
@@ -276,8 +313,8 @@ export default function StaffOrdersPage() {
   };
 
   const handleConfirmOrder = async () => {
-    if (!user?.branchId) {
-      alert('You must be assigned to a branch to create orders');
+    if (!selectedBranchId) {
+      alert('Please select a branch to create orders');
       return;
     }
 
@@ -291,7 +328,7 @@ export default function StaffOrdersPage() {
     try {
       // Create order data
       const orderData: CreateOrderData = {
-        branchId: user.branchId,
+        branchId: selectedBranchId,
         customerName: customerInfo.name || undefined,
         customerPhone: customerInfo.phone || undefined,
         orderType: customerInfo.orderType === 'dine-in' ? OrderType.DINE_IN : OrderType.TAKEAWAY,
@@ -358,7 +395,7 @@ export default function StaffOrdersPage() {
   // Remove order function
   const handleRemoveOrder = async (orderId: string) => {
     try {
-      await orderService.updateOrderStatus(orderId, 'CANCELLED' as any);
+      await orderService.updateOrderStatus(orderId, OrderStatus.CANCELLED);
       // Refresh the live orders list
       await fetchLiveOrders();
     } catch (error) {
@@ -384,34 +421,55 @@ export default function StaffOrdersPage() {
 
   const fetchNotifications = async () => {
     try {
-      const incoming = await orderService.getSharedItemNotifications();
-      setNotifications(incoming.slice(0, 10)); // Show latest 10
+      const [sharedIncoming, orderIncoming] = await Promise.all([
+        orderService.getSharedItemNotifications(),
+        orderService.getOrderNotifications(),
+      ]);
+      const combined: NotificationItem[] = [
+        ...sharedIncoming.map((n) => ({
+          kind: 'shared' as const,
+          timestamp: n.completedAt,
+          data: n,
+        })),
+        ...orderIncoming.map((n) => ({
+          kind: 'order' as const,
+          timestamp: n.createdAt,
+          data: n,
+        })),
+      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-      const lastSeen = localStorage.getItem(`last-seen-notifications-${user?.branchId}`);
+      setNotifications(combined.slice(0, 10)); // Show latest 10
+
+      const lastSeen = localStorage.getItem(`last-seen-notifications-${selectedBranchId}`);
       if (lastSeen) {
-        const count = incoming.filter(n => new Date(n.completedAt) > new Date(lastSeen)).length;
+        const count = combined.filter(n => new Date(n.timestamp) > new Date(lastSeen)).length;
         setUnreadNotificationsCount(count);
       } else {
-        setUnreadNotificationsCount(incoming.length);
+        setUnreadNotificationsCount(combined.length);
       }
     } catch (error) {
-      console.error('Failed to fetch notifications:', error);
+      // console.error('Failed to fetch notifications:', error);
     }
   };
 
   useEffect(() => {
-    if (user?.branchId) {
+    if (selectedBranchId) {
       fetchNotifications();
       const interval = setInterval(fetchNotifications, 30000); // Check every 30s
       return () => clearInterval(interval);
     }
-  }, [user?.branchId]);
+  }, [selectedBranchId]);
+
+  // Initial branch selection and user refresh
+  useEffect(() => {
+    refreshUser();
+  }, []);
 
   const handleToggleNotifications = () => {
     setIsNotificationsOpen(!isNotificationsOpen);
     if (!isNotificationsOpen) {
       setUnreadNotificationsCount(0);
-      localStorage.setItem(`last-seen-notifications-${user?.branchId}`, new Date().toISOString());
+      localStorage.setItem(`last-seen-notifications-${selectedBranchId}`, new Date().toISOString());
     }
   };
 
@@ -425,12 +483,21 @@ export default function StaffOrdersPage() {
     }
   }, [categories, selectedCategory]);
 
+  const isItemFromOtherBranch = (item: MenuItem) =>
+    Boolean(selectedBranchId && item.branchId && item.branchId !== selectedBranchId);
+
+  const hasOtherBranchItems = menuItems.some(isItemFromOtherBranch);
+
   const filteredItems = menuItems.filter(item => {
-    const itemCategory = (item.category || 'Uncategorized').trim();
+    const itemCategory = getItemCategory(item);
+    const matchesCategory = selectedCategory === 'All'
+      ? !isItemFromOtherBranch(item)
+      : itemCategory === selectedCategory;
+
     return (
       item.available !== false &&
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      (selectedCategory === 'All' || itemCategory === selectedCategory)
+      matchesCategory
     );
   });
 
@@ -473,6 +540,18 @@ export default function StaffOrdersPage() {
                 <h1 className="text-xl font-bold text-gray-900 lg:hidden block">Orders</h1>
               )}
             </div>
+
+            {/* Branch Selector for Multi-branch users */}
+            {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER') && (
+              <div className="mx-4 hidden w-72 flex-none lg:block">
+                <BranchSelector
+                  branches={user.branches || []}
+                  value={selectedBranchId}
+                  onChange={setSelectedBranchId}
+                  variant="slate"
+                />
+              </div>
+            )}
 
             {/* Search Bar - Centered */}
             <div className="flex-1 max-w-md mx-auto">
@@ -529,14 +608,27 @@ export default function StaffOrdersPage() {
                         <div className="divide-y divide-gray-50">
                           {notifications.map((notification, idx) => (
                             <div key={idx} className="p-4 hover:bg-gray-50 transition-colors">
-                              <p className="text-sm font-semibold text-gray-900 leading-tight">
-                                {notification.itemNames.join(', ')}
-                              </p>
-                              <p className="text-xs text-gray-800 mt-1">
-                                used at {notification.orderBranchName || 'branch'}
-                              </p>
+                              {notification.kind === 'shared' ? (
+                                <>
+                                  <p className="text-sm font-semibold text-gray-900 leading-tight">
+                                    {notification.data.itemNames.join(', ')}
+                                  </p>
+                                  <p className="text-xs text-gray-800 mt-1">
+                                    used at {notification.data.orderBranchName || 'branch'}
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-sm font-semibold text-gray-900 leading-tight">
+                                    Order {notification.data.tokenNumber ? `#${notification.data.tokenNumber}` : `#${notification.data.orderId.slice(0, 6).toUpperCase()}`}
+                                  </p>
+                                  <p className="text-xs text-gray-800 mt-1">
+                                    {notification.data.itemNames.length ? notification.data.itemNames.join(', ') : 'Order items'}
+                                  </p>
+                                </>
+                              )}
                               <p className="text-[10px] text-gray-800 mt-1">
-                                {format(new Date(notification.completedAt), 'p')}
+                                {format(new Date(notification.timestamp), 'p')}
                               </p>
                             </div>
                           ))}
@@ -659,6 +751,11 @@ export default function StaffOrdersPage() {
               <section className="px-4 pb-32 lg:px-8">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-6">{selectedCategory}</h2>
+                  {selectedCategory === 'All' && hasOtherBranchItems && (
+                    <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                      Items from other branches are hidden in All. Pick a category to view them.
+                    </p>
+                  )}
 
                   {isLoadingMenu ? (
                     <div className="text-center py-12">
@@ -677,90 +774,137 @@ export default function StaffOrdersPage() {
                       <p className="text-gray-400 text-sm mt-2">Contact your manager to set up the menu</p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {filteredItems.map((item) => (
-                        <article key={item.id} className="py-6 border-b border-gray-900/10 last:border-0">
-                          <div className="flex justify-between items-start gap-6">
-                            {/* Left Column: Info */}
-                            <div className="flex-1 min-w-0 flex flex-col items-start">
-                              <div style={{ width: '276px', padding: '5px' }} className="mb-[5px]">
-                                <h3 style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, fontSize: '20px', lineHeight: '125%', letterSpacing: '0%' }} className="text-gray-900">
-                                  {item.name}
-                                </h3>
-                              </div>
-                              <div style={{ width: '276px', padding: '5px' }} className="mb-[5px]">
-                                <span style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, fontSize: '15px', lineHeight: '125%', letterSpacing: '0%' }} className="text-gray-900">
-                                  Rs {item.price}
-                                </span>
-                              </div>
-                              <div style={{ width: '276px', padding: '5px' }}>
-                                <p style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, fontSize: '10px', lineHeight: '125%', letterSpacing: '0%' }} className="text-gray-900 leading-relaxed">
-                                  {item.description || 'No description available'}
-                                </p>
-                              </div>
-                            </div>
+                    <div className="space-y-0">
+                      {filteredItems.map((item) => {
+                        const imageKey = String(item.id);
+                        const imageSrc = failedMenuImageIds.has(imageKey) ? undefined : getMenuItemImage(item);
+                        const isFromOtherBranch = isItemFromOtherBranch(item);
+                        const sourceBranchName = item.branch?.name?.trim();
 
-                            {/* Right Column: Image & Order Control */}
-                            <div className="flex flex-col items-center gap-4 flex-shrink-0">
-                              <div className="relative" style={{ width: '84px', height: '84px' }}>
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    handleOpenImagePreview(item);
-                                  }}
-                                  className="w-full h-full rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  style={{ backgroundColor: '#D9D9D9' }}
-                                  aria-label={`Preview ${item.name} image`}
-                                >
-                                  <img
-                                    src={getMenuItemImage(item)}
-                                    alt={item.name}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </button>
-                              </div>
-
-                              {getItemQuantity(item.id) === 0 ? (
-                                <button
-                                  onClick={() => addToCart(item)}
-                                  className="flex items-center justify-center border-2 border-green-700/60 text-green-700 rounded-full hover:bg-green-700 hover:text-white transition-all duration-200"
-                                  style={{
-                                    fontFamily: "'Quicksand', sans-serif",
-                                    width: '82px',
-                                    height: '26px',
-                                    fontSize: '12px',
-                                    fontWeight: 600,
-                                    lineHeight: '125%'
-                                  }}
-                                >
-                                  ADD
-                                </button>
-                              ) : (
-                                <div className="flex items-center bg-gray-100 rounded-full px-2 py-1 gap-3">
-                                  <button
-                                    onClick={() => updateQuantity(item.id, getItemQuantity(item.id) - 1)}
-                                    className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors"
-                                    aria-label={`Decrease ${item.name}`}
+                        return (
+                          <article key={item.id} className="border-b border-gray-900/10 py-3 sm:py-4 lg:py-6 last:border-0">
+                            <div className="flex items-start justify-between gap-3 sm:gap-4">
+                              {/* Left Column: Info */}
+                              <div className="min-w-0 flex-1 pr-1 sm:pr-2">
+                                <div className="mb-1 max-w-[276px]">
+                                  <h3
+                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, lineHeight: '125%', letterSpacing: '0%' }}
+                                    className="text-[17px] text-gray-900 sm:text-[19px] lg:text-[20px]"
                                   >
-                                    <span className="text-lg font-bold">-</span>
-                                  </button>
-                                  <span className="text-sm font-bold text-gray-900 min-w-[1ch] text-center" style={{ fontFamily: "'Quicksand', sans-serif" }}>
-                                    {getItemQuantity(item.id)}
+                                    {item.name}
+                                  </h3>
+                                </div>
+                                <div className="mb-1 max-w-[276px]">
+                                  <span
+                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '125%', letterSpacing: '0%' }}
+                                    className="text-sm text-gray-900 sm:text-[15px]"
+                                  >
+                                    Rs {item.price}
                                   </span>
-                                  <button
-                                    onClick={() => updateQuantity(item.id, getItemQuantity(item.id) + 1)}
-                                    className="w-6 h-6 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors"
-                                    aria-label={`Increase ${item.name}`}
+                                </div>
+                                {isFromOtherBranch && (
+                                  <div className="mb-2 max-w-[276px]">
+                                    <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800 ring-1 ring-amber-200 sm:text-[11px]">
+                                      From other branch
+                                    </span>
+                                    {sourceBranchName && (
+                                      <p className="mt-1 text-[10px] font-medium text-amber-800 sm:text-[11px]">
+                                        {sourceBranchName}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                                <div className="max-w-[276px]">
+                                  <p
+                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '125%', letterSpacing: '0%' }}
+                                    className="line-clamp-1 break-words text-[10px] leading-relaxed text-gray-900 sm:line-clamp-2 sm:text-[11px]"
                                   >
-                                    <span className="text-lg font-bold">+</span>
+                                    {item.description || 'No description available'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Right Column: Image & Order Control */}
+                              <div className="flex shrink-0 flex-col items-center gap-2 sm:gap-3 lg:gap-4">
+                                <div className="relative h-14 w-14 sm:h-16 sm:w-16 lg:h-[72px] lg:w-[72px]">
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      if (imageSrc) {
+                                        handleOpenImagePreview(item);
+                                      }
+                                    }}
+                                    disabled={!imageSrc}
+                                    className={`w-full h-full overflow-hidden rounded-full shadow-sm ring-1 ring-black/5 transition-shadow duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${imageSrc ? 'hover:shadow-md cursor-pointer' : 'cursor-default'}`}
+                                    style={{ backgroundColor: '#D9D9D9' }}
+                                    aria-label={imageSrc ? `Preview ${item.name} image` : `${item.name} image unavailable`}
+                                  >
+                                    {imageSrc ? (
+                                      <img
+                                        src={imageSrc}
+                                        alt={item.name}
+                                        className="w-full h-full object-cover"
+                                        onError={() => {
+                                          setFailedMenuImageIds((previous) => {
+                                            if (previous.has(imageKey)) {
+                                              return previous;
+                                            }
+
+                                            const next = new Set(previous);
+                                            next.add(imageKey);
+                                            return next;
+                                          });
+                                        }}
+                                      />
+                                    ) : (
+                                      <span className="flex h-full w-full items-center justify-center text-gray-500">
+                                        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14m-8-5h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                      </span>
+                                    )}
                                   </button>
                                 </div>
-                              )}
+
+                                {getItemQuantity(item.id) === 0 ? (
+                                  <button
+                                    onClick={() => addToCart(item)}
+                                    className="flex h-6 w-[68px] items-center justify-center rounded-full border-2 border-green-700/60 text-[11px] text-green-700 transition-all duration-200 hover:bg-green-700 hover:text-white sm:h-[26px] sm:w-[76px] sm:text-xs lg:w-[82px]"
+                                    style={{
+                                      fontFamily: "'Quicksand', sans-serif",
+                                      fontWeight: 600,
+                                      lineHeight: '125%'
+                                    }}
+                                  >
+                                    ADD
+                                  </button>
+                                ) : (
+                                  <div className="flex items-center gap-2 rounded-full bg-gray-100 px-2 py-0.5 sm:gap-3 sm:py-1">
+                                    <button
+                                      onClick={() => updateQuantity(item.id, getItemQuantity(item.id) - 1)}
+                                      className="flex h-5 w-5 items-center justify-center text-gray-600 transition-colors hover:text-gray-900 sm:h-6 sm:w-6"
+                                      aria-label={`Decrease ${item.name}`}
+                                    >
+                                      <span className="text-lg font-bold">-</span>
+                                    </button>
+                                    <span className="min-w-[1ch] text-center text-xs font-bold text-gray-900 sm:text-sm" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                      {getItemQuantity(item.id)}
+                                    </span>
+                                    <button
+                                      onClick={() => updateQuantity(item.id, getItemQuantity(item.id) + 1)}
+                                      className="flex h-5 w-5 items-center justify-center text-gray-600 transition-colors hover:text-gray-900 sm:h-6 sm:w-6"
+                                      aria-label={`Increase ${item.name}`}
+                                    >
+                                      <span className="text-lg font-bold">+</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </article>
-                      ))}
+                          </article>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

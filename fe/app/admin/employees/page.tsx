@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { employeeService } from '@/lib/api/employee-service';
 import { User } from '@/lib/types';
@@ -10,8 +10,11 @@ import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Toast from '@/components/ui/Toast';
+import { useAuthStore } from '@/lib/store/auth-store';
+import { resolveImageUrl } from '@/lib/utils/image';
 
 export default function EmployeesPage() {
+    const { selectedBranchId } = useAuthStore();
     const [employees, setEmployees] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -22,14 +25,10 @@ export default function EmployeesPage() {
         isVisible: false,
     });
 
-    useEffect(() => {
-        loadEmployees();
-    }, []);
-
-    const loadEmployees = async () => {
+    const loadEmployees = useCallback(async () => {
         try {
             setIsLoading(true);
-            const data = await employeeService.getEmployees();
+            const data = await employeeService.getEmployees(selectedBranchId || undefined);
             setEmployees(data);
         } catch (error: unknown) {
             console.error('Failed to load employees:', error);
@@ -41,7 +40,11 @@ export default function EmployeesPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [selectedBranchId]);
+
+    useEffect(() => {
+        loadEmployees();
+    }, [loadEmployees]);
 
     const handleDelete = async (id: string) => {
         try {
@@ -117,15 +120,19 @@ export default function EmployeesPage() {
 
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                     {filteredEmployees.map((employee) => (
-                        <div
-                            key={employee.id}
-                            className="rounded-lg bg-[#643427] p-4 shadow-[0_1px_6px_rgba(0,0,0,0.22)]"
-                        >
+                        <div key={employee.id} className="rounded-lg bg-[#643427] p-4 shadow-[0_1px_6px_rgba(0,0,0,0.22)]">
                             <Link href={`/admin/employees/${employee.id}`} className="block">
                                 <div className="mb-4 rounded-md bg-[#f4f3ef] p-6 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
                                     <div className="flex items-center gap-4">
-                                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#6a4135] text-xl font-bold text-[#f3e7d2]">
-                                            {employee.name.charAt(0).toUpperCase()}
+                                        <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-[#6a4135] text-xl font-bold text-[#f3e7d2]">
+                                            {resolveImageUrl(employee.imageUrl) ? (
+                                                <div
+                                                    className="h-full w-full bg-cover bg-center"
+                                                    style={{ backgroundImage: `url(${resolveImageUrl(employee.imageUrl)})` }}
+                                                />
+                                            ) : (
+                                                employee.name.charAt(0).toUpperCase()
+                                            )}
                                         </div>
                                         <div className="min-w-0">
                                             <p className="truncate text-lg font-semibold text-[#1d1a16]">{employee.name}</p>

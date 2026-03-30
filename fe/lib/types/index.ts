@@ -10,9 +10,10 @@ export interface User {
     id: string;
     name: string;
     email: string;
+    imageUrl?: string;
     role: UserRole;
-    branchId?: string;
-    branch?: Branch;
+    branchIds?: string[];
+    branches?: Branch[];
     tenantId: string;
     createdAt: string;
     updatedAt: string;
@@ -34,8 +35,9 @@ export interface RegisterData {
     email: string;
     password: string;
     role: UserRole;
-    branchId?: string;
+    branchIds?: string[];
     tenantId?: string;
+    imageFile?: File | null;
 }
 
 // Branch Types
@@ -209,6 +211,17 @@ export interface SharedItemNotification {
     completedAt: string;
     orderBranchId: string;
     orderBranchName?: string;
+    itemNames: string[];
+}
+
+export interface OrderNotification {
+    orderId: string;
+    createdAt: string;
+    status: OrderStatus;
+    totalAmount: number;
+    tokenNumber?: number;
+    orderType?: OrderType;
+    customerName?: string;
     itemNames: string[];
 }
 

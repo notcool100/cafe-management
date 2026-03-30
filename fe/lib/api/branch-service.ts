@@ -1,6 +1,19 @@
 import apiClient from './api-client';
 import { Branch, CreateBranchData } from '../types';
 
+const dedupeById = <T extends { id: string }>(items: T[]): T[] => {
+    const seen = new Set<string>();
+
+    return items.filter((item) => {
+        if (!item.id || seen.has(item.id)) {
+            return false;
+        }
+
+        seen.add(item.id);
+        return true;
+    });
+};
+
 const normalizeBranch = (branch: Partial<Branch>): Branch => {
     const tokenEnabled = branch?.tokenSystemEnabled ?? branch?.hasTokenSystem ?? false;
     const tokenRangeEnd = branch?.tokenRangeEnd ?? branch?.maxTokenNumber;
@@ -34,7 +47,7 @@ const toPayload = (data: Partial<CreateBranchData>) => {
 export const branchService = {
     async getBranches(): Promise<Branch[]> {
         const response = await apiClient.get<Branch[]>('/admin/branches');
-        return response.data.map(normalizeBranch);
+        return dedupeById(response.data.map(normalizeBranch));
     },
 
     async getBranch(id: string): Promise<Branch> {

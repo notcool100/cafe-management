@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth-store';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import BranchSelector from '@/components/ui/BranchSelector';
 import { cn } from '@/lib/utils/cn';
 
 const navigation = [
@@ -24,9 +25,10 @@ const managerNavigation = [
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { user, logout } = useAuthStore();
+    const { user, logout, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const isManager = user?.role === 'MANAGER';
+    const isManagement = user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+    const contentKey = `${pathname}:${selectedBranchId || 'all'}`;
     const isNavItemActive = (href: string) =>
         href === '/staff' ? pathname === href : pathname === href || pathname.startsWith(href + '/');
 
@@ -34,6 +36,10 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         logout();
         router.push('/login');
     };
+
+    useEffect(() => {
+        refreshUser();
+    }, []);
 
     useEffect(() => {
         const originalOverflow = document.body.style.overflow;
@@ -54,6 +60,23 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                         <div className="flex items-center flex-shrink-0 px-6 py-6 border-b border-[#e4d7c2]">
                             <h1 className="text-xl font-semibold tracking-tight text-[#5a3a2e]">Cafe Staff</h1>
                         </div>
+
+                        {/* Branch Selector for Multi-branch users */}
+                        {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER') && (
+                            <div className="px-3 py-4 border-b border-[#e4d7c2] bg-[#fdfaf3]">
+                                <label className="block text-[10px] uppercase tracking-wider font-bold text-[#8b6f5f] mb-2 px-3">
+                                    Current Branch
+                                </label>
+                                <BranchSelector
+                                    branches={user.branches || []}
+                                    value={selectedBranchId}
+                                    onChange={(branchId) => {
+                                        setSelectedBranchId(branchId);
+                                        console.log('Staff Branch switched to:', branchId);
+                                    }}
+                                />
+                            </div>
+                        )}
 
                         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
                             {navigation.map((item) => {
@@ -82,7 +105,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                                 );
                             })}
 
-                            {isManager && (
+                            {isManagement && (
                                 <div className="mt-6 pt-4 border-t border-[#e4d7c2] space-y-1">
                                     <p className="px-3 text-xs font-semibold uppercase tracking-wider text-[#8b6f5f]">
                                         Manager Tools
@@ -176,6 +199,23 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                                     </button>
                                 </div>
 
+                                {/* Mobile Branch Selector */}
+                                {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'MANAGER') && (
+                                    <div className="px-3 py-4 border-b border-[#e4d7c2] bg-[#fdfaf3]">
+                                        <label className="block text-[10px] uppercase tracking-wider font-bold text-[#8b6f5f] mb-2 px-3">
+                                            Current Branch
+                                        </label>
+                                        <BranchSelector
+                                            branches={user.branches || []}
+                                            value={selectedBranchId}
+                                            onChange={(branchId) => {
+                                                setSelectedBranchId(branchId);
+                                                setSidebarOpen(false);
+                                            }}
+                                        />
+                                    </div>
+                                )}
+
                                 <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
                                     {navigation.map((item) => {
                                         const isActive = isNavItemActive(item.href);
@@ -206,7 +246,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                                         );
                                     })}
 
-                                    {isManager && (
+                                    {isManagement && (
                                         <div className="mt-6 pt-4 border-t border-[#e4d7c2] space-y-1">
                                             <p className="px-3 text-xs font-semibold uppercase tracking-wider text-[#8b6f5f]">
                                                 Manager Tools
@@ -287,7 +327,12 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                         "bg-[#fbf5e8]",
                         pathname === '/staff/orders' ? "p-0 lg:p-8" : "p-6 lg:p-8"
                     )}>
-                        <div className={cn("max-w-7xl mx-auto", pathname === '/staff/orders' && "max-w-none")}>{children}</div>
+                        <div
+                            key={contentKey}
+                            className={cn("max-w-7xl mx-auto", pathname === '/staff/orders' && "max-w-none")}
+                        >
+                            {children}
+                        </div>
                     </main>
                 </div>
             </div>

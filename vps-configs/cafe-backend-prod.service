@@ -1,0 +1,16 @@
+[Unit]
+Description=Cafe Management Production Backend (Node.js)
+After=network.target
+
+[Service]
+Type=simple
+User=astroagent
+WorkingDirectory=/var/www/cafe-management/backend
+Environment=NODE_ENV=production
+Environment=PORT=4100
+ExecStart=/usr/bin/node /var/www/cafe-management/backend/dist/index.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

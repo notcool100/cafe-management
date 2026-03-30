@@ -47,8 +47,9 @@ function buildTrendPoints(values: number[], width: number, height: number, paddi
 const defaultMonths = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'];
 
 export default function ReportsPage() {
-    const { user } = useAuthStore();
+    const { user, selectedBranchId } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
+    const currentBranchId = selectedBranchId || '';
 
     const [branches, setBranches] = useState<Branch[]>([]);
     const [report, setReport] = useState<ReportOverview | null>(null);
@@ -65,7 +66,7 @@ export default function ReportsPage() {
         start.setDate(end.getDate() - 29);
 
         return {
-            branchId: isManager && user?.branchId ? user.branchId : 'all',
+            branchId: isManager && currentBranchId ? currentBranchId : 'all',
             startDate: toInputDate(start),
             endDate: toInputDate(end),
             range: '30',
@@ -75,9 +76,10 @@ export default function ReportsPage() {
     useEffect(() => {
         const loadBranches = async () => {
             try {
-                if (isManager && user?.branchId) {
-                    if (user.branch) {
-                        setBranches([user.branch as Branch]);
+                if (isManager && currentBranchId) {
+                    const activeBranch = branches.find(b => b.id === currentBranchId) || user?.branches?.find(b => b.id === currentBranchId);
+                    if (activeBranch) {
+                        setBranches([activeBranch as Branch]);
                     }
                     return;
                 }
@@ -93,7 +95,7 @@ export default function ReportsPage() {
         };
 
         void loadBranches();
-    }, [isManager, user?.branch, user?.branchId]);
+    }, [isManager, user?.branches, currentBranchId]);
 
     useEffect(() => {
         const fetchReport = async () => {
@@ -123,8 +125,9 @@ export default function ReportsPage() {
         if (filters.branchId === 'all') {
             return 'All Branches';
         }
-        return branches.find((branch) => branch.id === filters.branchId)?.name || user?.branch?.name || 'Branch';
-    }, [branches, filters.branchId, user?.branch?.name]);
+        const foundBranch = branches.find((branch) => branch.id === filters.branchId) || user?.branches?.find(b => b.id === filters.branchId);
+        return foundBranch?.name || 'Branch';
+    }, [branches, filters.branchId, user?.branches]);
 
     const trendValues = report?.dailyTrend?.map((point) => point.sales) || [];
     const plottedValues = useMemo(() => {

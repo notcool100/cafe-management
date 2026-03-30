@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { AdminController } from './admin.controller';
 import { authenticate } from '../../middleware/auth';
 import { requireRole } from '../../middleware/rbac';
+import { uploadEmployeeImage } from '../../middleware/upload';
 
 const router: Router = Router();
 
@@ -19,12 +20,18 @@ router.get(
 router.post(
     '/employees',
     requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
+    uploadEmployeeImage.single('image'),
     AdminController.createEmployeeValidation,
     AdminController.createEmployee
 );
 router.get('/employees', requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'), AdminController.listEmployees);
 router.get('/employees/:id', requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'), AdminController.getEmployee);
-router.put('/employees/:id', requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'), AdminController.updateEmployee);
+router.put(
+    '/employees/:id',
+    requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'),
+    uploadEmployeeImage.single('image'),
+    AdminController.updateEmployee
+);
 router.delete('/employees/:id', requireRole('ADMIN', 'MANAGER', 'SUPER_ADMIN'), AdminController.deleteEmployee);
 
 // Branch Management

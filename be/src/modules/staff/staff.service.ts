@@ -48,12 +48,12 @@ export class StaffService {
         return orders;
     }
 
-    static async completeOrder(orderId: string, staffId: string, tenantId?: string, branchId?: string) {
+    static async completeOrder(orderId: string, staffId: string, tenantId?: string, branchIds?: string[]) {
         const existing = await prisma.order.findFirst({
             where: {
                 id: orderId,
                 ...(tenantId ? { tenantId } : {}),
-                ...(branchId ? { branchId } : {}),
+                ...(branchIds && branchIds.length > 0 ? { branchId: { in: branchIds } } : {}),
             },
             select: { id: true },
         });
@@ -122,5 +122,35 @@ export class StaffService {
                 itemNames: sharedItems.map((item) => item.menuItem?.name || 'Item'),
             };
         });
+    }
+
+    static async getOrderNotifications(branchId: string, tenantId: string, since?: Date) {
+        const orders = await prisma.order.findMany({
+            where: {
+                tenantId,
+                branchId,
+                ...(since ? { createdAt: { gte: since } } : {}),
+            },
+            include: {
+                orderItems: {
+                    include: {
+                        menuItem: true,
+                    },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 15,
+        });
+
+        return orders.map((order) => ({
+            orderId: order.id,
+            createdAt: order.createdAt,
+            status: order.status,
+            totalAmount: Number(order.totalAmount),
+            tokenNumber: order.tokenNumber ?? undefined,
+            orderType: order.orderType,
+            customerName: order.customerName ?? undefined,
+            itemNames: order.orderItems.map((item) => item.menuItem?.name || 'Item'),
+        }));
     }
 }

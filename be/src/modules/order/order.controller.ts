@@ -89,7 +89,8 @@ export class OrderController {
 
             if (req.user.role === 'MANAGER' || req.user.role === 'EMPLOYEE') {
                 const branchQuery = toStringParam(branchId);
-                if (branchQuery && branchQuery !== req.user.branchId) {
+                const userBranchIds = (req.user as any).branchIds || [];
+                if (branchQuery && !userBranchIds.includes(branchQuery)) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
             }
@@ -133,7 +134,7 @@ export class OrderController {
 
             const branchConstraint =
                 req.user.role === 'MANAGER' || req.user.role === 'EMPLOYEE'
-                    ? req.user.branchId
+                    ? ((req.user as any).branchIds || [])
                     : undefined;
 
             const order = await OrderService.updateOrderStatus(

@@ -5,10 +5,7 @@ import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { menuService } from '@/lib/api/menu-service';
 import { MenuItem, Branch, Order } from '@/lib/types';
-import { Card, CardContent } from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
-import Badge from '@/components/ui/Badge';
 import CartSidebar from '@/components/CartSidebar';
 import { useCartStore } from '@/lib/store/cart-store';
 import Toast from '@/components/ui/Toast';
@@ -28,6 +25,7 @@ export default function PublicMenuPage() {
     const [currentTab, setCurrentTab] = useState<'MENU' | 'ORDERS'>('MENU');
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
+    const [failedItemImageIds, setFailedItemImageIds] = useState<Set<string>>(new Set());
 
     const { addItem, getItemCount, getItemQuantity, updateQuantity } = useCartStore();
     const cartItemCount = getItemCount();
@@ -38,16 +36,40 @@ export default function PublicMenuPage() {
         isVisible: false,
     });
 
+    const getItemCategory = useCallback((item: MenuItem) => (item.category || 'Uncategorized').trim() || 'Uncategorized', []);
+
+    const resolveMenuCategoryForBranch = useCallback((items: MenuItem[], currentBranchId: string, previousCategory: string) => {
+        const availableItems = items.filter(item => item.available !== false);
+        const availableCategories = Array.from(new Set(availableItems.map(getItemCategory)));
+
+        if (previousCategory !== 'ALL' && availableCategories.includes(previousCategory)) {
+            return previousCategory;
+        }
+
+        const hasLocalItems = availableItems.some(item => item.branchId === currentBranchId);
+        const firstTransferredItem = availableItems.find(item => item.branchId !== currentBranchId);
+
+        if (!hasLocalItems && firstTransferredItem) {
+            return getItemCategory(firstTransferredItem);
+        }
+
+        return 'ALL';
+    }, [getItemCategory]);
+
     const loadData = useCallback(async () => {
         try {
             setIsLoading(true);
             const data = await menuService.getPublicMenu(branchId);
             setBranch(data.branch);
             setMenuItems(data.menuItems);
+            setSelectedCategory(previousCategory =>
+                resolveMenuCategoryForBranch(data.menuItems, branchId, previousCategory)
+            );
         } catch (error) {
             console.error('Failed to load menu:', error);
             setBranch(null);
             setMenuItems([]);
+            setSelectedCategory('ALL');
             setToast({
                 message: 'Failed to load menu. Please check the URL or try again.',
                 type: 'error',
@@ -56,7 +78,7 @@ export default function PublicMenuPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [branchId]);
+    }, [branchId, resolveMenuCategoryForBranch]);
 
     useEffect(() => {
         loadData();
@@ -104,8 +126,15 @@ export default function PublicMenuPage() {
         };
     }, [previewImage]);
 
+    const isItemFromOtherBranch = (item: MenuItem) =>
+        Boolean(item.branchId && item.branchId !== branchId);
+
+    const hasOtherBranchItems = menuItems.some(isItemFromOtherBranch);
+
     const filteredItems = menuItems.filter(item => {
-        const matchesCategory = selectedCategory === 'ALL' || item.category === selectedCategory;
+        const matchesCategory = selectedCategory === 'ALL'
+            ? !isItemFromOtherBranch(item)
+            : item.category === selectedCategory;
         const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
         return item.available !== false && matchesCategory && matchesSearch;
@@ -114,14 +143,13 @@ export default function PublicMenuPage() {
     const categories = useMemo(() => {
         const unique = new Set<string>();
         menuItems.forEach((item) => {
-            if (!item.category) return;
-            const value = item.category.trim();
+            const value = getItemCategory(item);
             if (value) {
                 unique.add(value);
             }
         });
         return ['ALL', ...Array.from(unique)];
-    }, [menuItems]);
+    }, [getItemCategory, menuItems]);
 
     useEffect(() => {
         if (selectedCategory === 'ALL') return;
@@ -257,6 +285,11 @@ export default function PublicMenuPage() {
                 {selectedCategory !== 'ALL' && (
                     <h2 className="text-lg text-gray-700 mb-2">{selectedCategory}</h2>
                 )}
+                {selectedCategory === 'ALL' && hasOtherBranchItems && (
+                    <p className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        Items from other branches are hidden in All. Choose a category to view them.
+                    </p>
+                )}
 
                 {/* Menu List */}
                 <main className="mt-4">
@@ -269,59 +302,98 @@ export default function PublicMenuPage() {
                             <div className="bg-white rounded-2xl mt-2 overflow-hidden">
                                 {filteredItems.map((item) => {
                                     const description = item.description?.trim();
+                                    const imageKey = String(item.id);
+                                    const imageSrc = failedItemImageIds.has(imageKey)
+                                        ? undefined
+                                        : resolveImageUrl(item.imageUrl);
+                                    const isFromOtherBranch = isItemFromOtherBranch(item);
+                                    const sourceBranchName = item.branch?.name?.trim();
 
                                     return (
-                                        <div key={item.id} className="px-4 py-4 border-b last:border-b-0 border-gray-200 flex items-center justify-between">
-                                            <div className="flex-1 pr-4">
-                                                <h3 className="text-black font-semibold text-base">{item.name}</h3>
+                                        <div key={item.id} className="flex items-start justify-between gap-3 border-b border-gray-200 px-3 py-3 last:border-b-0 sm:px-4 sm:py-4">
+                                            <div className="min-w-0 flex-1 pr-1">
+                                                <h3 className="text-sm font-semibold text-black sm:text-base">{item.name}</h3>
+                                                {isFromOtherBranch && (
+                                                    <div className="mt-1">
+                                                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800 ring-1 ring-amber-200">
+                                                            From other branch
+                                                        </span>
+                                                        {sourceBranchName ? (
+                                                            <p className="mt-1 text-[11px] font-medium text-amber-800">{sourceBranchName}</p>
+                                                        ) : null}
+                                                    </div>
+                                                )}
                                                 {description ? (
-                                                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">{description}</p>
+                                                    <p className="mt-0.5 line-clamp-1 text-[11px] text-gray-600 sm:mt-1 sm:line-clamp-2 sm:text-xs">{description}</p>
                                                 ) : null}
-                                                <div className="text-sm text-gray-800 mt-2">Rs. {item.price.toFixed(0)}</div>
+                                                <div className="mt-1 text-xs text-gray-800 sm:mt-2 sm:text-sm">Rs. {item.price.toFixed(0)}</div>
                                             </div>
 
-                                        <div className="flex flex-col items-center w-24">
-                                            <div
-                                                className="w-20 h-20 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-purple-500 transition-all"
-                                                onClick={() => handleOpenImagePreview(item)}
-                                            >
-                                                {resolveImageUrl(item.imageUrl) ? (
-                                                    <Image src={resolveImageUrl(item.imageUrl) as string} alt={item.name} width={80} height={80} className="object-cover" unoptimized />
+                                            <div className="flex w-[4.25rem] shrink-0 flex-col items-center sm:w-20">
+                                                <button
+                                                    type="button"
+                                                    onClick={imageSrc ? () => handleOpenImagePreview(item) : undefined}
+                                                    disabled={!imageSrc}
+                                                    className={`flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-gray-100 shadow-sm ring-1 ring-black/5 transition-all sm:h-16 sm:w-16 ${imageSrc ? 'cursor-pointer hover:ring-2 hover:ring-purple-500' : 'cursor-default'}`}
+                                                    aria-label={imageSrc ? `Preview image for ${item.name}` : `${item.name} has no image preview`}
+                                                >
+                                                    {imageSrc ? (
+                                                        <Image
+                                                            src={imageSrc}
+                                                            alt={item.name}
+                                                            width={56}
+                                                            height={56}
+                                                            className="h-full w-full object-cover"
+                                                            onError={() => {
+                                                                setFailedItemImageIds((previous) => {
+                                                                    if (previous.has(imageKey)) {
+                                                                        return previous;
+                                                                    }
+
+                                                                    const next = new Set(previous);
+                                                                    next.add(imageKey);
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                            unoptimized
+                                                        />
+                                                    ) : (
+                                                        <span className="flex h-full w-full items-center justify-center bg-gray-200 text-gray-500">
+                                                            <ImageIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+                                                        </span>
+                                                    )}
+                                                </button>
+                                                {getItemQuantity(item.id) === 0 ? (
+                                                    <button
+                                                        onClick={() => handleAddToCart(item)}
+                                                        disabled={!item.available}
+                                                        className={`add-btn mt-2 min-w-[60px] px-3 py-1 text-[11px] sm:mt-3 sm:min-w-[68px] sm:text-xs ${!item.available ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    >
+                                                        ADD
+                                                    </button>
                                                 ) : (
-                                                    <div className="w-12 h-12 rounded-lg bg-gray-200" />
+                                                    <div className="mt-2 flex items-center gap-2 rounded-full bg-gray-100 px-2 py-0.5 sm:mt-3 sm:gap-3 sm:py-1">
+                                                        <button
+                                                            onClick={() => updateQuantity(item.id, getItemQuantity(item.id) - 1)}
+                                                            className="flex h-5 w-5 items-center justify-center text-gray-700 transition-colors hover:text-gray-900 sm:h-6 sm:w-6"
+                                                            aria-label={`Decrease ${item.name}`}
+                                                        >
+                                                            <span className="text-lg font-bold">-</span>
+                                                        </button>
+                                                        <span className="min-w-[1ch] text-center text-xs font-bold text-gray-900 sm:text-sm">
+                                                            {getItemQuantity(item.id)}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => updateQuantity(item.id, getItemQuantity(item.id) + 1)}
+                                                            disabled={!item.available}
+                                                            className={`flex h-5 w-5 items-center justify-center transition-colors sm:h-6 sm:w-6 ${item.available ? 'text-gray-700 hover:text-gray-900' : 'text-gray-400 cursor-not-allowed'}`}
+                                                            aria-label={`Increase ${item.name}`}
+                                                        >
+                                                            <span className="text-lg font-bold">+</span>
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
-                                            {getItemQuantity(item.id) === 0 ? (
-                                                <button
-                                                    onClick={() => handleAddToCart(item)}
-                                                    disabled={!item.available}
-                                                    className={`add-btn mt-3 ${!item.available ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                >
-                                                    ADD
-                                                </button>
-                                            ) : (
-                                                <div className="mt-3 flex items-center bg-gray-100 rounded-full px-2 py-1 gap-3">
-                                                    <button
-                                                        onClick={() => updateQuantity(item.id, getItemQuantity(item.id) - 1)}
-                                                        className="w-6 h-6 flex items-center justify-center text-gray-700 hover:text-gray-900 transition-colors"
-                                                        aria-label={`Decrease ${item.name}`}
-                                                    >
-                                                        <span className="text-lg font-bold">-</span>
-                                                    </button>
-                                                    <span className="text-sm font-bold text-gray-900 min-w-[1ch] text-center">
-                                                        {getItemQuantity(item.id)}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => updateQuantity(item.id, getItemQuantity(item.id) + 1)}
-                                                        disabled={!item.available}
-                                                        className={`w-6 h-6 flex items-center justify-center transition-colors ${item.available ? 'text-gray-700 hover:text-gray-900' : 'text-gray-400 cursor-not-allowed'}`}
-                                                        aria-label={`Increase ${item.name}`}
-                                                    >
-                                                        <span className="text-lg font-bold">+</span>
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
                                         </div>
                                     );
                                 })}

@@ -68,7 +68,7 @@ export default function AdminDashboardPage() {
             setTodayEarnings(today);
             setEarningsChange(change);
         } catch (error) {
-            console.error('Failed to load stats:', error);
+            // console.error('Failed to load stats:', error);
         } finally {
             setIsLoading(false);
         }
@@ -76,6 +76,7 @@ export default function AdminDashboardPage() {
 
     const salesSummaryBase = [38, 62, 85, 48];
     const salesSummary = branches.slice(0, 4).map((branch, index) => ({
+        id: branch.id,
         label: branch.name,
         value: salesSummaryBase[index % salesSummaryBase.length],
     }));
@@ -185,7 +186,7 @@ export default function AdminDashboardPage() {
                     </div>
                     <div className="mt-8 grid grid-cols-4 items-end gap-6 h-40">
                         {salesSummary.map((bar) => (
-                            <div key={bar.label} className="flex flex-col items-center gap-3">
+                            <div key={bar.id} className="flex flex-col items-center gap-3">
                                 <div className="w-8 rounded-full bg-[#e6d8c6] overflow-hidden flex items-end" style={{ height: '100%' }}>
                                     <div className="w-full rounded-full bg-[#5a3a2e]" style={{ height: `${bar.value}%` }} />
                                 </div>

@@ -8,7 +8,8 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import { format } from 'date-fns';
 
 export default function DashboardPage() {
-  const { user } = useAuthStore();
+  const { user, selectedBranchId } = useAuthStore();
+  const currentBranchId = selectedBranchId || '';
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
   const [completedToday, setCompletedToday] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,30 +23,30 @@ export default function DashboardPage() {
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
-    if (!user?.branchId) return;
-    
+    if (!currentBranchId) return;
+
     try {
       setIsLoading(true);
-      
+
       // Fetch active orders
       const active = await orderService.getActiveOrders();
       setActiveOrders(active);
-      
+
       // Fetch completed orders today
       const today = format(new Date(), 'yyyy-MM-dd');
       const completed = await orderService.getOrders({
         status: 'COMPLETED' as OrderStatus,
-        branchId: user.branchId,
+        branchId: currentBranchId,
         startDate: today,
         endDate: today
       });
       setCompletedToday(completed);
-      
+
       // Calculate stats
-      const allOrders = await orderService.getOrders({ branchId: user.branchId });
+      const allOrders = await orderService.getOrders({ branchId: currentBranchId });
       const totalRevenue = allOrders.reduce((sum, order) => sum + order.totalAmount, 0);
       const uniqueCustomers = new Set(allOrders.map(order => order.customerName || order.customerPhone)).size;
-      
+
       // Calculate average wait time (time from order to completion)
       const completedOrdersWithTime = completed.filter(order => order.updatedAt && order.createdAt);
       const waitTimes = completedOrdersWithTime.map(order => {
@@ -54,7 +55,7 @@ export default function DashboardPage() {
         return (completed - created) / (1000 * 60); // Convert to minutes
       });
       const avgWaitTime = waitTimes.length > 0 ? waitTimes.reduce((sum, time) => sum + time, 0) / waitTimes.length : 0;
-      
+
       setStats({
         totalOrders: allOrders.length,
         revenue: totalRevenue,
@@ -62,7 +63,7 @@ export default function DashboardPage() {
         menuItems: 0, // This would come from menu service
         averageWaitTime: Math.round(avgWaitTime)
       });
-      
+
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
@@ -72,17 +73,17 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [user?.branchId]);
+  }, [currentBranchId]);
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
     const interval = setInterval(fetchDashboardData, 30000);
     return () => clearInterval(interval);
-  }, [user?.branchId]);
+  }, [currentBranchId]);
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#f8fafc', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
       <div className="max-w-7xl mx-auto bg-white min-h-screen relative">
-        
+
         {/* Sticky Header */}
         <header className="sticky top-0 z-50 bg-white border-b border-gray-100 transition-all duration-300">
           <div className="flex items-center justify-between p-4">
@@ -95,7 +96,7 @@ export default function DashboardPage() {
               </Link>
               <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
             </div>
-            
+
             {/* Search Bar - Centered */}
             <div className="flex-1 max-w-md mx-auto">
               <div className="relative">
@@ -109,7 +110,7 @@ export default function DashboardPage() {
                 />
               </div>
             </div>
-            
+
             {/* Action Icons */}
             <div className="flex items-center space-x-2">
               <button className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 group relative">
@@ -308,7 +309,7 @@ export default function DashboardPage() {
             <section className="px-4 pb-32 lg:px-8">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">Recent Orders</h2>
-                
+
                 <div className="space-y-4">
                   {[1, 2, 3, 4, 5].map((order) => (
                     <div key={order} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
@@ -337,7 +338,7 @@ export default function DashboardPage() {
             <div className="sticky top-24 p-6">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h3 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h3>
-                
+
                 <div className="space-y-3">
                   <button className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-200">
                     New Order
