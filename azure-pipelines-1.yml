@@ -58,13 +58,13 @@ stages:
         includeRootFolder: false
         archiveType: 'tar'
         tarCompression: 'gz'
-        archiveFile: '$(Build.ArtifactStagingDirectory)/cafe-frontend-uat.tar.gz'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/cafe-frontend.tar.gz'
         replaceExistingArchive: true
     
     - task: PublishBuildArtifacts@1
       inputs:
-        PathtoPublish: '$(Build.ArtifactStagingDirectory)/cafe-frontend-uat.tar.gz'
-        ArtifactName: 'cafe-frontend-uat'
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/cafe-frontend.tar.gz'
+        ArtifactName: 'cafe-frontend'
         publishLocation: 'Container'
 
 - stage: BuildBackend
@@ -111,13 +111,13 @@ stages:
         includeRootFolder: false
         archiveType: 'tar'
         tarCompression: 'gz'
-        archiveFile: '$(Build.ArtifactStagingDirectory)/cafe-backend-uat.tar.gz'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/cafe-backend.tar.gz'
         replaceExistingArchive: true
     
     - task: PublishBuildArtifacts@1
       inputs:
-        PathtoPublish: '$(Build.ArtifactStagingDirectory)/cafe-backend-uat.tar.gz'
-        ArtifactName: 'cafe-backend-uat'
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)/cafe-backend.tar.gz'
+        ArtifactName: 'cafe-backend'
         publishLocation: 'Container'
 
 - stage: DeployUAT
@@ -125,16 +125,16 @@ stages:
   dependsOn: 
     - BuildFrontend
     - BuildBackend
-  condition: and(succeeded('BuildFrontend'), succeeded('BuildBackend'), eq(variables['Build.SourceBranch'], 'refs/heads/uat'))
+  condition: and(succeeded('BuildFrontend'), succeeded('BuildBackend'), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   jobs:
-  - job: DeployFrontendUAT
-    displayName: 'Deploy Frontend to UAT'
+  - job: DeployFrontendDev
+    displayName: 'Deploy Frontend to Dev'
     steps:
     - task: DownloadBuildArtifacts@1
       inputs:
         buildType: 'current'
         downloadType: 'single'
-        artifactName: 'cafe-frontend-uat'
+        artifactName: 'cafe-frontend'
         downloadPath: '$(System.ArtifactsDirectory)'
 
     - script: |
@@ -150,14 +150,14 @@ stages:
          sudo systemctl status cafe-frontend-uat --no-pager
       displayName: 'Deploy and Restart Frontend UAT'
 
-  - job: DeployBackendUAT
-    displayName: 'Deploy Backend to UAT'
+  - job: DeployBackendDev
+    displayName: 'Deploy Backend to Dev'
     steps:
     - task: DownloadBuildArtifacts@1
       inputs:
         buildType: 'current'
         downloadType: 'single'
-        artifactName: 'cafe-backend-uat'
+        artifactName: 'cafe-backend'
         downloadPath: '$(System.ArtifactsDirectory)'
 
     - script: |
