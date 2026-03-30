@@ -106,8 +106,15 @@ export class MenuController {
                 }
 
                 if (effectiveBranchId) {
+                    // Normalize for robust comparison
+                    const requestedId = String(effectiveBranchId).toLowerCase().trim();
+                    const authorizedIds = allowedBranchIds.map(id => String(id).toLowerCase().trim());
+                    
+                    console.log(`[Auth Debug] Requested Branch: ${requestedId}`);
+                    console.log(`[Auth Debug] Authorized Branches: ${authorizedIds.join(', ')}`);
+
                     // If a specific branch is requested, verify access
-                    if (!allowedBranchIds.includes(effectiveBranchId)) {
+                    if (!authorizedIds.includes(requestedId)) {
                         return res.status(403).json({ error: 'Forbidden: Not your branch' });
                     }
                 } else {

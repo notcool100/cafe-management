@@ -169,6 +169,9 @@ stages:
          pnpm install --frozen-lockfile
          pnpm prisma:generate
          
+         # Forcefully clear the port in case of zombie processes
+         sudo fuser -k 6002/tcp || true
+         
          sudo systemctl restart cafe-backend-uat
          sudo systemctl status cafe-backend-uat --no-pager
       displayName: 'Deploy and Restart Backend UAT'

@@ -1,0 +1,13 @@
+[Unit]
+Description=Cafe Management Database Backup Service
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=notcool
+ExecStart=/bin/bash /home/notcool/Desktop/cafe-management/vps-configs/backup-db.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
