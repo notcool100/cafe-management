@@ -9,11 +9,11 @@ export type OrderWithItems = Order & {
 
 const PT_PER_MM = 72 / 25.4;
 const PAPER_WIDTH_MM = 80;
-const PAPER_HEIGHT_MM = 265; // 26.5 cm
-const RECEIPT_PAGE_SIZE: [number, number] = [PAPER_WIDTH_MM * PT_PER_MM, PAPER_HEIGHT_MM * PT_PER_MM];
+const RECEIPT_WIDTH_PT = PAPER_WIDTH_MM * PT_PER_MM;
+const RECEIPT_PAGE_SIZE: [number, number] = [RECEIPT_WIDTH_PT, 200 * PT_PER_MM];
 const PAGE_MARGIN = 10;
 const CONTENT_LEFT_X = PAGE_MARGIN;
-const CONTENT_RIGHT_X = RECEIPT_PAGE_SIZE[0] - PAGE_MARGIN;
+const CONTENT_RIGHT_X = RECEIPT_WIDTH_PT - PAGE_MARGIN;
 const CONTENT_WIDTH = CONTENT_RIGHT_X - CONTENT_LEFT_X;
 const ITEM_COL_WIDTH = CONTENT_WIDTH * 0.46;
 const QTY_COL_WIDTH = CONTENT_WIDTH * 0.12;
@@ -23,7 +23,49 @@ const ITEM_COL_X = CONTENT_LEFT_X;
 const QTY_COL_X = ITEM_COL_X + ITEM_COL_WIDTH;
 const PRICE_COL_X = QTY_COL_X + QTY_COL_WIDTH;
 const TOTAL_COL_X = PRICE_COL_X + PRICE_COL_WIDTH;
-const SECTION_MIN_HEIGHT = 140;
+
+const LINE_HEIGHT_7 = 9;
+const LINE_HEIGHT_8 = 10;
+const LINE_HEIGHT_9 = 11;
+const LINE_HEIGHT_13 = 16;
+const LINE_HEIGHT_18 = 22;
+const MIN_PAGE_HEIGHT = 140;
+const SAFETY_BUFFER = 28;
+
+const estimateReceiptHeight = (order: OrderWithItems, titleSize = 13) => {
+    let height = 0;
+
+    height += titleSize >= 18 ? LINE_HEIGHT_18 : titleSize >= 13 ? LINE_HEIGHT_13 : LINE_HEIGHT_9;
+    height += 8; // spacing after title
+
+    if (order.tokenNumber) {
+        height += LINE_HEIGHT_18 + 8;
+    }
+
+    let infoLines = 2; // Order ID + Date
+    if (order.customerName) infoLines += 1;
+    if (order.customerPhone) infoLines += 1;
+    height += infoLines * LINE_HEIGHT_8 + 8;
+
+    height += 8; // separator + spacing
+
+    height += LINE_HEIGHT_8 + 6; // header + spacing
+    height += 6; // separator + spacing
+
+    order.orderItems.forEach((item) => {
+        height += LINE_HEIGHT_8 + 4;
+        if (item.menuItem.branchId !== order.branchId) {
+            height += LINE_HEIGHT_7 + 4;
+        }
+    });
+
+    height += 8; // separator + spacing
+    height += LINE_HEIGHT_9 + 10; // total + spacing
+    height += LINE_HEIGHT_8 + 12; // thank you
+    height += 8; // bottom padding
+
+    return Math.max(MIN_PAGE_HEIGHT, height + PAGE_MARGIN * 2 + SAFETY_BUFFER);
+};
 
 const renderReceiptSection = (
     doc: PDFKit.PDFDocument,
@@ -95,13 +137,16 @@ const renderReceiptSection = (
         align: 'right',
     });
 
-    doc.moveDown(2);
+    doc.moveDown(1);
     doc.fontSize(8).text('Thank you for your order!', CONTENT_LEFT_X, doc.y, { width: CONTENT_WIDTH, align: 'center' });
 };
 
 export async function generateKOT(order: OrderWithItems): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-        const doc = new PDFDocument({ size: RECEIPT_PAGE_SIZE, margin: PAGE_MARGIN });
+        const doc = new PDFDocument({
+            size: [RECEIPT_WIDTH_PT, estimateReceiptHeight(order, 13)],
+            margin: PAGE_MARGIN,
+        });
         const buffers: Buffer[] = [];
 // doc.registerFont('Regular', 'fonts/Roboto-Regular.ttf');
 // doc.registerFont('Bold', '');
@@ -120,7 +165,10 @@ export async function generateKOT(order: OrderWithItems): Promise<Buffer> {
 
 export async function generateBill(order: OrderWithItems): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-        const doc = new PDFDocument({ size: RECEIPT_PAGE_SIZE, margin: PAGE_MARGIN });
+        const doc = new PDFDocument({
+            size: [RECEIPT_WIDTH_PT, estimateReceiptHeight(order, 13)],
+            margin: PAGE_MARGIN,
+        });
         const buffers: Buffer[] = [];
 
         doc.on('data', buffers.push.bind(buffers));
@@ -131,16 +179,6 @@ export async function generateBill(order: OrderWithItems): Promise<Buffer> {
         doc.on('error', reject);
 
         renderReceiptSection(doc, order, 'BILL');
-
-        if (doc.y + SECTION_MIN_HEIGHT > RECEIPT_PAGE_SIZE[1] - PAGE_MARGIN) {
-            doc.addPage();
-        } else {
-            doc.moveDown(1.2);
-            doc.moveTo(CONTENT_LEFT_X, doc.y).lineTo(CONTENT_RIGHT_X, doc.y).stroke();
-            doc.moveDown(1);
-        }
-
-        renderReceiptSection(doc, order, 'KOT');
 
         doc.end();
     });

@@ -73,7 +73,7 @@ export default function StaffOrdersPage() {
       const orders = await orderService.getActiveOrders(selectedBranchId);
       setLiveOrders(orders);
     } catch (error) {
-      console.error('Failed to fetch live orders:', error);
+      // console.error('Failed to fetch live orders:', error);
       setLiveOrders([]);
     } finally {
       setIsLoadingOrders(false);
@@ -356,6 +356,13 @@ export default function StaffOrdersPage() {
       // Show success message
       alert('Order placed successfully!');
 
+      // Auto-generate & print KOT for new orders
+      try {
+        await handlePrintKOT(newOrder.id);
+      } catch (printError) {
+        console.error('Failed to auto-print KOT:', printError);
+      }
+
       // Switch to live orders view and refresh
       setViewMode('live-orders');
       await fetchLiveOrders();
@@ -368,24 +375,32 @@ export default function StaffOrdersPage() {
     }
   };
 
+  const printPdfBlob = (blob: Blob) => {
+    const fileURL = URL.createObjectURL(blob);
+    const printWindow = window.open(fileURL, '_blank');
+    if (printWindow) {
+      printWindow.onload = () => {
+        printWindow.print();
+        printWindow.onafterprint = () => {
+          printWindow.close();
+        };
+      };
+    }
+    setTimeout(() => URL.revokeObjectURL(fileURL), 60000);
+  };
+
+  const handlePrintKOT = async (orderId: string) => {
+    const kotBlob = await orderService.generateKOT(orderId);
+    orderService.downloadPDF(kotBlob, `KOT-${orderId}.pdf`);
+    printPdfBlob(kotBlob);
+  };
+
   // Print bill function
   const handlePrintBill = async (orderId: string) => {
     try {
       const billBlob = await orderService.generateBill(orderId);
       orderService.downloadPDF(billBlob, `bill-${orderId}.pdf`);
-
-      // Also try to open print dialog
-      const fileURL = URL.createObjectURL(billBlob);
-      const printWindow = window.open(fileURL, '_blank');
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print();
-          printWindow.onafterprint = () => {
-            printWindow.close();
-          };
-        };
-      }
-      URL.revokeObjectURL(fileURL);
+      printPdfBlob(billBlob);
     } catch (error) {
       console.error('Failed to generate bill:', error);
       alert('Failed to generate bill. Please try again.');
@@ -411,6 +426,14 @@ export default function StaffOrdersPage() {
       setLiveOrders(prevOrders =>
         prevOrders.map(order => (order.id === orderId ? updatedOrder : order))
       );
+
+      if (status === OrderStatus.COMPLETED) {
+        try {
+          await handlePrintBill(orderId);
+        } catch (printError) {
+          console.error('Failed to auto-print bill:', printError);
+        }
+      }
     } catch (error) {
       console.error('Failed to update order status:', error);
       alert('Failed to update order status. Please try again.');
