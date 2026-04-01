@@ -85,7 +85,7 @@ export class MenuService {
             where: { id, ...(tenantId ? { tenantId } : {}) },
             include: { branch: true },
         });
-
+console.log('Fetched menu item:', menuItem);
         if (!menuItem) {
             throw new Error('Menu item not found');
         }

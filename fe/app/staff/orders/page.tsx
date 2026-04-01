@@ -538,6 +538,10 @@ export default function StaffOrdersPage() {
     setPreviewImage(null);
   };
 
+  const unreadNotificationsLabel = unreadNotificationsCount > 99
+    ? '99+'
+    : String(unreadNotificationsCount);
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#f8fafc', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
       <div className="w-full bg-white min-h-screen relative">
@@ -596,7 +600,7 @@ export default function StaffOrdersPage() {
             <div className="flex items-center space-x-2 relative">
               <button
                 onClick={handleToggleNotifications}
-                aria-label="Toggle notifications"
+                aria-label={unreadNotificationsCount > 0 ? `${unreadNotificationsCount} unread notifications` : 'Toggle notifications'}
                 title="Notifications"
                 className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 group relative"
               >
@@ -604,7 +608,9 @@ export default function StaffOrdersPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
                 {unreadNotificationsCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-700 rounded-full"></span>
+                  <span className="absolute -right-1 -top-1 inline-flex min-w-[1.4rem] items-center justify-center rounded-full bg-red-700 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-sm">
+                    {unreadNotificationsLabel}
+                  </span>
                 )}
               </button>
 
@@ -797,133 +803,129 @@ export default function StaffOrdersPage() {
                       <p className="text-gray-400 text-sm mt-2">Contact your manager to set up the menu</p>
                     </div>
                   ) : (
-                    <div className="space-y-0">
+                    <div className="grid grid-cols-2 gap-4 sm:gap-5 xl:grid-cols-3 2xl:grid-cols-4">
                       {filteredItems.map((item) => {
                         const imageKey = String(item.id);
                         const imageSrc = failedMenuImageIds.has(imageKey) ? undefined : getMenuItemImage(item);
                         const isFromOtherBranch = isItemFromOtherBranch(item);
                         const sourceBranchName = item.branch?.name?.trim();
+                        const itemQuantity = getItemQuantity(item.id);
 
                         return (
-                          <article key={item.id} className="border-b border-gray-900/10 py-3 sm:py-4 lg:py-6 last:border-0">
-                            <div className="flex items-start justify-between gap-3 sm:gap-4">
-                              {/* Left Column: Info */}
-                              <div className="min-w-0 flex-1 pr-1 sm:pr-2">
-                                <div className="mb-1 max-w-[276px]">
-                                  <h3
-                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, lineHeight: '125%', letterSpacing: '0%' }}
-                                    className="text-[17px] text-gray-900 sm:text-[19px] lg:text-[20px]"
-                                  >
-                                    {item.name}
-                                  </h3>
-                                </div>
-                                <div className="mb-1 max-w-[276px]">
-                                  <span
-                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '125%', letterSpacing: '0%' }}
-                                    className="text-sm text-gray-900 sm:text-[15px]"
-                                  >
-                                    Rs {item.price}
+                          <article
+                            key={item.id}
+                            className="group flex min-h-[320px] flex-col rounded-[28px] border border-[#d8dce2] bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-4 py-5 shadow-[0_18px_35px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_rgba(15,23,42,0.14)] sm:px-5"
+                          >
+                            <div className="min-h-[72px] text-center">
+                              <h3
+                                style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, lineHeight: '125%' }}
+                                className="line-clamp-2 text-[17px] text-gray-900 sm:text-[19px]"
+                              >
+                                {item.name}
+                              </h3>
+                              {isFromOtherBranch && (
+                                <div className="mt-2 flex flex-col items-center gap-1">
+                                  <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800">
+                                    Shared item
                                   </span>
+                                  {sourceBranchName && (
+                                    <p className="text-[10px] font-medium text-amber-800">
+                                      {sourceBranchName}
+                                    </p>
+                                  )}
                                 </div>
-                                {isFromOtherBranch && (
-                                  <div className="mb-2 max-w-[276px]">
-                                    <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800 ring-1 ring-amber-200 sm:text-[11px]">
-                                      From other branch
-                                    </span>
-                                    {sourceBranchName && (
-                                      <p className="mt-1 text-[10px] font-medium text-amber-800 sm:text-[11px]">
-                                        {sourceBranchName}
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
-                                <div className="max-w-[276px]">
-                                  <p
-                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '125%', letterSpacing: '0%' }}
-                                    className="line-clamp-1 break-words text-[10px] leading-relaxed text-gray-900 sm:line-clamp-2 sm:text-[11px]"
-                                  >
-                                    {item.description || 'No description available'}
-                                  </p>
-                                </div>
-                              </div>
+                              )}
+                            </div>
 
-                              {/* Right Column: Image & Order Control */}
-                              <div className="flex shrink-0 flex-col items-center gap-2 sm:gap-3 lg:gap-4">
-                                <div className="relative h-14 w-14 sm:h-16 sm:w-16 lg:h-[72px] lg:w-[72px]">
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      if (imageSrc) {
-                                        handleOpenImagePreview(item);
-                                      }
+                            <div className="mt-4 flex justify-center">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  if (imageSrc) {
+                                    handleOpenImagePreview(item);
+                                  }
+                                }}
+                                disabled={!imageSrc}
+                                className={`relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-[2.5px] border-[#252b36] bg-[#d9d9d9] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)] transition-transform duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${imageSrc ? 'cursor-pointer group-hover:scale-[1.03]' : 'cursor-default'}`}
+                                aria-label={imageSrc ? `Preview ${item.name} image` : `${item.name} image unavailable`}
+                              >
+                                {imageSrc ? (
+                                  <img
+                                    src={imageSrc}
+                                    alt={item.name}
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                    onError={() => {
+                                      setFailedMenuImageIds((previous) => {
+                                        if (previous.has(imageKey)) {
+                                          return previous;
+                                        }
+
+                                        const next = new Set(previous);
+                                        next.add(imageKey);
+                                        return next;
+                                      });
                                     }}
-                                    disabled={!imageSrc}
-                                    className={`w-full h-full overflow-hidden rounded-full shadow-sm ring-1 ring-black/5 transition-shadow duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${imageSrc ? 'hover:shadow-md cursor-pointer' : 'cursor-default'}`}
-                                    style={{ backgroundColor: '#D9D9D9' }}
-                                    aria-label={imageSrc ? `Preview ${item.name} image` : `${item.name} image unavailable`}
-                                  >
-                                    {imageSrc ? (
-                                      <img
-                                        src={imageSrc}
-                                        alt={item.name}
-                                        className="w-full h-full object-cover"
-                                        onError={() => {
-                                          setFailedMenuImageIds((previous) => {
-                                            if (previous.has(imageKey)) {
-                                              return previous;
-                                            }
-
-                                            const next = new Set(previous);
-                                            next.add(imageKey);
-                                            return next;
-                                          });
-                                        }}
-                                      />
-                                    ) : (
-                                      <span className="flex h-full w-full items-center justify-center text-gray-500">
-                                        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14m-8-5h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                      </span>
-                                    )}
-                                  </button>
-                                </div>
-
-                                {getItemQuantity(item.id) === 0 ? (
-                                  <button
-                                    onClick={() => addToCart(item)}
-                                    className="flex h-6 w-[68px] items-center justify-center rounded-full border-2 border-green-700/60 text-[11px] text-green-700 transition-all duration-200 hover:bg-green-700 hover:text-white sm:h-[26px] sm:w-[76px] sm:text-xs lg:w-[82px]"
-                                    style={{
-                                      fontFamily: "'Quicksand', sans-serif",
-                                      fontWeight: 600,
-                                      lineHeight: '125%'
-                                    }}
-                                  >
-                                    ADD
-                                  </button>
+                                  />
                                 ) : (
-                                  <div className="flex items-center gap-2 rounded-full bg-gray-100 px-2 py-0.5 sm:gap-3 sm:py-1">
-                                    <button
-                                      onClick={() => updateQuantity(item.id, getItemQuantity(item.id) - 1)}
-                                      className="flex h-5 w-5 items-center justify-center text-gray-600 transition-colors hover:text-gray-900 sm:h-6 sm:w-6"
-                                      aria-label={`Decrease ${item.name}`}
-                                    >
-                                      <span className="text-lg font-bold">-</span>
-                                    </button>
-                                    <span className="min-w-[1ch] text-center text-xs font-bold text-gray-900 sm:text-sm" style={{ fontFamily: "'Quicksand', sans-serif" }}>
-                                      {getItemQuantity(item.id)}
-                                    </span>
-                                    <button
-                                      onClick={() => updateQuantity(item.id, getItemQuantity(item.id) + 1)}
-                                      className="flex h-5 w-5 items-center justify-center text-gray-600 transition-colors hover:text-gray-900 sm:h-6 sm:w-6"
-                                      aria-label={`Increase ${item.name}`}
-                                    >
-                                      <span className="text-lg font-bold">+</span>
-                                    </button>
-                                  </div>
+                                  <span className="flex h-full w-full items-center justify-center text-gray-500">
+                                    <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14m-8-5h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  </span>
                                 )}
-                              </div>
+                              </button>
+                            </div>
+
+                            <div className="mt-5 min-h-[56px] text-center">
+                              <p
+                                style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 600, lineHeight: '125%' }}
+                                className="text-lg text-gray-900"
+                              >
+                                Rs {item.price}
+                              </p>
+                              <p
+                                style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '140%' }}
+                                className="mt-2 line-clamp-2 min-h-[2.5rem] text-xs text-gray-500"
+                              >
+                                {item.description || ''}
+                              </p>
+                            </div>
+
+                            <button
+                              onClick={() => addToCart(item)}
+                              className={`mx-auto mt-4 flex min-h-[46px] w-full max-w-[136px] items-center justify-center rounded-xl border-2 px-4 text-sm font-semibold tracking-[0.08em] transition-all duration-200 sm:text-[15px] ${itemQuantity > 0 ? 'border-[#252b36] bg-[#252b36] text-white shadow-[0_12px_24px_rgba(37,43,54,0.18)]' : 'border-[#252b36] bg-white text-[#111827] hover:bg-[#252b36] hover:text-white'}`}
+                              style={{ fontFamily: "'Quicksand', sans-serif", lineHeight: '125%' }}
+                              aria-label={`Add ${item.name}`}
+                            >
+                              ADD
+                            </button>
+
+                            <div className="mt-auto flex items-center justify-between pt-5">
+                              <button
+                                onClick={() => updateQuantity(item.id, itemQuantity - 1)}
+                                disabled={itemQuantity === 0}
+                                className="flex h-11 w-11 items-center justify-center rounded-full text-[#111827] transition-all duration-200 hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
+                                aria-label={`Decrease ${item.name}`}
+                              >
+                                <span className="text-[30px] leading-none">-</span>
+                              </button>
+
+                              <span
+                                className={`min-w-[54px] rounded-full border px-3 py-1 text-center text-sm font-semibold transition-all duration-200 ${itemQuantity > 0 ? 'border-[#252b36] bg-[#252b36] text-white' : 'border-gray-300 bg-gray-50 text-gray-500'}`}
+                                style={{ fontFamily: "'Quicksand', sans-serif" }}
+                              >
+                                {itemQuantity}
+                              </span>
+
+                              <button
+                                onClick={() => updateQuantity(item.id, itemQuantity + 1)}
+                                className="flex h-11 w-11 items-center justify-center rounded-full text-[#111827] transition-all duration-200 hover:bg-gray-100"
+                                aria-label={`Increase ${item.name}`}
+                              >
+                                <span className="text-[30px] leading-none">+</span>
+                              </button>
                             </div>
                           </article>
                         );
