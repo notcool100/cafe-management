@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { orderService } from '@/lib/api/order-service';
 import { menuService } from '@/lib/api/menu-service';
 import BranchSelector from '@/components/ui/BranchSelector';
-import { Order, CreateOrderData, OrderType, OrderStatus, Branch, OrderNotification, SharedItemNotification, MenuItem } from '@/lib/types';
+import { Order, CreateOrderData, OrderType, OrderStatus, Branch, OrderNotification, SharedItemNotification, MenuItem, PaymentMethod } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { resolveImageUrl } from '@/lib/utils/image';
@@ -33,7 +33,7 @@ interface MenuItemPreview {
 
 export default function StaffOrdersPage() {
   const router = useRouter();
-  const { user, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
+  const { user, selectedBranchId, setSelectedBranchId } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [viewMode, setViewMode] = useState<'menu' | 'live-orders' | 'history'>('menu');
@@ -43,7 +43,8 @@ export default function StaffOrdersPage() {
   const [customerInfo, setCustomerInfo] = useState({
     name: '',
     phone: '',
-    orderType: 'dine-in' as 'dine-in' | 'takeaway'
+    orderType: 'dine-in' as 'dine-in' | 'takeaway',
+    paymentMethod: PaymentMethod.CASH_PAYMENT
   });
 
   // Real live orders state - starts empty, only shows confirmed orders
@@ -332,6 +333,7 @@ export default function StaffOrdersPage() {
         customerName: customerInfo.name || undefined,
         customerPhone: customerInfo.phone || undefined,
         orderType: customerInfo.orderType === 'dine-in' ? OrderType.DINE_IN : OrderType.TAKEAWAY,
+        paymentMethod: customerInfo.paymentMethod,
         items: cartItems.map(item => ({
           menuItemId: item.id,
           quantity: item.quantity
@@ -350,7 +352,8 @@ export default function StaffOrdersPage() {
       setCustomerInfo({
         name: '',
         phone: '',
-        orderType: 'dine-in'
+        orderType: 'dine-in',
+        paymentMethod: PaymentMethod.CASH_PAYMENT
       });
 
       // Show success message
@@ -482,11 +485,6 @@ export default function StaffOrdersPage() {
       return () => clearInterval(interval);
     }
   }, [selectedBranchId]);
-
-  // Initial branch selection and user refresh
-  useEffect(() => {
-    refreshUser();
-  }, []);
 
   const handleToggleNotifications = () => {
     setIsNotificationsOpen(!isNotificationsOpen);
@@ -1486,11 +1484,16 @@ export default function StaffOrdersPage() {
               {/* Payment Method */}
               <div className="mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3">Payment Method</h3>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700">
-                  <option>Cash Payment</option>
-                  <option>Credit Card</option>
-                  <option>Debit Card</option>
-                  <option>UPI</option>
+                <select
+                  value={customerInfo.paymentMethod}
+                  onChange={(e) => setCustomerInfo({ ...customerInfo, paymentMethod: e.target.value as PaymentMethod })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700"
+                >
+                  <option value={PaymentMethod.CASH_PAYMENT}>Cash Payment</option>
+                  <option value={PaymentMethod.FONEPAY}>Fonepay</option>
+                  <option value={PaymentMethod.CREDIT_CARD}>Credit Card</option>
+                  <option value={PaymentMethod.DEBIT_CARD}>Debit Card</option>
+                  <option value={PaymentMethod.UPI}>UPI</option>
                 </select>
               </div>
 

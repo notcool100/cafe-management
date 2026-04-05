@@ -26,7 +26,7 @@ const managerNavigation = [
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { user, logout, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
+    const { user, logout, selectedBranchId, setSelectedBranchId, refreshUser, hasHydrated } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const isManagement = user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
     const contentKey = `${pathname}:${selectedBranchId || 'all'}`;
@@ -39,8 +39,9 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     };
 
     useEffect(() => {
-        refreshUser();
-    }, []);
+        if (!hasHydrated) return;
+        void refreshUser();
+    }, [hasHydrated, refreshUser]);
 
     useEffect(() => {
         const originalOverflow = document.body.style.overflow;

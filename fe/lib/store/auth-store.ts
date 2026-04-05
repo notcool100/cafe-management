@@ -66,6 +66,18 @@ const normalizeUser = (user: User): User => {
     };
 };
 
+const syncStoredTokens = (accessToken?: string | null, refreshToken?: string | null) => {
+    if (typeof window === 'undefined') return;
+
+    if (accessToken && !localStorage.getItem('access_token')) {
+        localStorage.setItem('access_token', accessToken);
+    }
+
+    if (refreshToken && !localStorage.getItem('refresh_token')) {
+        localStorage.setItem('refresh_token', refreshToken);
+    }
+};
+
 export const useAuthStore = create<AuthState>()(
     persist(
         (set, get) => ({
@@ -164,6 +176,17 @@ export const useAuthStore = create<AuthState>()(
             },
 
             refreshUser: async () => {
+                const { accessToken, refreshToken } = get();
+                const localAccessToken = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+                const localRefreshToken = typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null;
+                const hasStoredSession = Boolean(accessToken || refreshToken || localAccessToken || localRefreshToken);
+
+                if (!hasStoredSession) {
+                    return;
+                }
+
+                syncStoredTokens(accessToken, refreshToken);
+
                 try {
                     const user = normalizeUser(await authService.getMe());
                     set((state) => ({
@@ -171,6 +194,13 @@ export const useAuthStore = create<AuthState>()(
                         selectedBranchId: state.selectedBranchId || (user.branchIds && user.branchIds.length > 0 ? user.branchIds[0] : null)
                     }));
                 } catch (error) {
+                    const status = (error as { status?: number })?.status;
+
+                    if (status === 401 || status === 403) {
+                        get().logout();
+                        return;
+                    }
+
                     console.error('Failed to refresh user:', error);
                 }
             },

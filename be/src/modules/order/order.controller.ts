@@ -15,6 +15,10 @@ export class OrderController {
             .optional()
             .isIn(['DINE_IN', 'TAKEAWAY'])
             .withMessage('orderType must be DINE_IN or TAKEAWAY'),
+        body('paymentMethod')
+            .optional()
+            .isIn(['CASH_PAYMENT', 'FONEPAY', 'CREDIT_CARD', 'DEBIT_CARD', 'UPI'])
+            .withMessage('paymentMethod must be CASH_PAYMENT, FONEPAY, CREDIT_CARD, DEBIT_CARD, or UPI'),
         body('deviceId').optional().isString().isLength({ min: 6, max: 128 }).withMessage('deviceId must be a string'),
     ];
 
@@ -25,7 +29,7 @@ export class OrderController {
                 return res.status(400).json({ errors: errors.array() });
             }
 
-            const { branchId, items, customerName, customerPhone, deviceId, orderType } = req.body;
+            const { branchId, items, customerName, customerPhone, deviceId, orderType, paymentMethod } = req.body;
             const order = await OrderService.createOrder({
                 branchId,
                 items,
@@ -33,6 +37,7 @@ export class OrderController {
                 customerPhone,
                 deviceId,
                 orderType,
+                paymentMethod,
             }, (req as AuthRequest).user?.tenantId);
 
             res.status(201).json(order);

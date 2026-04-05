@@ -152,6 +152,7 @@ model Order {
   tenantId                   String
   deviceId                   String?
   orderType                  OrderType    @default(DINE_IN)
+  paymentMethod              PaymentMethod @default(CASH_PAYMENT)
   branch                     Branch       @relation(fields: [branchId], references: [id])
   tenant                     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   orderItems                 OrderItem[]
@@ -193,6 +194,14 @@ enum UserRole {
 enum OrderType {
   DINE_IN
   TAKEAWAY
+}
+
+enum PaymentMethod {
+  CASH_PAYMENT
+  CREDIT_CARD
+  DEBIT_CARD
+  FONEPAY
+  UPI
 }
 
 enum OrderStatus {

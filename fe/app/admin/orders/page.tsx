@@ -9,7 +9,7 @@ import Button from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import Spinner from '@/components/ui/Spinner';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Branch, Order, OrderStatus, OrderType, UserRole } from '@/lib/types';
+import { Branch, Order, OrderStatus, OrderType, PaymentMethod, UserRole } from '@/lib/types';
 import Toast from '@/components/ui/Toast';
 import OrderDetailModal from '@/components/staff/OrderDetailModal';
 import { useAuthStore } from '@/lib/store/auth-store';
@@ -32,7 +32,7 @@ const LIVE_ORDER_STATUSES: OrderStatus[] = [
 ];
 
 export default function AdminOrdersPage() {
-    const { user, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
+    const { user, selectedBranchId, setSelectedBranchId } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
     const managerBranchId = isManager ? selectedBranchId : undefined;
 
@@ -90,8 +90,13 @@ export default function AdminOrdersPage() {
             });
             setOrders(data);
         } catch (error) {
-            console.error(error);
-            setToast({ message: 'Failed to load orders', type: 'error', isVisible: true });
+            const message = error instanceof Error
+                ? error.message
+                : (typeof error === 'object' && error && 'message' in error && typeof (error as { message?: unknown }).message === 'string'
+                    ? (error as { message: string }).message
+                    : 'Failed to load orders');
+            console.error('Failed to load orders:', message, error);
+            setToast({ message, type: 'error', isVisible: true });
         } finally {
             setIsLoading(false);
         }
@@ -100,10 +105,6 @@ export default function AdminOrdersPage() {
     useEffect(() => {
         void loadBranches();
     }, [loadBranches]);
-
-    useEffect(() => {
-        refreshUser();
-    }, []);
 
     useEffect(() => {
         void loadOrders();
@@ -391,7 +392,7 @@ export default function AdminOrdersPage() {
                                         ) : 'No items'}
                                     </td>
                                     <td className="px-4 py-4 text-sm font-semibold text-[#4e2f27]">Rs. {order.totalAmount.toFixed(0)}</td>
-                                    <td className="px-4 py-4 text-sm text-[#6f584f]">Cash/Fonepay</td>
+                                    <td className="px-4 py-4 text-sm text-[#6f584f]">{paymentMethodLabel(order.paymentMethod)}</td>
                                     <td className="px-4 py-4">
                                         <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${order.status === OrderStatus.COMPLETED ? 'bg-[#50ff99] text-[#1f5a36]' :
                                             order.status === OrderStatus.CANCELLED ? 'bg-red-100 text-red-700' :
@@ -456,7 +457,7 @@ export default function AdminOrdersPage() {
                                     </td>
                                     <td className="px-4 py-4 text-sm text-[#6f584f]">Order Details</td>
                                     <td className="px-4 py-4 text-sm font-semibold text-[#4e2f27]">Rs. {selectedOrder.totalAmount.toFixed(0)}</td>
-                                    <td className="px-4 py-4 text-sm text-[#6f584f]">Cash/Fonepay</td>
+                                    <td className="px-4 py-4 text-sm text-[#6f584f]">{paymentMethodLabel(selectedOrder.paymentMethod)}</td>
                                     <td className="px-4 py-4">
                                         <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${selectedOrder.status === OrderStatus.COMPLETED ? 'bg-[#50ff99] text-[#1f5a36]' :
                                             'bg-amber-100 text-amber-700'
@@ -648,6 +649,23 @@ function statusLabel(status: OrderStatus) {
             return 'Pending';
         default:
             return status;
+    }
+}
+
+function paymentMethodLabel(paymentMethod?: PaymentMethod | string) {
+    switch (paymentMethod) {
+        case PaymentMethod.FONEPAY:
+            return 'Fonepay';
+        case PaymentMethod.CREDIT_CARD:
+            return 'Credit Card';
+        case PaymentMethod.DEBIT_CARD:
+            return 'Debit Card';
+        case PaymentMethod.UPI:
+            return 'UPI';
+        case 'CASH':
+        case PaymentMethod.CASH_PAYMENT:
+        default:
+            return 'Cash Payment';
     }
 }
 

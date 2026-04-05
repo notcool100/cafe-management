@@ -125,6 +125,14 @@ export enum OrderType {
     TAKEAWAY = 'TAKEAWAY',
 }
 
+export enum PaymentMethod {
+    CASH_PAYMENT = 'CASH_PAYMENT',
+    CREDIT_CARD = 'CREDIT_CARD',
+    DEBIT_CARD = 'DEBIT_CARD',
+    FONEPAY = 'FONEPAY',
+    UPI = 'UPI',
+}
+
 export interface OrderItem {
     id: string;
     orderId: string;
@@ -142,6 +150,7 @@ export interface Order {
     status: OrderStatus;
     tokenNumber?: number;
     orderType?: OrderType;
+    paymentMethod?: PaymentMethod;
     customerName?: string;
     customerPhone?: string;
     totalAmount: number;
@@ -160,6 +169,7 @@ export interface CreateOrderData {
     customerPhone?: string;
     deviceId?: string;
     orderType?: OrderType;
+    paymentMethod?: PaymentMethod;
     items: {
         menuItemId: string;
         quantity: number;

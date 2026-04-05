@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import PDFDocument from 'pdfkit';
 import { Order, OrderItem, MenuItem, Branch } from '@prisma/client';
 
@@ -31,6 +33,7 @@ const LINE_HEIGHT_13 = 16;
 const LINE_HEIGHT_18 = 22;
 const MIN_PAGE_HEIGHT = 140;
 const SAFETY_BUFFER = 28;
+const BOLD_FONT_PATH = path.resolve(__dirname, '../../fonts/Roboto-Bold.ttf');
 
 const estimateReceiptHeight = (order: OrderWithItems, titleSize = 13) => {
     let height = 0;
@@ -131,7 +134,8 @@ const renderReceiptSection = (
 
     doc.fontSize(9);
     const totalY = doc.y;
-    doc.font('fonts/Roboto-Bold.ttf').text('Total:', PRICE_COL_X, totalY, { width: PRICE_COL_WIDTH, align: 'right' });
+    const boldFont = fs.existsSync(BOLD_FONT_PATH) ? BOLD_FONT_PATH : 'Helvetica-Bold';
+    doc.font(boldFont).text('Total:', PRICE_COL_X, totalY, { width: PRICE_COL_WIDTH, align: 'right' });
     doc.text(`${Number(order.totalAmount || 0).toFixed(2)}`, TOTAL_COL_X, totalY, {
         width: TOTAL_COL_WIDTH,
         align: 'right',

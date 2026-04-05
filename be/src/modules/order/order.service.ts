@@ -24,6 +24,7 @@ export class OrderService {
             customerPhone?: string;
             deviceId?: string;
             orderType?: 'DINE_IN' | 'TAKEAWAY';
+            paymentMethod?: 'CASH_PAYMENT' | 'FONEPAY' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'UPI';
         },
         tenantId?: string
     ) {
@@ -91,6 +92,7 @@ export class OrderService {
                 customerPhone: data.customerPhone,
                 deviceId: data.deviceId,
                 status: 'PENDING',
+                paymentMethod: data.paymentMethod ?? 'CASH_PAYMENT',
                 orderItems: {
                     create: orderItemsData,
                 },

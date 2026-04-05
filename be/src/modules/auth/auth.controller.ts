@@ -1,6 +1,40 @@
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { body, validationResult } from 'express-validator';
+
+const isDatabaseUnavailableError = (error: unknown) => {
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+        return true;
+    }
+
+    if (!(error instanceof Error)) {
+        return false;
+    }
+
+    return (
+        error.message.includes("Can't reach database server") ||
+        error.message.includes('Error querying the database')
+    );
+};
+
+const getAuthErrorResponse = (error: unknown, fallbackMessage: string) => {
+    if (isDatabaseUnavailableError(error)) {
+        return {
+            status: 503,
+            error: 'Database unavailable. Check DATABASE_URL and make sure PostgreSQL is reachable.',
+        };
+    }
+
+    if (error instanceof Error && error.message === 'Invalid credentials') {
+        return { status: 401, error: error.message };
+    }
+
+    return {
+        status: 500,
+        error: error instanceof Error ? error.message : fallbackMessage,
+    };
+};
 
 export class AuthController {
     static loginValidation = [
@@ -32,9 +66,7 @@ export class AuthController {
 
             res.json(result);
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Login failed';
-            const status = message === 'Invalid credentials' ? 401 : 500;
-
+            const { status, error: message } = getAuthErrorResponse(error, 'Login failed');
             res.status(status).json({ error: message });
         }
     }
@@ -58,9 +90,8 @@ export class AuthController {
 
             res.status(201).json(result);
         } catch (error) {
-            res.status(400).json({
-                error: error instanceof Error ? error.message : 'Registration failed',
-            });
+            const { status, error: message } = getAuthErrorResponse(error, 'Registration failed');
+            res.status(status).json({ error: message });
         }
     }
 
@@ -73,9 +104,8 @@ export class AuthController {
             const result = await AuthService.getMe(req.user.id);
             res.json(result);
         } catch (error) {
-            res.status(400).json({
-                error: error instanceof Error ? error.message : 'Failed to fetch profile',
-            });
+            const { status, error: message } = getAuthErrorResponse(error, 'Failed to fetch profile');
+            res.status(status).json({ error: message });
         }
     }
 
@@ -89,9 +119,8 @@ export class AuthController {
             const result = await AuthService.refreshToken(refreshToken);
             res.json(result);
         } catch (error) {
-            res.status(401).json({
-                error: error instanceof Error ? error.message : 'Refresh token failed',
-            });
+            const { status, error: message } = getAuthErrorResponse(error, 'Refresh token failed');
+            res.status(status === 500 ? 401 : status).json({ error: message });
         }
     }
 
