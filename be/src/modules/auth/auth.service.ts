@@ -12,6 +12,7 @@ export class AuthService {
                 email: true,
                 password: true,
                 name: true,
+                imageUrl: true,
                 role: true,
                 createdAt: true,
                 updatedAt: true,
@@ -42,7 +43,7 @@ export class AuthService {
                 id: user.id,
                 email: user.email,
                 name: user.name,
-                imageUrl: null,
+                imageUrl: user.imageUrl,
                 role: user.role,
                 branchIds: user.branches.map((b: any) => b.id),
                 branches: user.branches,
@@ -64,6 +65,7 @@ export class AuthService {
         const normalizedEmail = data.email.trim().toLowerCase();
         const existingUser = await prisma.user.findUnique({
             where: { email: normalizedEmail },
+            select: { id: true },
         });
 
         if (existingUser) {
@@ -142,6 +144,7 @@ export class AuthService {
                 id: true,
                 email: true,
                 name: true,
+                imageUrl: true,
                 role: true,
                 createdAt: true,
                 updatedAt: true,
@@ -160,7 +163,7 @@ export class AuthService {
                 id: user.id,
                 email: user.email,
                 name: user.name,
-                imageUrl: null,
+                imageUrl: user.imageUrl,
                 role: user.role,
                 branchIds: user.branches.map((b: any) => b.id),
                 branches: user.branches,
@@ -245,6 +248,7 @@ export class AuthService {
                 id: true,
                 email: true,
                 name: true,
+                imageUrl: true,
                 role: true,
                 createdAt: true,
                 updatedAt: true,
@@ -271,7 +275,7 @@ export class AuthService {
             id: user.id,
             email: user.email,
             name: user.name,
-            imageUrl: null,
+            imageUrl: user.imageUrl,
             role: user.role,
             branchIds: branches.map((b: any) => b.id),
             branches: branches,

@@ -525,11 +525,16 @@ export default function StaffOrdersPage() {
   });
 
   const getMenuItemImage = (item: MenuItemPreview) =>
-    resolveImageUrl(item.imageUrl ?? item.image) || '/api/placeholder/300/200';
+    resolveImageUrl(item.imageUrl ?? item.image);
 
   const handleOpenImagePreview = (item: MenuItemPreview) => {
+    const imageSrc = getMenuItemImage(item);
+    if (!imageSrc) {
+      return;
+    }
+
     setPreviewImage({
-      src: getMenuItemImage(item),
+      src: imageSrc,
       alt: item.name || 'Menu item',
     });
   };
@@ -694,11 +699,19 @@ export default function StaffOrdersPage() {
                     className={`w-16 h-16 rounded-xl overflow-hidden ring-2 ring-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${branchQrCode ? 'bg-white cursor-pointer' : 'bg-gray-200 cursor-default'}`}
                     aria-label={branchQrCode ? 'Open branch QR code' : 'Branch QR code unavailable'}
                   >
-                    <img
-                      src={branchQrCode || '/api/placeholder/64/64'}
-                      alt={branchQrCode ? `${branchInfo?.name || 'Branch'} QR code` : 'Restaurant'}
-                      className={`w-full h-full ${branchQrCode ? 'object-contain p-1' : 'object-cover'}`}
-                    />
+                    {branchQrCode ? (
+                      <img
+                        src={branchQrCode}
+                        alt={`${branchInfo?.name || 'Branch'} QR code`}
+                        className="w-full h-full object-contain p-1"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-gray-400">
+                        <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 5h4v4H5V5zm10 0h4v4h-4V5zM5 15h4v4H5v-4zm7-7h2m-2 4h2m4 0h2m-6 2h2m-2 2h2m2 0h2" />
+                        </svg>
+                      </span>
+                    )}
                   </button>
                   <div className="flex-1">
                     <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: '30px', lineHeight: '125%', color: '#000000' }}>
