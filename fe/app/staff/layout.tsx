@@ -54,6 +54,18 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         };
     }, [sidebarOpen]);
 
+    useEffect(() => {
+        const handleSidebarToggle = () => {
+            setSidebarOpen((previous) => !previous);
+        };
+
+        window.addEventListener('staff:toggle-sidebar', handleSidebarToggle);
+
+        return () => {
+            window.removeEventListener('staff:toggle-sidebar', handleSidebarToggle);
+        };
+    }, []);
+
     return (
         <ProtectedRoute requiredRole={['MANAGER', 'EMPLOYEE', 'ADMIN', 'SUPER_ADMIN']}>
             <div className="min-h-screen bg-[#fbf5e8] text-[#5a3a2e]">
@@ -174,8 +186,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                     <div
                         className={cn(
                             'fixed inset-0 z-50 lg:hidden',
-                            sidebarOpen ? 'pointer-events-auto' : 'pointer-events-none',
-                            pathname === '/staff/orders' && 'hidden'
+                            sidebarOpen ? 'pointer-events-auto' : 'pointer-events-none'
                         )}
                         aria-hidden={!sidebarOpen}
                     >

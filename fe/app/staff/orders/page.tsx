@@ -638,6 +638,10 @@ export default function StaffOrdersPage() {
     setPreviewImage(null);
   };
 
+  const handleToggleSidebar = () => {
+    window.dispatchEvent(new Event('staff:toggle-sidebar'));
+  };
+
   const unreadNotificationsLabel = unreadNotificationsCount > 99
     ? '99+'
     : String(unreadNotificationsCount);
@@ -648,7 +652,7 @@ export default function StaffOrdersPage() {
 
         {/* Sticky Header */}
         <header className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-gray-100 transition-all duration-300">
-          <div className="flex items-center justify-between p-4">
+          <div className="flex items-center justify-between gap-3 p-4">
             {/* Navigation */}
             <div className="flex items-center space-x-4">
               {viewMode === 'menu' && !isCheckoutOpen && (
@@ -681,7 +685,7 @@ export default function StaffOrdersPage() {
             )}
 
             {/* Search Bar - Centered */}
-            <div className="flex-1 max-w-md mx-auto">
+            <div className="flex-1 min-w-0 max-w-md mx-auto">
               <div className="relative">
                 <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -697,7 +701,17 @@ export default function StaffOrdersPage() {
             </div>
 
             {/* Action Icons */}
-            <div className="flex items-center space-x-2 relative">
+            <div className="relative flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={handleToggleSidebar}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 lg:hidden"
+                aria-label="Toggle navigation menu"
+              >
+                <svg className="w-6 h-6 text-gray-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
               <button
                 onClick={handleToggleNotifications}
                 aria-label={unreadNotificationsCount > 0 ? `${unreadNotificationsCount} unread notifications` : 'Toggle notifications'}
