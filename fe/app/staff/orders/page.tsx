@@ -10,9 +10,32 @@ import { Order, CreateOrderData, OrderType, OrderStatus, Branch, OrderNotificati
 import { format } from 'date-fns';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { resolveImageUrl } from '@/lib/utils/image';
+
 type NotificationItem =
   | { kind: 'shared'; timestamp: string; data: SharedItemNotification }
   | { kind: 'order'; timestamp: string; data: OrderNotification };
+
+const DISCOUNT_PRESETS = [0, 5, 10, 15, 20];
+
+const clampDiscountPercentage = (value: number) => Math.min(Math.max(value, 0), 100);
+
+const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+const formatDiscountPercentage = (value: number) => {
+  if (Number.isInteger(value)) {
+    return `${value.toFixed(0)}%`;
+  }
+
+  return `${value.toFixed(2).replace(/\.?0+$/, '')}%`;
+};
+
+const formatEditableDiscountValue = (value: number) => {
+  if (Number.isInteger(value)) {
+    return value.toFixed(0);
+  }
+
+  return value.toFixed(2).replace(/\.?0+$/, '');
+};
 
 interface CartItem {
   id: string;
@@ -46,6 +69,7 @@ export default function StaffOrdersPage() {
     orderType: 'dine-in' as 'dine-in' | 'takeaway',
     paymentMethod: PaymentMethod.CASH_PAYMENT
   });
+  const [discountInput, setDiscountInput] = useState('0');
 
   // Real live orders state - starts empty, only shows confirmed orders
   const [liveOrders, setLiveOrders] = useState<Order[]>([]);
@@ -296,9 +320,20 @@ export default function StaffOrdersPage() {
     setCartItems(prevItems => prevItems.filter(item => item.id !== id));
   };
 
-  const getTotalPrice = () => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
+  const cartSubtotal = useMemo(
+    () => roundCurrency(cartItems.reduce((total, item) => total + (item.price * item.quantity), 0)),
+    [cartItems]
+  );
+
+  const parsedDiscountPercentage = Number.parseFloat(discountInput);
+  const appliedDiscountPercentage = Number.isFinite(parsedDiscountPercentage)
+    ? clampDiscountPercentage(parsedDiscountPercentage)
+    : 0;
+  const discountAmount = roundCurrency(cartSubtotal * (appliedDiscountPercentage / 100));
+  const discountedTotal = roundCurrency(Math.max(cartSubtotal - discountAmount, 0));
+  const hasDiscount = discountAmount > 0;
+
+  const getTotalPrice = () => discountedTotal;
 
   const getTotalItems = () => {
     return cartItems.reduce((total, item) => total + item.quantity, 0);
@@ -334,6 +369,7 @@ export default function StaffOrdersPage() {
         customerPhone: customerInfo.phone || undefined,
         orderType: customerInfo.orderType === 'dine-in' ? OrderType.DINE_IN : OrderType.TAKEAWAY,
         paymentMethod: customerInfo.paymentMethod,
+        discountPercentage: appliedDiscountPercentage > 0 ? appliedDiscountPercentage : undefined,
         items: cartItems.map(item => ({
           menuItemId: item.id,
           quantity: item.quantity
@@ -343,7 +379,7 @@ export default function StaffOrdersPage() {
       console.log('Creating order with data:', orderData);
 
       // Create the order
-      const newOrder = await orderService.createOrder(orderData);
+      const newOrder = await orderService.createStaffOrder(orderData);
       console.log('Order created successfully:', newOrder);
 
       // Clear cart and close checkout
@@ -355,6 +391,7 @@ export default function StaffOrdersPage() {
         orderType: 'dine-in',
         paymentMethod: PaymentMethod.CASH_PAYMENT
       });
+      setDiscountInput('0');
 
       // Show success message
       alert('Order placed successfully!');
@@ -372,7 +409,13 @@ export default function StaffOrdersPage() {
 
     } catch (error) {
       console.error('Failed to create order:', error);
-      alert(`Failed to place order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object' && error && 'message' in error && typeof (error as { message?: unknown }).message === 'string'
+            ? (error as { message: string }).message
+            : 'Unknown error';
+      alert(`Failed to place order: ${errorMessage}`);
     } finally {
       setIsSubmittingOrder(false);
     }
@@ -1002,7 +1045,14 @@ export default function StaffOrdersPage() {
                             </div>
                             <div className="w-full sm:w-auto sm:text-right">
                               <div className="flex flex-col items-start sm:items-end space-y-2">
-                                <span className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>Rs {order.totalAmount}</span>
+                                <div className="flex flex-col items-start sm:items-end">
+                                  <span className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>Rs {order.totalAmount}</span>
+                                  {order.discountAmount > 0 && (
+                                    <span className="text-xs font-medium text-emerald-600" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                      {formatDiscountPercentage(order.discountPercentage)} off
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${order.status === 'READY' ? 'bg-green-100 text-green-700 border border-green-200' :
                                     order.status === 'PREPARING' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
@@ -1218,7 +1268,14 @@ export default function StaffOrdersPage() {
                             </div>
                             <div className="w-full sm:w-auto sm:text-right">
                               <div className="flex flex-col items-start sm:items-end space-y-2">
-                                <span className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>Rs {order.totalAmount}</span>
+                                <div className="flex flex-col items-start sm:items-end">
+                                  <span className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>Rs {order.totalAmount}</span>
+                                  {order.discountAmount > 0 && (
+                                    <span className="text-xs font-medium text-emerald-600" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                      {formatDiscountPercentage(order.discountPercentage)} off
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${order.status === OrderStatus.COMPLETED
                                     ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
@@ -1313,9 +1370,21 @@ export default function StaffOrdersPage() {
                         <span className="text-gray-700">Items ({getTotalItems()}):</span>
                         <span className="font-semibold">{getTotalItems()}</span>
                       </div>
+                      {hasDiscount && (
+                        <>
+                          <div className="flex items-center justify-between text-sm text-gray-700" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                            <span>Subtotal</span>
+                            <span>Rs {cartSubtotal.toFixed(2)}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm text-emerald-600" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                            <span>Discount ({formatDiscountPercentage(appliedDiscountPercentage)})</span>
+                            <span>- Rs {discountAmount.toFixed(2)}</span>
+                          </div>
+                        </>
+                      )}
                       <div className="flex items-center justify-between text-lg" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                         <span className="font-semibold text-gray-900">Total:</span>
-                        <span className="font-bold text-gray-900">Rs {getTotalPrice()}</span>
+                        <span className="font-bold text-gray-900">Rs {getTotalPrice().toFixed(2)}</span>
                       </div>
                     </div>
 
@@ -1419,10 +1488,60 @@ export default function StaffOrdersPage() {
                   ))}
                 </div>
                 <div className="border-t pt-2 mt-3">
-                  <div className="flex justify-between font-semibold" style={{ fontFamily: 'Quicksand, sans-serif' }}>
-                    <span>Total</span>
-                    <span>Rs {getTotalPrice()}</span>
+                  <div className="space-y-2" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                    <div className="flex justify-between text-sm text-gray-700">
+                      <span>Subtotal</span>
+                      <span>Rs {cartSubtotal.toFixed(2)}</span>
+                    </div>
+                    {hasDiscount && (
+                      <div className="flex justify-between text-sm text-emerald-600">
+                        <span>Discount ({formatDiscountPercentage(appliedDiscountPercentage)})</span>
+                        <span>- Rs {discountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-semibold">
+                      <span>Total</span>
+                      <span>Rs {getTotalPrice().toFixed(2)}</span>
+                    </div>
                   </div>
+                </div>
+              </div>
+
+              <div className="mb-6" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                <h3 className="font-semibold text-gray-900 mb-3">Discount</h3>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  {DISCOUNT_PRESETS.map((preset) => {
+                    const isActive = appliedDiscountPercentage === preset && discountInput !== '';
+
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setDiscountInput(formatEditableDiscountValue(preset))}
+                        className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${isActive
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-emerald-400 hover:text-emerald-700'
+                          }`}
+                      >
+                        {preset === 0 ? 'No discount' : formatDiscountPercentage(preset)}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Manual Discount (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.value)}
+                    onBlur={() => setDiscountInput(formatEditableDiscountValue(appliedDiscountPercentage))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    placeholder="Enter discount percentage"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Use a preset or enter any percentage manually.</p>
                 </div>
               </div>
 

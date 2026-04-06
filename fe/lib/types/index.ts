@@ -153,7 +153,10 @@ export interface Order {
     paymentMethod?: PaymentMethod;
     customerName?: string;
     customerPhone?: string;
+    subtotalAmount: number;
     totalAmount: number;
+    discountPercentage: number;
+    discountAmount: number;
     items: OrderItem[];
     createdAt: string;
     updatedAt: string;
@@ -170,6 +173,7 @@ export interface CreateOrderData {
     deviceId?: string;
     orderType?: OrderType;
     paymentMethod?: PaymentMethod;
+    discountPercentage?: number;
     items: {
         menuItemId: string;
         quantity: number;

@@ -160,7 +160,7 @@ export default function AdminOrdersPage() {
 
     const selectedOrderSubtotal = useMemo(() => {
         if (!selectedOrder) return 0;
-        return selectedOrder.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+        return selectedOrder.subtotalAmount;
     }, [selectedOrder]);
 
     const selectedOrderDelivery = useMemo(() => {
@@ -168,10 +168,10 @@ export default function AdminOrdersPage() {
         return 25;
     }, [selectedOrder]);
 
-    const selectedOrderHandling = useMemo(() => {
+    const selectedOrderDiscountAmount = useMemo(() => {
         if (!selectedOrder) return 0;
-        return Math.max(selectedOrder.totalAmount - selectedOrderSubtotal - selectedOrderDelivery, 0);
-    }, [selectedOrder, selectedOrderDelivery, selectedOrderSubtotal]);
+        return selectedOrder.discountAmount;
+    }, [selectedOrder]);
 
     const handleShare = useCallback(async () => {
         if (!selectedOrder) return;
@@ -523,13 +523,15 @@ export default function AdminOrdersPage() {
                                     </div>
                                     <div className="space-y-4">
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-[#f1e6db]">Total</span>
+                                            <span className="text-[#f1e6db]">Subtotal</span>
                                             <span>Rs {selectedOrderSubtotal.toFixed(0)}</span>
                                         </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-[#f1e6db]">Handling Charge</span>
-                                            <span>Rs {selectedOrderHandling.toFixed(0)}</span>
-                                        </div>
+                                        {selectedOrderDiscountAmount > 0 && (
+                                            <div className="flex justify-between items-center text-sm text-[#b6f2c7]">
+                                                <span>Discount ({formatDiscountPercentage(selectedOrder.discountPercentage)})</span>
+                                                <span>- Rs {selectedOrderDiscountAmount.toFixed(0)}</span>
+                                            </div>
+                                        )}
                                         <div className="flex justify-between items-center text-sm">
                                             <span className="text-[#f1e6db]">Delivery Fee</span>
                                             <span>Rs {selectedOrderDelivery.toFixed(0)}</span>
@@ -671,6 +673,14 @@ function paymentMethodLabel(paymentMethod?: PaymentMethod | string) {
 
 function formatCurrency(value: number) {
     return `Rs ${value.toFixed(2)}`;
+}
+
+function formatDiscountPercentage(value: number) {
+    if (Number.isInteger(value)) {
+        return `${value.toFixed(0)}%`;
+    }
+
+    return `${value.toFixed(2).replace(/\.?0+$/, '')}%`;
 }
 
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {

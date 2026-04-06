@@ -24,6 +24,15 @@ const normalizeOrder = (order: Order): Order => {
     const totalAmount = typeof order.totalAmount === 'number'
         ? order.totalAmount
         : Number(order.totalAmount ?? 0);
+    const subtotalAmount = typeof order.subtotalAmount === 'number'
+        ? order.subtotalAmount
+        : Number(order.subtotalAmount ?? totalAmount);
+    const discountPercentage = typeof order.discountPercentage === 'number'
+        ? order.discountPercentage
+        : Number(order.discountPercentage ?? 0);
+    const discountAmount = typeof order.discountAmount === 'number'
+        ? order.discountAmount
+        : Number(order.discountAmount ?? 0);
     const paymentMethod = normalizePaymentMethod(
         (order as unknown as { paymentMethod?: PaymentMethod | string }).paymentMethod
     );
@@ -31,7 +40,10 @@ const normalizeOrder = (order: Order): Order => {
     return {
         ...order,
         items,
+        subtotalAmount,
         totalAmount,
+        discountPercentage,
+        discountAmount,
         paymentMethod,
     };
 };
@@ -67,6 +79,11 @@ const publicClient = axios.create({
 export const orderService = {
     async createOrder(data: CreateOrderData): Promise<Order> {
         const response = await publicClient.post<Order>('/orders', data);
+        return normalizeOrder(response.data);
+    },
+
+    async createStaffOrder(data: CreateOrderData): Promise<Order> {
+        const response = await apiClient.post<Order>('/staff/orders', data);
         return normalizeOrder(response.data);
     },
 

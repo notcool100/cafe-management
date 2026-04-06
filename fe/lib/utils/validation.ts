@@ -61,6 +61,7 @@ export const orderSchema = z.object({
     branchId: z.string().min(1, 'Branch is required'),
     customerName: z.string().min(2).optional(),
     customerPhone: z.string().optional(),
+    discountPercentage: z.number().min(0).max(100).optional(),
     items: z.array(
         z.object({
             menuItemId: z.string().min(1),
