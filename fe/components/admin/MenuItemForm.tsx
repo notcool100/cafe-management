@@ -401,7 +401,7 @@ export default function MenuItemForm({
                         label="Price"
                         floatingLabel={!isLightTheme}
                         labelClassName={labelClassName}
-                        className={inputClassName}
+                        className={cn(inputClassName, 'no-number-spinner')}
                         type="number"
                         step="0.01"
                         {...register('price', { valueAsNumber: true })}
@@ -490,7 +490,6 @@ export default function MenuItemForm({
                                                 value={row.name}
                                                 onChange={(event) => updateToppingRow(row.id, 'name', event.target.value)}
                                                 className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                                                placeholder="Extra cheese"
                                             />
                                         </div>
                                         <div>
@@ -503,8 +502,7 @@ export default function MenuItemForm({
                                                 step="0.01"
                                                 value={row.price}
                                                 onChange={(event) => updateToppingRow(row.id, 'price', event.target.value)}
-                                                className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                                                placeholder="50"
+                                                className="no-number-spinner block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                             />
                                         </div>
                                         <div className="flex items-end">

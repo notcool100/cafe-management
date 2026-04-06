@@ -1,5 +1,6 @@
 import apiClient from './api-client';
 import { Category, CreateCategoryData } from '../types';
+import { isToppingCategoryName } from '../utils/topping';
 
 const normalizeCategory = (category: Partial<Category> & { sharedBranchIds?: string[] }) => {
     const sharedBranchIds = Array.isArray(category.sharedBranchIds) ? category.sharedBranchIds : [];
@@ -17,7 +18,9 @@ export const categoryService = {
         const params = new URLSearchParams();
         if (branchId) params.append('branchId', branchId);
         const response = await apiClient.get<Category[]>(`/menu/categories?${params.toString()}`);
-        return response.data.map(normalizeCategory);
+        return response.data
+            .map(normalizeCategory)
+            .filter((category) => !isToppingCategoryName(category.name));
     },
 
     async getCategory(id: string): Promise<Category> {

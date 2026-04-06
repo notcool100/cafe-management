@@ -371,6 +371,17 @@ body::before {
   font-weight: 600;
 }
 
+.no-number-spinner {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.no-number-spinner::-webkit-outer-spin-button,
+.no-number-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* Stagger Animation for Lists */
 .stagger-item {
   animation: slideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
