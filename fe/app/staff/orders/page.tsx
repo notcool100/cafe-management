@@ -6,13 +6,37 @@ import Link from 'next/link';
 import { orderService } from '@/lib/api/order-service';
 import { menuService } from '@/lib/api/menu-service';
 import BranchSelector from '@/components/ui/BranchSelector';
-import { Order, CreateOrderData, OrderType, OrderStatus, Branch, OrderNotification, SharedItemNotification, MenuItem } from '@/lib/types';
+import { Order, CreateOrderData, OrderType, OrderStatus, Branch, OrderNotification, SharedItemNotification, MenuItem, PaymentMethod } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { resolveImageUrl } from '@/lib/utils/image';
+import { isMenuItemAvailableForBranch } from '@/lib/utils/menu';
+
 type NotificationItem =
   | { kind: 'shared'; timestamp: string; data: SharedItemNotification }
   | { kind: 'order'; timestamp: string; data: OrderNotification };
+
+const DISCOUNT_PRESETS = [0, 5, 10, 15, 20];
+
+const clampDiscountPercentage = (value: number) => Math.min(Math.max(value, 0), 100);
+
+const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+const formatDiscountPercentage = (value: number) => {
+  if (Number.isInteger(value)) {
+    return `${value.toFixed(0)}%`;
+  }
+
+  return `${value.toFixed(2).replace(/\.?0+$/, '')}%`;
+};
+
+const formatEditableDiscountValue = (value: number) => {
+  if (Number.isInteger(value)) {
+    return value.toFixed(0);
+  }
+
+  return value.toFixed(2).replace(/\.?0+$/, '');
+};
 
 interface CartItem {
   id: string;
@@ -31,6 +55,31 @@ interface MenuItemPreview {
   image?: string;
 }
 
+const getRequestErrorStatus = (error: unknown) =>
+  typeof error === 'object' &&
+    error &&
+    'status' in error &&
+    typeof (error as { status?: unknown }).status === 'number'
+    ? (error as { status: number }).status
+    : undefined;
+
+const getRequestErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (
+    typeof error === 'object' &&
+    error &&
+    'message' in error &&
+    typeof (error as { message?: unknown }).message === 'string'
+  ) {
+    return (error as { message: string }).message;
+  }
+
+  return 'Unknown error';
+};
+
 export default function StaffOrdersPage() {
   const router = useRouter();
   const { user, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
@@ -43,8 +92,10 @@ export default function StaffOrdersPage() {
   const [customerInfo, setCustomerInfo] = useState({
     name: '',
     phone: '',
-    orderType: 'dine-in' as 'dine-in' | 'takeaway'
+    orderType: 'dine-in' as 'dine-in' | 'takeaway',
+    paymentMethod: PaymentMethod.CASH_PAYMENT
   });
+  const [discountInput, setDiscountInput] = useState('0');
 
   // Real live orders state - starts empty, only shows confirmed orders
   const [liveOrders, setLiveOrders] = useState<Order[]>([]);
@@ -185,9 +236,10 @@ export default function StaffOrdersPage() {
   const [isLoadingMenu, setIsLoadingMenu] = useState(false);
 
   const getItemCategory = (item: MenuItem) => (item.category || 'Uncategorized').trim() || 'Uncategorized';
+  const isItemAvailable = (item: MenuItem) => isMenuItemAvailableForBranch(item, selectedBranchId);
 
   const resolveMenuCategoryForBranch = (items: MenuItem[], branchId: string, previousCategory: string) => {
-    const availableItems = items.filter(item => item.available !== false);
+    const availableItems = items.filter(item => isMenuItemAvailableForBranch(item, branchId));
     const availableCategories = Array.from(new Set(availableItems.map(getItemCategory)));
 
     if (previousCategory !== 'All' && availableCategories.includes(previousCategory)) {
@@ -206,8 +258,8 @@ export default function StaffOrdersPage() {
 
   const categories = useMemo(() => [
     'All',
-    ...Array.from(new Set(menuItems.map(getItemCategory).filter(Boolean))),
-  ], [menuItems]);
+    ...Array.from(new Set(menuItems.filter(isItemAvailable).map(getItemCategory).filter(Boolean))),
+  ], [menuItems, selectedBranchId]);
 
   // Fetch menu items from API
   const fetchMenuItems = async () => {
@@ -221,7 +273,13 @@ export default function StaffOrdersPage() {
         resolveMenuCategoryForBranch(items, selectedBranchId, previousCategory)
       );
     } catch (error) {
-      console.error('Failed to fetch menu items:', error);
+      const status = getRequestErrorStatus(error);
+      if (status === 403 || status === 404) {
+        await refreshUser();
+        return;
+      }
+
+      console.error('Failed to fetch menu items:', getRequestErrorMessage(error));
       setMenuItems([]);
       setSelectedCategory('All');
     } finally {
@@ -245,7 +303,13 @@ export default function StaffOrdersPage() {
         const menuData = await menuService.getPublicMenu(selectedBranchId);
         setBranchInfo(menuData.branch);
       } catch (error) {
-        console.error('Failed to fetch branch info:', error);
+        const status = getRequestErrorStatus(error);
+        if (status === 403 || status === 404) {
+          await refreshUser();
+          return;
+        }
+
+        console.error('Failed to fetch branch info:', getRequestErrorMessage(error));
         setBranchInfo(null);
       }
     };
@@ -295,9 +359,20 @@ export default function StaffOrdersPage() {
     setCartItems(prevItems => prevItems.filter(item => item.id !== id));
   };
 
-  const getTotalPrice = () => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
+  const cartSubtotal = useMemo(
+    () => roundCurrency(cartItems.reduce((total, item) => total + (item.price * item.quantity), 0)),
+    [cartItems]
+  );
+
+  const parsedDiscountPercentage = Number.parseFloat(discountInput);
+  const appliedDiscountPercentage = Number.isFinite(parsedDiscountPercentage)
+    ? clampDiscountPercentage(parsedDiscountPercentage)
+    : 0;
+  const discountAmount = roundCurrency(cartSubtotal * (appliedDiscountPercentage / 100));
+  const discountedTotal = roundCurrency(Math.max(cartSubtotal - discountAmount, 0));
+  const hasDiscount = discountAmount > 0;
+
+  const getTotalPrice = () => discountedTotal;
 
   const getTotalItems = () => {
     return cartItems.reduce((total, item) => total + item.quantity, 0);
@@ -332,6 +407,8 @@ export default function StaffOrdersPage() {
         customerName: customerInfo.name || undefined,
         customerPhone: customerInfo.phone || undefined,
         orderType: customerInfo.orderType === 'dine-in' ? OrderType.DINE_IN : OrderType.TAKEAWAY,
+        paymentMethod: customerInfo.paymentMethod,
+        discountPercentage: appliedDiscountPercentage > 0 ? appliedDiscountPercentage : undefined,
         items: cartItems.map(item => ({
           menuItemId: item.id,
           quantity: item.quantity
@@ -341,8 +418,8 @@ export default function StaffOrdersPage() {
       console.log('Creating order with data:', orderData);
 
       // Create the order
-      const newOrder = await orderService.createOrder(orderData);
-      console.log('Order created successfully:', newOrder);
+      await orderService.createStaffOrder(orderData);
+      console.log('Order created successfully');
 
       // Clear cart and close checkout
       setCartItems([]);
@@ -350,18 +427,13 @@ export default function StaffOrdersPage() {
       setCustomerInfo({
         name: '',
         phone: '',
-        orderType: 'dine-in'
+        orderType: 'dine-in',
+        paymentMethod: PaymentMethod.CASH_PAYMENT
       });
+      setDiscountInput('0');
 
       // Show success message
       alert('Order placed successfully!');
-
-      // Auto-generate & print KOT for new orders
-      try {
-        await handlePrintKOT(newOrder.id);
-      } catch (printError) {
-        console.error('Failed to auto-print KOT:', printError);
-      }
 
       // Switch to live orders view and refresh
       setViewMode('live-orders');
@@ -369,7 +441,13 @@ export default function StaffOrdersPage() {
 
     } catch (error) {
       console.error('Failed to create order:', error);
-      alert(`Failed to place order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object' && error && 'message' in error && typeof (error as { message?: unknown }).message === 'string'
+            ? (error as { message: string }).message
+            : 'Unknown error';
+      alert(`Failed to place order: ${errorMessage}`);
     } finally {
       setIsSubmittingOrder(false);
     }
@@ -389,12 +467,6 @@ export default function StaffOrdersPage() {
     setTimeout(() => URL.revokeObjectURL(fileURL), 60000);
   };
 
-  const handlePrintKOT = async (orderId: string) => {
-    const kotBlob = await orderService.generateKOT(orderId);
-    orderService.downloadPDF(kotBlob, `KOT-${orderId}.pdf`);
-    printPdfBlob(kotBlob);
-  };
-
   // Print bill function
   const handlePrintBill = async (orderId: string) => {
     try {
@@ -407,15 +479,30 @@ export default function StaffOrdersPage() {
     }
   };
 
-  // Remove order function
-  const handleRemoveOrder = async (orderId: string) => {
+  const sortHistoryOrders = (orders: Order[]) =>
+    [...orders].sort((a, b) => {
+      const aTime = new Date(a.updatedAt || a.createdAt).getTime();
+      const bTime = new Date(b.updatedAt || b.createdAt).getTime();
+      return bTime - aTime;
+    });
+
+  // Cancel order function
+  const handleCancelOrder = async (orderId: string) => {
     try {
-      await orderService.updateOrderStatus(orderId, OrderStatus.CANCELLED);
-      // Refresh the live orders list
-      await fetchLiveOrders();
+      setUpdatingOrderId(orderId);
+      const cancelledOrder = await orderService.cancelOrder(orderId);
+      setLiveOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
+      setHistoryOrders(prevOrders =>
+        sortHistoryOrders([
+          cancelledOrder,
+          ...prevOrders.filter(order => order.id !== orderId),
+        ])
+      );
     } catch (error) {
-      console.error('Failed to remove order:', error);
-      alert('Failed to remove order. Please try again.');
+      console.error('Failed to cancel order:', error);
+      alert('Failed to cancel order. Please try again.');
+    } finally {
+      setUpdatingOrderId(null);
     }
   };
 
@@ -483,11 +570,6 @@ export default function StaffOrdersPage() {
     }
   }, [selectedBranchId]);
 
-  // Initial branch selection and user refresh
-  useEffect(() => {
-    refreshUser();
-  }, []);
-
   const handleToggleNotifications = () => {
     setIsNotificationsOpen(!isNotificationsOpen);
     if (!isNotificationsOpen) {
@@ -509,7 +591,7 @@ export default function StaffOrdersPage() {
   const isItemFromOtherBranch = (item: MenuItem) =>
     Boolean(selectedBranchId && item.branchId && item.branchId !== selectedBranchId);
 
-  const hasOtherBranchItems = menuItems.some(isItemFromOtherBranch);
+  const hasOtherBranchItems = menuItems.some(item => isItemAvailable(item) && isItemFromOtherBranch(item));
 
   const filteredItems = menuItems.filter(item => {
     const itemCategory = getItemCategory(item);
@@ -518,18 +600,23 @@ export default function StaffOrdersPage() {
       : itemCategory === selectedCategory;
 
     return (
-      item.available !== false &&
+      isItemAvailable(item) &&
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
       matchesCategory
     );
   });
 
   const getMenuItemImage = (item: MenuItemPreview) =>
-    resolveImageUrl(item.imageUrl ?? item.image) || '/api/placeholder/300/200';
+    resolveImageUrl(item.imageUrl ?? item.image);
 
   const handleOpenImagePreview = (item: MenuItemPreview) => {
+    const imageSrc = getMenuItemImage(item);
+    if (!imageSrc) {
+      return;
+    }
+
     setPreviewImage({
-      src: getMenuItemImage(item),
+      src: imageSrc,
       alt: item.name || 'Menu item',
     });
   };
@@ -537,6 +624,10 @@ export default function StaffOrdersPage() {
   const handleCloseImagePreview = () => {
     setPreviewImage(null);
   };
+
+  const unreadNotificationsLabel = unreadNotificationsCount > 99
+    ? '99+'
+    : String(unreadNotificationsCount);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#f8fafc', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
@@ -596,7 +687,7 @@ export default function StaffOrdersPage() {
             <div className="flex items-center space-x-2 relative">
               <button
                 onClick={handleToggleNotifications}
-                aria-label="Toggle notifications"
+                aria-label={unreadNotificationsCount > 0 ? `${unreadNotificationsCount} unread notifications` : 'Toggle notifications'}
                 title="Notifications"
                 className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 group relative"
               >
@@ -604,7 +695,9 @@ export default function StaffOrdersPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
                 {unreadNotificationsCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-700 rounded-full"></span>
+                  <span className="absolute -right-1 -top-1 inline-flex min-w-[1.4rem] items-center justify-center rounded-full bg-red-700 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-sm">
+                    {unreadNotificationsLabel}
+                  </span>
                 )}
               </button>
 
@@ -688,11 +781,19 @@ export default function StaffOrdersPage() {
                     className={`w-16 h-16 rounded-xl overflow-hidden ring-2 ring-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${branchQrCode ? 'bg-white cursor-pointer' : 'bg-gray-200 cursor-default'}`}
                     aria-label={branchQrCode ? 'Open branch QR code' : 'Branch QR code unavailable'}
                   >
-                    <img
-                      src={branchQrCode || '/api/placeholder/64/64'}
-                      alt={branchQrCode ? `${branchInfo?.name || 'Branch'} QR code` : 'Restaurant'}
-                      className={`w-full h-full ${branchQrCode ? 'object-contain p-1' : 'object-cover'}`}
-                    />
+                    {branchQrCode ? (
+                      <img
+                        src={branchQrCode}
+                        alt={`${branchInfo?.name || 'Branch'} QR code`}
+                        className="w-full h-full object-contain p-1"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-gray-400">
+                        <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 5h4v4H5V5zm10 0h4v4h-4V5zM5 15h4v4H5v-4zm7-7h2m-2 4h2m4 0h2m-6 2h2m-2 2h2m2 0h2" />
+                        </svg>
+                      </span>
+                    )}
                   </button>
                   <div className="flex-1">
                     <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: '30px', lineHeight: '125%', color: '#000000' }}>
@@ -797,133 +898,131 @@ export default function StaffOrdersPage() {
                       <p className="text-gray-400 text-sm mt-2">Contact your manager to set up the menu</p>
                     </div>
                   ) : (
-                    <div className="space-y-0">
+                    <div className="grid grid-cols-2 gap-4 sm:gap-5 xl:grid-cols-3 2xl:grid-cols-4">
                       {filteredItems.map((item) => {
                         const imageKey = String(item.id);
                         const imageSrc = failedMenuImageIds.has(imageKey) ? undefined : getMenuItemImage(item);
                         const isFromOtherBranch = isItemFromOtherBranch(item);
                         const sourceBranchName = item.branch?.name?.trim();
+                        const itemQuantity = getItemQuantity(item.id);
 
                         return (
-                          <article key={item.id} className="border-b border-gray-900/10 py-3 sm:py-4 lg:py-6 last:border-0">
-                            <div className="flex items-start justify-between gap-3 sm:gap-4">
-                              {/* Left Column: Info */}
-                              <div className="min-w-0 flex-1 pr-1 sm:pr-2">
-                                <div className="mb-1 max-w-[276px]">
-                                  <h3
-                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, lineHeight: '125%', letterSpacing: '0%' }}
-                                    className="text-[17px] text-gray-900 sm:text-[19px] lg:text-[20px]"
-                                  >
-                                    {item.name}
-                                  </h3>
-                                </div>
-                                <div className="mb-1 max-w-[276px]">
-                                  <span
-                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '125%', letterSpacing: '0%' }}
-                                    className="text-sm text-gray-900 sm:text-[15px]"
-                                  >
-                                    Rs {item.price}
+                          <article
+                            key={item.id}
+                            className="group flex min-h-[320px] flex-col rounded-[28px] border border-[#d8dce2] bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-4 py-5 shadow-[0_18px_35px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_rgba(15,23,42,0.14)] sm:px-5"
+                          >
+                            <div className="min-h-[72px] text-center">
+                              <h3
+                                style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, lineHeight: '125%' }}
+                                className="line-clamp-2 text-[17px] text-gray-900 sm:text-[19px]"
+                              >
+                                {item.name}
+                              </h3>
+                              {isFromOtherBranch && (
+                                <div className="mt-2 flex flex-col items-center gap-1">
+                                  <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800">
+                                    Shared item
                                   </span>
+                                  {sourceBranchName && (
+                                    <p className="text-[10px] font-medium text-amber-800">
+                                      {sourceBranchName}
+                                    </p>
+                                  )}
                                 </div>
-                                {isFromOtherBranch && (
-                                  <div className="mb-2 max-w-[276px]">
-                                    <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800 ring-1 ring-amber-200 sm:text-[11px]">
-                                      From other branch
-                                    </span>
-                                    {sourceBranchName && (
-                                      <p className="mt-1 text-[10px] font-medium text-amber-800 sm:text-[11px]">
-                                        {sourceBranchName}
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
-                                <div className="max-w-[276px]">
-                                  <p
-                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '125%', letterSpacing: '0%' }}
-                                    className="line-clamp-1 break-words text-[10px] leading-relaxed text-gray-900 sm:line-clamp-2 sm:text-[11px]"
-                                  >
-                                    {item.description || 'No description available'}
-                                  </p>
-                                </div>
-                              </div>
+                              )}
+                            </div>
 
-                              {/* Right Column: Image & Order Control */}
-                              <div className="flex shrink-0 flex-col items-center gap-2 sm:gap-3 lg:gap-4">
-                                <div className="relative h-14 w-14 sm:h-16 sm:w-16 lg:h-[72px] lg:w-[72px]">
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      if (imageSrc) {
-                                        handleOpenImagePreview(item);
-                                      }
+                            <div className="mt-4 flex justify-center">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  if (imageSrc) {
+                                    handleOpenImagePreview(item);
+                                  }
+                                }}
+                                disabled={!imageSrc}
+                                className={`relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-[2.5px] border-[#252b36] bg-[#d9d9d9] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)] transition-transform duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${imageSrc ? 'cursor-pointer group-hover:scale-[1.03]' : 'cursor-default'}`}
+                                aria-label={imageSrc ? `Preview ${item.name} image` : `${item.name} image unavailable`}
+                              >
+                                {imageSrc ? (
+                                  <img
+                                    src={imageSrc}
+                                    alt={item.name}
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                    onError={() => {
+                                      setFailedMenuImageIds((previous) => {
+                                        if (previous.has(imageKey)) {
+                                          return previous;
+                                        }
+
+                                        const next = new Set(previous);
+                                        next.add(imageKey);
+                                        return next;
+                                      });
                                     }}
-                                    disabled={!imageSrc}
-                                    className={`w-full h-full overflow-hidden rounded-full shadow-sm ring-1 ring-black/5 transition-shadow duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${imageSrc ? 'hover:shadow-md cursor-pointer' : 'cursor-default'}`}
-                                    style={{ backgroundColor: '#D9D9D9' }}
-                                    aria-label={imageSrc ? `Preview ${item.name} image` : `${item.name} image unavailable`}
-                                  >
-                                    {imageSrc ? (
-                                      <img
-                                        src={imageSrc}
-                                        alt={item.name}
-                                        className="w-full h-full object-cover"
-                                        onError={() => {
-                                          setFailedMenuImageIds((previous) => {
-                                            if (previous.has(imageKey)) {
-                                              return previous;
-                                            }
-
-                                            const next = new Set(previous);
-                                            next.add(imageKey);
-                                            return next;
-                                          });
-                                        }}
-                                      />
-                                    ) : (
-                                      <span className="flex h-full w-full items-center justify-center text-gray-500">
-                                        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14m-8-5h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                      </span>
-                                    )}
-                                  </button>
-                                </div>
-
-                                {getItemQuantity(item.id) === 0 ? (
-                                  <button
-                                    onClick={() => addToCart(item)}
-                                    className="flex h-6 w-[68px] items-center justify-center rounded-full border-2 border-green-700/60 text-[11px] text-green-700 transition-all duration-200 hover:bg-green-700 hover:text-white sm:h-[26px] sm:w-[76px] sm:text-xs lg:w-[82px]"
-                                    style={{
-                                      fontFamily: "'Quicksand', sans-serif",
-                                      fontWeight: 600,
-                                      lineHeight: '125%'
-                                    }}
-                                  >
-                                    ADD
-                                  </button>
+                                  />
                                 ) : (
-                                  <div className="flex items-center gap-2 rounded-full bg-gray-100 px-2 py-0.5 sm:gap-3 sm:py-1">
-                                    <button
-                                      onClick={() => updateQuantity(item.id, getItemQuantity(item.id) - 1)}
-                                      className="flex h-5 w-5 items-center justify-center text-gray-600 transition-colors hover:text-gray-900 sm:h-6 sm:w-6"
-                                      aria-label={`Decrease ${item.name}`}
-                                    >
-                                      <span className="text-lg font-bold">-</span>
-                                    </button>
-                                    <span className="min-w-[1ch] text-center text-xs font-bold text-gray-900 sm:text-sm" style={{ fontFamily: "'Quicksand', sans-serif" }}>
-                                      {getItemQuantity(item.id)}
-                                    </span>
-                                    <button
-                                      onClick={() => updateQuantity(item.id, getItemQuantity(item.id) + 1)}
-                                      className="flex h-5 w-5 items-center justify-center text-gray-600 transition-colors hover:text-gray-900 sm:h-6 sm:w-6"
-                                      aria-label={`Increase ${item.name}`}
-                                    >
-                                      <span className="text-lg font-bold">+</span>
-                                    </button>
-                                  </div>
+                                  <span className="flex h-full w-full items-center justify-center text-gray-500">
+                                    <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14m-8-5h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  </span>
                                 )}
-                              </div>
+                              </button>
+                            </div>
+
+                            <div className="mt-5 min-h-[56px] text-center">
+                              <p
+                                style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 600, lineHeight: '125%' }}
+                                className="text-lg text-gray-900"
+                              >
+                                Rs {item.price}
+                              </p>
+                              <p
+                                style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '140%' }}
+                                className="mt-2 line-clamp-2 min-h-[2.5rem] text-xs text-gray-500"
+                              >
+                                {item.description || ''}
+                              </p>
+                            </div>
+
+                            <button
+                              onClick={() => addToCart(item)}
+                              disabled={!isItemAvailable(item)}
+                              className={`mx-auto mt-4 flex min-h-[46px] w-full max-w-[136px] items-center justify-center rounded-xl border-2 px-4 text-sm font-semibold tracking-[0.08em] transition-all duration-200 sm:text-[15px] ${itemQuantity > 0 ? 'border-[#252b36] bg-[#252b36] text-white shadow-[0_12px_24px_rgba(37,43,54,0.18)]' : 'border-[#252b36] bg-white text-[#111827] hover:bg-[#252b36] hover:text-white'} ${!isItemAvailable(item) ? 'cursor-not-allowed opacity-50 hover:bg-white hover:text-[#111827]' : ''}`}
+                              style={{ fontFamily: "'Quicksand', sans-serif", lineHeight: '125%' }}
+                              aria-label={`Add ${item.name}`}
+                            >
+                              ADD
+                            </button>
+
+                            <div className="mt-auto flex items-center justify-between pt-5">
+                              <button
+                                onClick={() => updateQuantity(item.id, itemQuantity - 1)}
+                                disabled={itemQuantity === 0}
+                                className="flex h-11 w-11 items-center justify-center rounded-full text-[#111827] transition-all duration-200 hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
+                                aria-label={`Decrease ${item.name}`}
+                              >
+                                <span className="text-[30px] leading-none">-</span>
+                              </button>
+
+                              <span
+                                className={`min-w-[54px] rounded-full border px-3 py-1 text-center text-sm font-semibold transition-all duration-200 ${itemQuantity > 0 ? 'border-[#252b36] bg-[#252b36] text-white' : 'border-gray-300 bg-gray-50 text-gray-500'}`}
+                                style={{ fontFamily: "'Quicksand', sans-serif" }}
+                              >
+                                {itemQuantity}
+                              </span>
+
+                              <button
+                                onClick={() => updateQuantity(item.id, itemQuantity + 1)}
+                                disabled={!isItemAvailable(item)}
+                                className={`flex h-11 w-11 items-center justify-center rounded-full text-[#111827] transition-all duration-200 ${isItemAvailable(item) ? 'hover:bg-gray-100' : 'cursor-not-allowed text-gray-300'}`}
+                                aria-label={`Increase ${item.name}`}
+                              >
+                                <span className="text-[30px] leading-none">+</span>
+                              </button>
                             </div>
                           </article>
                         );
@@ -989,7 +1088,14 @@ export default function StaffOrdersPage() {
                             </div>
                             <div className="w-full sm:w-auto sm:text-right">
                               <div className="flex flex-col items-start sm:items-end space-y-2">
-                                <span className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>Rs {order.totalAmount}</span>
+                                <div className="flex flex-col items-start sm:items-end">
+                                  <span className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>Rs {order.totalAmount}</span>
+                                  {order.discountAmount > 0 && (
+                                    <span className="text-xs font-medium text-emerald-600" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                      {formatDiscountPercentage(order.discountPercentage)} off
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${order.status === 'READY' ? 'bg-green-100 text-green-700 border border-green-200' :
                                     order.status === 'PREPARING' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
@@ -1027,9 +1133,10 @@ export default function StaffOrdersPage() {
                                     </button>
                                     {order.status !== 'CANCELLED' && (
                                       <button
-                                        onClick={() => handleRemoveOrder(order.id)}
-                                        className="p-1.5 text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-200"
-                                        title="Remove order"
+                                        onClick={() => handleCancelOrder(order.id)}
+                                        disabled={updatingOrderId === order.id}
+                                        className="p-1.5 text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+                                        title="Cancel order"
                                       >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1205,7 +1312,14 @@ export default function StaffOrdersPage() {
                             </div>
                             <div className="w-full sm:w-auto sm:text-right">
                               <div className="flex flex-col items-start sm:items-end space-y-2">
-                                <span className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>Rs {order.totalAmount}</span>
+                                <div className="flex flex-col items-start sm:items-end">
+                                  <span className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>Rs {order.totalAmount}</span>
+                                  {order.discountAmount > 0 && (
+                                    <span className="text-xs font-medium text-emerald-600" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                      {formatDiscountPercentage(order.discountPercentage)} off
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${order.status === OrderStatus.COMPLETED
                                     ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
@@ -1300,9 +1414,21 @@ export default function StaffOrdersPage() {
                         <span className="text-gray-700">Items ({getTotalItems()}):</span>
                         <span className="font-semibold">{getTotalItems()}</span>
                       </div>
+                      {hasDiscount && (
+                        <>
+                          <div className="flex items-center justify-between text-sm text-gray-700" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                            <span>Subtotal</span>
+                            <span>Rs {cartSubtotal.toFixed(2)}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm text-emerald-600" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                            <span>Discount ({formatDiscountPercentage(appliedDiscountPercentage)})</span>
+                            <span>- Rs {discountAmount.toFixed(2)}</span>
+                          </div>
+                        </>
+                      )}
                       <div className="flex items-center justify-between text-lg" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                         <span className="font-semibold text-gray-900">Total:</span>
-                        <span className="font-bold text-gray-900">Rs {getTotalPrice()}</span>
+                        <span className="font-bold text-gray-900">Rs {getTotalPrice().toFixed(2)}</span>
                       </div>
                     </div>
 
@@ -1406,10 +1532,60 @@ export default function StaffOrdersPage() {
                   ))}
                 </div>
                 <div className="border-t pt-2 mt-3">
-                  <div className="flex justify-between font-semibold" style={{ fontFamily: 'Quicksand, sans-serif' }}>
-                    <span>Total</span>
-                    <span>Rs {getTotalPrice()}</span>
+                  <div className="space-y-2" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                    <div className="flex justify-between text-sm text-gray-700">
+                      <span>Subtotal</span>
+                      <span>Rs {cartSubtotal.toFixed(2)}</span>
+                    </div>
+                    {hasDiscount && (
+                      <div className="flex justify-between text-sm text-emerald-600">
+                        <span>Discount ({formatDiscountPercentage(appliedDiscountPercentage)})</span>
+                        <span>- Rs {discountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-semibold">
+                      <span>Total</span>
+                      <span>Rs {getTotalPrice().toFixed(2)}</span>
+                    </div>
                   </div>
+                </div>
+              </div>
+
+              <div className="mb-6" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                <h3 className="font-semibold text-gray-900 mb-3">Discount</h3>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  {DISCOUNT_PRESETS.map((preset) => {
+                    const isActive = appliedDiscountPercentage === preset && discountInput !== '';
+
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setDiscountInput(formatEditableDiscountValue(preset))}
+                        className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${isActive
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-emerald-400 hover:text-emerald-700'
+                          }`}
+                      >
+                        {preset === 0 ? 'No discount' : formatDiscountPercentage(preset)}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Manual Discount (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.value)}
+                    onBlur={() => setDiscountInput(formatEditableDiscountValue(appliedDiscountPercentage))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    placeholder="Enter discount percentage"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Use a preset or enter any percentage manually.</p>
                 </div>
               </div>
 
@@ -1471,11 +1647,16 @@ export default function StaffOrdersPage() {
               {/* Payment Method */}
               <div className="mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3">Payment Method</h3>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700">
-                  <option>Cash Payment</option>
-                  <option>Credit Card</option>
-                  <option>Debit Card</option>
-                  <option>UPI</option>
+                <select
+                  value={customerInfo.paymentMethod}
+                  onChange={(e) => setCustomerInfo({ ...customerInfo, paymentMethod: e.target.value as PaymentMethod })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700"
+                >
+                  <option value={PaymentMethod.CASH_PAYMENT}>Cash Payment</option>
+                  <option value={PaymentMethod.FONEPAY}>Fonepay</option>
+                  <option value={PaymentMethod.CREDIT_CARD}>Credit Card</option>
+                  <option value={PaymentMethod.DEBIT_CARD}>Debit Card</option>
+                  <option value={PaymentMethod.UPI}>UPI</option>
                 </select>
               </div>
 

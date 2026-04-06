@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import PDFDocument from 'pdfkit';
 import { Order, OrderItem, MenuItem, Branch } from '@prisma/client';
 
@@ -31,6 +33,15 @@ const LINE_HEIGHT_13 = 16;
 const LINE_HEIGHT_18 = 22;
 const MIN_PAGE_HEIGHT = 140;
 const SAFETY_BUFFER = 28;
+const BOLD_FONT_PATH = path.resolve(__dirname, '../../fonts/Roboto-Bold.ttf');
+
+const formatPercentage = (value: number) => {
+    if (Number.isInteger(value)) {
+        return value.toFixed(0);
+    }
+
+    return value.toFixed(2).replace(/\.?0+$/, '');
+};
 
 const estimateReceiptHeight = (order: OrderWithItems, titleSize = 13) => {
     let height = 0;
@@ -60,7 +71,8 @@ const estimateReceiptHeight = (order: OrderWithItems, titleSize = 13) => {
     });
 
     height += 8; // separator + spacing
-    height += LINE_HEIGHT_9 + 10; // total + spacing
+    const hasDiscount = Number(order.discountAmount || 0) > 0;
+    height += (hasDiscount ? LINE_HEIGHT_8 * 2 + LINE_HEIGHT_9 : LINE_HEIGHT_9) + 10;
     height += LINE_HEIGHT_8 + 12; // thank you
     height += 8; // bottom padding
 
@@ -129,15 +141,49 @@ const renderReceiptSection = (
     doc.moveTo(CONTENT_LEFT_X, doc.y).lineTo(CONTENT_RIGHT_X, doc.y).stroke();
     doc.moveDown();
 
+    const boldFont = fs.existsSync(BOLD_FONT_PATH) ? BOLD_FONT_PATH : 'Helvetica-Bold';
+    const subtotalAmount = Number(order.subtotalAmount || order.totalAmount || 0);
+    const discountAmount = Number(order.discountAmount || 0);
+    const discountPercentage = Number(order.discountPercentage || 0);
+    const hasDiscount = discountAmount > 0;
+
+    doc.font('Helvetica').fontSize(8);
+
+    if (hasDiscount) {
+        const subtotalY = doc.y;
+        doc.text('Subtotal:', PRICE_COL_X, subtotalY, { width: PRICE_COL_WIDTH, align: 'right' });
+        doc.text(`${subtotalAmount.toFixed(2)}`, TOTAL_COL_X, subtotalY, {
+            width: TOTAL_COL_WIDTH,
+            align: 'right',
+        });
+
+        doc.moveDown(0.4);
+        const discountY = doc.y;
+        doc.text(`Discount (${formatPercentage(discountPercentage)}%):`, PRICE_COL_X, discountY, {
+            width: PRICE_COL_WIDTH,
+            align: 'right',
+        });
+        doc.text(`- ${discountAmount.toFixed(2)}`, TOTAL_COL_X, discountY, {
+            width: TOTAL_COL_WIDTH,
+            align: 'right',
+        });
+
+        doc.moveDown(0.6);
+    }
+
     doc.fontSize(9);
     const totalY = doc.y;
-    doc.font('fonts/Roboto-Bold.ttf').text('Total:', PRICE_COL_X, totalY, { width: PRICE_COL_WIDTH, align: 'right' });
+    doc.font(boldFont).text(hasDiscount ? 'Net Total:' : 'Total:', PRICE_COL_X, totalY, {
+        width: PRICE_COL_WIDTH,
+        align: 'right',
+    });
     doc.text(`${Number(order.totalAmount || 0).toFixed(2)}`, TOTAL_COL_X, totalY, {
         width: TOTAL_COL_WIDTH,
         align: 'right',
     });
 
     doc.moveDown(1);
+    doc.font('Helvetica');
     doc.fontSize(8).text('Thank you for your order!', CONTENT_LEFT_X, doc.y, { width: CONTENT_WIDTH, align: 'center' });
 };
 

@@ -11,7 +11,7 @@ import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Toast from '@/components/ui/Toast';
 import { useAuthStore } from '@/lib/store/auth-store';
-import { resolveImageUrl } from '@/lib/utils/image';
+import UserAvatar from '@/components/ui/UserAvatar';
 
 export default function EmployeesPage() {
     const { selectedBranchId } = useAuthStore();
@@ -124,16 +124,13 @@ export default function EmployeesPage() {
                             <Link href={`/admin/employees/${employee.id}`} className="block">
                                 <div className="mb-4 rounded-md bg-[#f4f3ef] p-6 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
                                     <div className="flex items-center gap-4">
-                                        <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-[#6a4135] text-xl font-bold text-[#f3e7d2]">
-                                            {resolveImageUrl(employee.imageUrl) ? (
-                                                <div
-                                                    className="h-full w-full bg-cover bg-center"
-                                                    style={{ backgroundImage: `url(${resolveImageUrl(employee.imageUrl)})` }}
-                                                />
-                                            ) : (
-                                                employee.name.charAt(0).toUpperCase()
-                                            )}
-                                        </div>
+                                        <UserAvatar
+                                            imageUrl={employee.imageUrl}
+                                            name={employee.name}
+                                            className="h-14 w-14 bg-[#6a4135] text-[#f3e7d2]"
+                                            textClassName="text-xl"
+                                            sizes="56px"
+                                        />
                                         <div className="min-w-0">
                                             <p className="truncate text-lg font-semibold text-[#1d1a16]">{employee.name}</p>
                                             <p className="truncate text-sm text-[#50453d]">{employee.email}</p>

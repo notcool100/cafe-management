@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth-store';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import BranchSelector from '@/components/ui/BranchSelector';
+import UserAvatar from '@/components/ui/UserAvatar';
 import { cn } from '@/lib/utils/cn';
 
 const navigation = [
@@ -25,7 +26,7 @@ const managerNavigation = [
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { user, logout, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
+    const { user, logout, selectedBranchId, setSelectedBranchId, refreshUser, hasHydrated } = useAuthStore();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const isManagement = user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
     const contentKey = `${pathname}:${selectedBranchId || 'all'}`;
@@ -38,8 +39,9 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     };
 
     useEffect(() => {
-        refreshUser();
-    }, []);
+        if (!hasHydrated) return;
+        void refreshUser();
+    }, [hasHydrated, refreshUser]);
 
     useEffect(() => {
         const originalOverflow = document.body.style.overflow;
@@ -144,9 +146,13 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                         <div className="flex-shrink-0 p-4 border-t border-[#e4d7c2]">
                             <div className="flex items-center gap-3">
                                 <div className="flex-shrink-0">
-                                    <div className="h-10 w-10 rounded-full bg-[#5a3a2e] flex items-center justify-center text-[#fffaf0] font-bold shadow-[0_6px_16px_rgba(90,58,46,0.25)]">
-                                        {user?.name?.charAt(0).toUpperCase()}
-                                    </div>
+                                    <UserAvatar
+                                        imageUrl={user?.imageUrl}
+                                        name={user?.name}
+                                        className="h-10 w-10 shadow-[0_6px_16px_rgba(90,58,46,0.25)]"
+                                        textClassName="text-base"
+                                        sizes="40px"
+                                    />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-[#3e2a21] truncate">{user?.name}</p>
@@ -286,9 +292,13 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
                                 <div className="flex-shrink-0 p-4 border-t border-[#e4d7c2]">
                                     <div className="flex items-center gap-3">
                                         <div className="flex-shrink-0">
-                                            <div className="h-10 w-10 rounded-full bg-[#5a3a2e] flex items-center justify-center text-[#fffaf0] font-bold shadow-[0_6px_16px_rgba(90,58,46,0.25)]">
-                                                {user?.name?.charAt(0).toUpperCase()}
-                                            </div>
+                                            <UserAvatar
+                                                imageUrl={user?.imageUrl}
+                                                name={user?.name}
+                                                className="h-10 w-10 shadow-[0_6px_16px_rgba(90,58,46,0.25)]"
+                                                textClassName="text-base"
+                                                sizes="40px"
+                                            />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium text-[#3e2a21] truncate">{user?.name}</p>

@@ -128,10 +128,12 @@ export default function DashboardPage() {
           <main className="flex-1 lg:max-w-5xl">
             {/* Restaurant Info Card */}
             <section className="px-4 py-6 lg:px-8">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-300">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-300">
                 <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 bg-gray-200 rounded-xl overflow-hidden ring-2 ring-gray-100">
-                    <img src="/api/placeholder/64/64" alt="Restaurant" className="w-full h-full object-cover" />
+                  <div className="flex w-16 h-16 items-center justify-center rounded-xl bg-gray-100 ring-2 ring-gray-100">
+                    <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10l1.553-4.658A2 2 0 016.45 4h11.1a2 2 0 011.897 1.342L21 10M5 10v8a2 2 0 002 2h10a2 2 0 002-2v-8M9 14h6" />
+                    </svg>
                   </div>
                   <div className="flex-1">
                     <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Jakarta Sans, sans-serif' }}>Name Of the restro</h2>

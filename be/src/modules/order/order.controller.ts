@@ -15,6 +15,14 @@ export class OrderController {
             .optional()
             .isIn(['DINE_IN', 'TAKEAWAY'])
             .withMessage('orderType must be DINE_IN or TAKEAWAY'),
+        body('paymentMethod')
+            .optional()
+            .isIn(['CASH_PAYMENT', 'FONEPAY', 'CREDIT_CARD', 'DEBIT_CARD', 'UPI'])
+            .withMessage('paymentMethod must be CASH_PAYMENT, FONEPAY, CREDIT_CARD, DEBIT_CARD, or UPI'),
+        body('discountPercentage')
+            .optional()
+            .isFloat({ min: 0, max: 100 })
+            .withMessage('discountPercentage must be between 0 and 100'),
         body('deviceId').optional().isString().isLength({ min: 6, max: 128 }).withMessage('deviceId must be a string'),
     ];
 
@@ -25,7 +33,26 @@ export class OrderController {
                 return res.status(400).json({ errors: errors.array() });
             }
 
-            const { branchId, items, customerName, customerPhone, deviceId, orderType } = req.body;
+            const authReq = req as AuthRequest;
+            const { branchId, items, customerName, customerPhone, deviceId, orderType, paymentMethod, discountPercentage } = req.body;
+            const requestedDiscount = discountPercentage === undefined ? undefined : Number(discountPercentage);
+            const hasDiscount = requestedDiscount !== undefined && requestedDiscount > 0;
+
+            if (hasDiscount && !authReq.user) {
+                return res.status(403).json({ error: 'Discounts can only be applied by staff accounts' });
+            }
+
+            if (
+                authReq.user &&
+                (authReq.user.role === 'MANAGER' || authReq.user.role === 'EMPLOYEE')
+            ) {
+                const userBranchIds = authReq.user.branchIds || [];
+
+                if (!userBranchIds.includes(branchId)) {
+                    return res.status(403).json({ error: 'Forbidden: Not your branch' });
+                }
+            }
+
             const order = await OrderService.createOrder({
                 branchId,
                 items,
@@ -33,7 +60,9 @@ export class OrderController {
                 customerPhone,
                 deviceId,
                 orderType,
-            }, (req as AuthRequest).user?.tenantId);
+                paymentMethod,
+                discountPercentage: requestedDiscount,
+            }, authReq.user?.tenantId);
 
             res.status(201).json(order);
         } catch (error) {

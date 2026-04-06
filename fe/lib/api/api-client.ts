@@ -1,16 +1,9 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4100';
-
-// Normalize URL to prevent double /api
-const getApiBaseUrl = (url: string) => {
-    const clean = url.endsWith('/') ? url.slice(0, -1) : url;
-    return clean.endsWith('/api') ? clean : `${clean}/api`;
-};
+import { API_BASE_URL } from './base-url';
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
-    baseURL: getApiBaseUrl(API_BASE_URL),
+    baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -123,7 +116,7 @@ apiClient.interceptors.response.use(
             try {
                 console.log('🔄 [API] Calling refresh token endpoint');
                 // Determine the refresh URL - avoid circular dependency if possible, but basic fetch works
-                const response = await axios.post(`${API_BASE_URL}/api/auth/refresh-token`, {
+                const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
                     refreshToken
                 });
 

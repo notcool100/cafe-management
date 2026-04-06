@@ -106,6 +106,7 @@ model MenuItem {
   updatedAt       DateTime    @updatedAt
   tenantId        String
   sharedBranchIds String[]    @default([])
+  disabledBranchIds String[]  @default([])
   branch          Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
   tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   orderItems      OrderItem[]
@@ -137,7 +138,10 @@ model Order {
   tokenNumber                Int?
   branchId                   String
   status                     OrderStatus  @default(PENDING)
+  subtotalAmount             Decimal      @db.Decimal(10, 2)
   totalAmount                Decimal      @db.Decimal(10, 2)
+  discountPercentage         Decimal      @default(0) @db.Decimal(5, 2)
+  discountAmount             Decimal      @default(0) @db.Decimal(10, 2)
   customerName               String?
   customerPhone              String?
   completedBy                String?
@@ -152,6 +156,7 @@ model Order {
   tenantId                   String
   deviceId                   String?
   orderType                  OrderType    @default(DINE_IN)
+  paymentMethod              PaymentMethod @default(CASH_PAYMENT)
   branch                     Branch       @relation(fields: [branchId], references: [id])
   tenant                     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   orderItems                 OrderItem[]
@@ -193,6 +198,14 @@ enum UserRole {
 enum OrderType {
   DINE_IN
   TAKEAWAY
+}
+
+enum PaymentMethod {
+  CASH_PAYMENT
+  CREDIT_CARD
+  DEBIT_CARD
+  FONEPAY
+  UPI
 }
 
 enum OrderStatus {

@@ -11,6 +11,7 @@ export class MenuService {
             imageUrl?: string;
             branchId: string;
             sharedBranchIds?: string[];
+            disabledBranchIds?: string[];
         },
         tenantId?: string
     ) {
@@ -34,6 +35,12 @@ export class MenuService {
             tenantId: branch.tenantId,
             sharedBranchIds: data.sharedBranchIds,
         });
+        const disabledBranchIds = await resolveDisabledBranchIds({
+            branchId: data.branchId,
+            tenantId: branch.tenantId,
+            sharedBranchIds,
+            disabledBranchIds: data.disabledBranchIds,
+        });
 
         const categoryName = data.category?.trim();
         if (categoryName) {
@@ -54,6 +61,7 @@ export class MenuService {
                 branchId: data.branchId,
                 tenantId: branch.tenantId,
                 sharedBranchIds,
+                disabledBranchIds,
             },
             include: { branch: true },
         });
@@ -85,7 +93,6 @@ export class MenuService {
             where: { id, ...(tenantId ? { tenantId } : {}) },
             include: { branch: true },
         });
-
         if (!menuItem) {
             throw new Error('Menu item not found');
         }
@@ -103,12 +110,13 @@ export class MenuService {
             imageUrl?: string;
             isAvailable?: boolean;
             sharedBranchIds?: string[];
+            disabledBranchIds?: string[];
         },
         tenantId?: string
     ) {
         const existing = await prisma.menuItem.findFirst({
             where: { id, ...(tenantId ? { tenantId } : {}) },
-            select: { tenantId: true, branchId: true },
+            select: { tenantId: true, branchId: true, sharedBranchIds: true, disabledBranchIds: true },
         });
 
         if (!existing) {
@@ -126,6 +134,22 @@ export class MenuService {
                 sharedBranchIds: data.sharedBranchIds,
             })
             : undefined;
+        const effectiveSharedBranchIds = sharedBranchIds ?? existing.sharedBranchIds ?? [];
+        const disabledBranchIds = data.disabledBranchIds !== undefined
+            ? await resolveDisabledBranchIds({
+                branchId: existing.branchId,
+                tenantId: existing.tenantId,
+                sharedBranchIds: effectiveSharedBranchIds,
+                disabledBranchIds: data.disabledBranchIds,
+            })
+            : sharedBranchIds !== undefined
+                ? await resolveDisabledBranchIds({
+                    branchId: existing.branchId,
+                    tenantId: existing.tenantId,
+                    sharedBranchIds: effectiveSharedBranchIds,
+                    disabledBranchIds: existing.disabledBranchIds ?? [],
+                })
+                : undefined;
 
         const categoryName = data.category?.trim();
         if (categoryName) {
@@ -142,6 +166,7 @@ export class MenuService {
                 ...data,
                 ...(data.category !== undefined ? { category: categoryName } : {}),
                 ...(sharedBranchIds !== undefined ? { sharedBranchIds } : {}),
+                ...(disabledBranchIds !== undefined ? { disabledBranchIds } : {}),
             },
             include: { branch: true },
         });
@@ -180,6 +205,9 @@ export class MenuService {
             where: {
                 tenantId: branch.tenantId,
                 isAvailable: true,
+                NOT: {
+                    disabledBranchIds: { has: branchId },
+                },
                 OR: [
                     { branchId },
                     { sharedBranchIds: { has: branchId } },
@@ -204,6 +232,7 @@ const normalizeMenuItem = (menuItem: any) => ({
     ...menuItem,
     available: menuItem.isAvailable,
     sharedBranchIds: menuItem.sharedBranchIds || [],
+    disabledBranchIds: menuItem.disabledBranchIds || [],
 });
 
 const resolveSharedBranchIds = async ({
@@ -235,6 +264,42 @@ const resolveSharedBranchIds = async ({
     });
 
     return branches.map((branch) => branch.id);
+};
+
+const resolveDisabledBranchIds = async ({
+    branchId,
+    tenantId,
+    sharedBranchIds,
+    disabledBranchIds,
+}: {
+    branchId: string;
+    tenantId: string;
+    sharedBranchIds?: string[];
+    disabledBranchIds?: string[];
+}) => {
+    if (!disabledBranchIds || disabledBranchIds.length === 0) {
+        return [];
+    }
+
+    const allowedBranchIds = new Set([branchId, ...(sharedBranchIds || []).filter(Boolean)]);
+    const uniqueIds = Array.from(new Set(disabledBranchIds.filter(Boolean)));
+    const filteredIds = uniqueIds.filter((id) => allowedBranchIds.has(id));
+
+    if (filteredIds.length === 0) {
+        return [];
+    }
+
+    const branches = await prisma.branch.findMany({
+        where: {
+            id: { in: filteredIds },
+            tenantId,
+        },
+        select: { id: true },
+    });
+
+    const validIds = new Set(branches.map((branch) => branch.id));
+
+    return filteredIds.filter((id) => validIds.has(id));
 };
 
 const ensureCategoryExists = async ({

@@ -76,6 +76,7 @@ export interface MenuItem {
     category?: string;
     imageUrl?: string;
     sharedBranchIds?: string[];
+    disabledBranchIds?: string[];
     available: boolean;
     branchId: string;
     branch?: Branch;
@@ -92,6 +93,7 @@ export interface CreateMenuItemData {
     available: boolean;
     branchId: string;
     sharedBranchIds?: string[];
+    disabledBranchIds?: string[];
 }
 
 export interface Category {
@@ -125,6 +127,14 @@ export enum OrderType {
     TAKEAWAY = 'TAKEAWAY',
 }
 
+export enum PaymentMethod {
+    CASH_PAYMENT = 'CASH_PAYMENT',
+    CREDIT_CARD = 'CREDIT_CARD',
+    DEBIT_CARD = 'DEBIT_CARD',
+    FONEPAY = 'FONEPAY',
+    UPI = 'UPI',
+}
+
 export interface OrderItem {
     id: string;
     orderId: string;
@@ -142,9 +152,13 @@ export interface Order {
     status: OrderStatus;
     tokenNumber?: number;
     orderType?: OrderType;
+    paymentMethod?: PaymentMethod;
     customerName?: string;
     customerPhone?: string;
+    subtotalAmount: number;
     totalAmount: number;
+    discountPercentage: number;
+    discountAmount: number;
     items: OrderItem[];
     createdAt: string;
     updatedAt: string;
@@ -160,6 +174,8 @@ export interface CreateOrderData {
     customerPhone?: string;
     deviceId?: string;
     orderType?: OrderType;
+    paymentMethod?: PaymentMethod;
+    discountPercentage?: number;
     items: {
         menuItemId: string;
         quantity: number;

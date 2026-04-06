@@ -4,6 +4,9 @@ import { fileURLToPath } from "url";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4100";
 const projectRoot = dirname(fileURLToPath(import.meta.url));
+const proxyTarget = apiBaseUrl.endsWith("/api")
+  ? apiBaseUrl.slice(0, -4)
+  : apiBaseUrl.replace(/\/$/, "");
 
 const buildRemotePatterns = (): NonNullable<
   NextConfig["images"]
@@ -46,6 +49,18 @@ const buildRemotePatterns = (): NonNullable<
 const nextConfig: NextConfig = {
   turbopack: {
     root: projectRoot,
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${proxyTarget}/api/:path*`,
+      },
+      {
+        source: "/uploads/:path*",
+        destination: `${proxyTarget}/uploads/:path*`,
+      },
+    ];
   },
   images: {
     remotePatterns: buildRemotePatterns(),
