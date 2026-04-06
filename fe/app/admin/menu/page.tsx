@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { menuService } from '@/lib/api/menu-service';
 import { branchService } from '@/lib/api/branch-service';
-import { MenuItem, Branch, UserRole } from '@/lib/types';
+import { MenuItem, Branch } from '@/lib/types';
 import Spinner from '@/components/ui/Spinner';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
@@ -15,8 +15,7 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import { formatBranchLabel } from '@/lib/utils/format';
 
 export default function MenuPage() {
-    const { user, selectedBranchId } = useAuthStore();
-    const isManager = user?.role === UserRole.MANAGER;
+    const { selectedBranchId } = useAuthStore();
     const currentBranchId = selectedBranchId || '';
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
@@ -118,6 +117,8 @@ export default function MenuPage() {
         }
     };
 
+    const activeBranchId = filters.branchId || currentBranchId || (branches.length === 1 ? branches[0].id : '');
+
     const filteredItems = menuItems.filter(item =>
         item.name.toLowerCase().includes(filters.search.toLowerCase())
     );
@@ -186,6 +187,9 @@ export default function MenuPage() {
             <div className="grid grid-cols-1 gap-4 min-[460px]:grid-cols-2 sm:gap-6 md:grid-cols-3 xl:grid-cols-4">
                 {filteredItems.map((item) => {
                     const imageSrc = resolveImageUrl(item.imageUrl);
+                    const sourceBranch = item.branch || branches.find((branch) => branch.id === item.branchId);
+                    const isFromOtherBranch = Boolean(activeBranchId && item.branchId && item.branchId !== activeBranchId);
+                    const sourceBranchLabel = sourceBranch ? formatBranchLabel(sourceBranch) : 'Another branch';
 
                     return (
                         <div key={item.id} className="rounded-xl bg-[#5b3629] p-3 shadow-[0_4px_10px_rgba(0,0,0,0.2)] sm:p-4">
@@ -215,6 +219,16 @@ export default function MenuPage() {
                                 <h3 className="break-words text-xl font-medium leading-tight text-[#f9f0e2] sm:text-2xl xl:text-3xl" title={item.name}>
                                     {item.name}
                                 </h3>
+                                {isFromOtherBranch && (
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                        <span className="inline-flex items-center rounded-full bg-[#f3ddad] px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5b3629]">
+                                            From other branch
+                                        </span>
+                                        <span className="text-xs font-medium text-[#f3ddad]">
+                                            {sourceBranchLabel}
+                                        </span>
+                                    </div>
+                                )}
                                 <p className="mt-1 text-base text-[#e9d8c5]">Rs. {Number(item.price).toFixed(2)}</p>
                                 <div className="mt-3 flex flex-wrap gap-2">
                                     <Link href={`/admin/menu/${item.id}`} className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]">
