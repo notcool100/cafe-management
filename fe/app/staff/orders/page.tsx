@@ -418,8 +418,8 @@ export default function StaffOrdersPage() {
       console.log('Creating order with data:', orderData);
 
       // Create the order
-      const newOrder = await orderService.createStaffOrder(orderData);
-      console.log('Order created successfully:', newOrder);
+      await orderService.createStaffOrder(orderData);
+      console.log('Order created successfully');
 
       // Clear cart and close checkout
       setCartItems([]);
@@ -434,13 +434,6 @@ export default function StaffOrdersPage() {
 
       // Show success message
       alert('Order placed successfully!');
-
-      // Auto-generate & print KOT for new orders
-      try {
-        await handlePrintKOT(newOrder.id);
-      } catch (printError) {
-        console.error('Failed to auto-print KOT:', printError);
-      }
 
       // Switch to live orders view and refresh
       setViewMode('live-orders');
@@ -472,12 +465,6 @@ export default function StaffOrdersPage() {
       };
     }
     setTimeout(() => URL.revokeObjectURL(fileURL), 60000);
-  };
-
-  const handlePrintKOT = async (orderId: string) => {
-    const kotBlob = await orderService.generateKOT(orderId);
-    orderService.downloadPDF(kotBlob, `KOT-${orderId}.pdf`);
-    printPdfBlob(kotBlob);
   };
 
   // Print bill function
