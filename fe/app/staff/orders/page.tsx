@@ -453,15 +453,30 @@ export default function StaffOrdersPage() {
     }
   };
 
-  // Remove order function
-  const handleRemoveOrder = async (orderId: string) => {
+  const sortHistoryOrders = (orders: Order[]) =>
+    [...orders].sort((a, b) => {
+      const aTime = new Date(a.updatedAt || a.createdAt).getTime();
+      const bTime = new Date(b.updatedAt || b.createdAt).getTime();
+      return bTime - aTime;
+    });
+
+  // Cancel order function
+  const handleCancelOrder = async (orderId: string) => {
     try {
-      await orderService.updateOrderStatus(orderId, OrderStatus.CANCELLED);
-      // Refresh the live orders list
-      await fetchLiveOrders();
+      setUpdatingOrderId(orderId);
+      const cancelledOrder = await orderService.cancelOrder(orderId);
+      setLiveOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
+      setHistoryOrders(prevOrders =>
+        sortHistoryOrders([
+          cancelledOrder,
+          ...prevOrders.filter(order => order.id !== orderId),
+        ])
+      );
     } catch (error) {
-      console.error('Failed to remove order:', error);
-      alert('Failed to remove order. Please try again.');
+      console.error('Failed to cancel order:', error);
+      alert('Failed to cancel order. Please try again.');
+    } finally {
+      setUpdatingOrderId(null);
     }
   };
 
@@ -1090,9 +1105,10 @@ export default function StaffOrdersPage() {
                                     </button>
                                     {order.status !== 'CANCELLED' && (
                                       <button
-                                        onClick={() => handleRemoveOrder(order.id)}
-                                        className="p-1.5 text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-200"
-                                        title="Remove order"
+                                        onClick={() => handleCancelOrder(order.id)}
+                                        disabled={updatingOrderId === order.id}
+                                        className="p-1.5 text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+                                        title="Cancel order"
                                       >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

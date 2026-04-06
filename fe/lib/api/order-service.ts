@@ -110,6 +110,10 @@ export const orderService = {
         return normalizeOrder(response.data);
     },
 
+    async cancelOrder(id: string): Promise<Order> {
+        return this.updateOrderStatus(id, OrderStatus.CANCELLED);
+    },
+
     async getOrdersByDevice(deviceId: string): Promise<Order[]> {
         const response = await publicClient.get<Order[]>(`/orders/device/${deviceId}`);
         return normalizeOrders(response.data);
