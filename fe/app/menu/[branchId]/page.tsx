@@ -13,6 +13,8 @@ import { resolveImageUrl } from '@/lib/utils/image';
 import { orderService } from '@/lib/api/order-service';
 import { getOrCreateDeviceId } from '@/lib/utils/device';
 import { isMenuItemAvailableForBranch } from '@/lib/utils/menu';
+import { isToppingCategoryName } from '@/lib/utils/topping';
+import { formatOrderItemName, isToppingOrderItem } from '@/lib/utils/order-items';
 
 export default function PublicMenuPage() {
     const params = useParams();
@@ -44,7 +46,9 @@ export default function PublicMenuPage() {
     );
 
     const resolveMenuCategoryForBranch = useCallback((items: MenuItem[], currentBranchId: string, previousCategory: string) => {
-        const availableItems = items.filter(item => isMenuItemAvailableForBranch(item, currentBranchId));
+        const availableItems = items.filter(item =>
+            isMenuItemAvailableForBranch(item, currentBranchId) && !isToppingCategoryName(getItemCategory(item))
+        );
         const availableCategories = Array.from(new Set(availableItems.map(getItemCategory)));
 
         if (previousCategory !== 'ALL' && availableCategories.includes(previousCategory)) {
@@ -134,22 +138,25 @@ export default function PublicMenuPage() {
     const isItemFromOtherBranch = (item: MenuItem) =>
         Boolean(item.branchId && item.branchId !== branchId);
 
-    const hasOtherBranchItems = menuItems.some(isItemFromOtherBranch);
+    const hasOtherBranchItems = menuItems.some(
+        (item) => !isToppingCategoryName(getItemCategory(item)) && isItemFromOtherBranch(item)
+    );
 
     const filteredItems = menuItems.filter(item => {
+        const itemCategory = getItemCategory(item);
         const matchesCategory = selectedCategory === 'ALL'
             ? !isItemFromOtherBranch(item)
-            : item.category === selectedCategory;
+            : itemCategory === selectedCategory;
         const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
-        return isItemAvailable(item) && matchesCategory && matchesSearch;
+        return isItemAvailable(item) && !isToppingCategoryName(itemCategory) && matchesCategory && matchesSearch;
     });
 
     const categories = useMemo(() => {
         const unique = new Set<string>();
         menuItems.forEach((item) => {
             const value = getItemCategory(item);
-            if (value) {
+            if (value && !isToppingCategoryName(value)) {
                 unique.add(value);
             }
         });
@@ -566,8 +573,14 @@ function LiveOrdersSection({ branchId }: { branchId: string }) {
                     <div className="space-y-2 border-t border-gray-50 pt-3">
                         {order.items.map((item, idx) => (
                             <div key={idx} className="flex justify-between text-sm">
-                                <span className="text-gray-900">
-                                    <span className="font-semibold">{item.quantity}x</span> {item.menuItem?.name || 'Item'}
+                                <span className="flex items-center gap-2 text-gray-900">
+                                    <span className="font-semibold">{item.quantity}x</span>
+                                    <span>{formatOrderItemName(item, { prefixTopping: true })}</span>
+                                    {isToppingOrderItem(item) && (
+                                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-800">
+                                            Topping
+                                        </span>
+                                    )}
                                 </span>
                                 <span className="text-gray-900">Rs. {((item.price || 0) * item.quantity).toFixed(0)}</span>
                             </div>

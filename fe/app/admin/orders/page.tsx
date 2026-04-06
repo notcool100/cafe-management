@@ -14,6 +14,7 @@ import Toast from '@/components/ui/Toast';
 import OrderDetailModal from '@/components/staff/OrderDetailModal';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { formatBranchLabel } from '@/lib/utils/format';
+import { formatOrderItemName, isToppingOrderItem } from '@/lib/utils/order-items';
 
 type DateFilter = 'TODAY' | 'LAST_24H' | 'THIS_WEEK' | 'ALL' | 'CUSTOM';
 type OrderView = 'LIVE' | 'COMPLETED' | 'CANCELLED';
@@ -410,7 +411,7 @@ export default function AdminOrdersPage() {
                                     </td>
                                     <td className="px-4 py-4 text-sm text-[#6f584f]">
                                         {order.items.length > 0 ? (
-                                            <span className="cursor-help underline decoration-dotted" title={order.items.map(i => `${i.menuItem?.name} x${i.quantity}`).join(', ')}>
+                                            <span className="cursor-help underline decoration-dotted" title={order.items.map(i => `${formatOrderItemName(i, { prefixTopping: true })} x${i.quantity}`).join(', ')}>
                                                 Order Details
                                             </span>
                                         ) : 'No items'}
@@ -526,7 +527,14 @@ export default function AdminOrdersPage() {
                                     {selectedOrder.items.length > 0 ? (
                                         selectedOrder.items.map((item, idx) => (
                                             <div key={idx} className="flex justify-between items-start gap-4 text-sm">
-                                                <span className="text-[#f1e6db]">{item.menuItem?.name || 'Item'} x{item.quantity}</span>
+                                                <div className="flex items-center gap-2 text-[#f1e6db]">
+                                                    <span>{formatOrderItemName(item, { prefixTopping: true })} x{item.quantity}</span>
+                                                    {isToppingOrderItem(item) && (
+                                                        <span className="rounded-full bg-[#f3ddad] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#5b3629]">
+                                                            Topping
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <span className="shrink-0 font-medium">Rs {(item.price * item.quantity).toFixed(0)}</span>
                                             </div>
                                         ))
@@ -628,7 +636,7 @@ function OrderCard({ order, selected, onSelect }: { order: Order; selected: bool
                     <div className="space-y-1">
                         {lineItems.map((item) => (
                             <div key={item.id} className="flex items-start justify-between gap-2 text-xs text-[#f4e8de]">
-                                <span className="min-w-0 flex-1 break-words leading-tight">{item.menuItem?.name || 'Item'}</span>
+                                <span className="min-w-0 flex-1 break-words leading-tight">{formatOrderItemName(item, { prefixTopping: true })}</span>
                                 <span className="shrink-0">x{item.quantity}</span>
                             </div>
                         ))}

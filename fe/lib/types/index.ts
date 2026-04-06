@@ -68,6 +68,11 @@ export interface CreateBranchData {
 }
 
 // Menu Item Types
+export interface MenuItemToppingDraft {
+    name: string;
+    price: number;
+}
+
 export interface MenuItem {
     id: string;
     name: string;
@@ -77,6 +82,7 @@ export interface MenuItem {
     imageUrl?: string;
     sharedBranchIds?: string[];
     disabledBranchIds?: string[];
+    toppingIds?: string[];
     available: boolean;
     branchId: string;
     branch?: Branch;
@@ -94,6 +100,8 @@ export interface CreateMenuItemData {
     branchId: string;
     sharedBranchIds?: string[];
     disabledBranchIds?: string[];
+    toppingIds?: string[];
+    newToppings?: MenuItemToppingDraft[];
 }
 
 export interface Category {

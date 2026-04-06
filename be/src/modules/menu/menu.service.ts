@@ -1,18 +1,45 @@
+import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { assertMenuItemEntitlement } from '../../utils/entitlements';
 
+type NewToppingInput = {
+    name: string;
+    price: number;
+};
+
+type MenuWriteData = {
+    name: string;
+    description?: string;
+    price: number;
+    category?: string;
+    imageUrl?: string;
+    branchId: string;
+    sharedBranchIds?: string[];
+    disabledBranchIds?: string[];
+    toppingIds?: string[];
+    newToppings?: NewToppingInput[];
+};
+
+type MenuUpdateData = {
+    name?: string;
+    description?: string;
+    price?: number;
+    category?: string;
+    imageUrl?: string;
+    isAvailable?: boolean;
+    sharedBranchIds?: string[];
+    disabledBranchIds?: string[];
+    toppingIds?: string[];
+    newToppings?: NewToppingInput[];
+};
+
+type CategoryDbClient = typeof prisma | Prisma.TransactionClient;
+
+const DEFAULT_TOPPING_CATEGORY = 'Topping';
+
 export class MenuService {
     static async createMenuItem(
-        data: {
-            name: string;
-            description?: string;
-            price: number;
-            category?: string;
-            imageUrl?: string;
-            branchId: string;
-            sharedBranchIds?: string[];
-            disabledBranchIds?: string[];
-        },
+        data: MenuWriteData,
         tenantId?: string
     ) {
         const branch = await prisma.branch.findFirst({
@@ -41,29 +68,48 @@ export class MenuService {
             sharedBranchIds,
             disabledBranchIds: data.disabledBranchIds,
         });
-
         const categoryName = data.category?.trim();
-        if (categoryName) {
-            await ensureCategoryExists({
-                name: categoryName,
-                branchId: data.branchId,
-                tenantId: branch.tenantId,
-            });
-        }
+        const resolvedToppingIds = await resolveToppingIds({
+            tenantId: branch.tenantId,
+            toppingIds: data.toppingIds,
+        });
+        const normalizedNewToppings = normalizeNewToppings(data.newToppings);
 
-        const menuItem = await prisma.menuItem.create({
-            data: {
-                name: data.name,
-                description: data.description,
-                price: data.price,
-                category: categoryName,
-                imageUrl: data.imageUrl,
+        const menuItem = await prisma.$transaction(async (tx) => {
+            if (categoryName) {
+                await ensureCategoryExists({
+                    db: tx,
+                    name: categoryName,
+                    branchId: data.branchId,
+                    tenantId: branch.tenantId,
+                });
+            }
+
+            const createdToppingIds = await createLinkedToppings({
+                db: tx,
                 branchId: data.branchId,
                 tenantId: branch.tenantId,
                 sharedBranchIds,
                 disabledBranchIds,
-            },
-            include: { branch: true },
+                newToppings: normalizedNewToppings,
+            });
+            const toppingIds = combineUniqueIds(resolvedToppingIds, createdToppingIds);
+
+            return tx.menuItem.create({
+                data: {
+                    name: data.name,
+                    description: data.description,
+                    price: data.price,
+                    category: categoryName,
+                    imageUrl: data.imageUrl,
+                    branchId: data.branchId,
+                    tenantId: branch.tenantId,
+                    sharedBranchIds,
+                    disabledBranchIds,
+                    toppingIds,
+                },
+                include: { branch: true },
+            });
         });
 
         return normalizeMenuItem(menuItem);
@@ -102,21 +148,18 @@ export class MenuService {
 
     static async updateMenuItem(
         id: string,
-        data: {
-            name?: string;
-            description?: string;
-            price?: number;
-            category?: string;
-            imageUrl?: string;
-            isAvailable?: boolean;
-            sharedBranchIds?: string[];
-            disabledBranchIds?: string[];
-        },
+        data: MenuUpdateData,
         tenantId?: string
     ) {
         const existing = await prisma.menuItem.findFirst({
             where: { id, ...(tenantId ? { tenantId } : {}) },
-            select: { tenantId: true, branchId: true, sharedBranchIds: true, disabledBranchIds: true },
+            select: {
+                tenantId: true,
+                branchId: true,
+                sharedBranchIds: true,
+                disabledBranchIds: true,
+                toppingIds: true,
+            },
         });
 
         if (!existing) {
@@ -152,23 +195,48 @@ export class MenuService {
                 : undefined;
 
         const categoryName = data.category?.trim();
-        if (categoryName) {
-            await ensureCategoryExists({
-                name: categoryName,
+        const normalizedNewToppings = normalizeNewToppings(data.newToppings);
+        const resolvedToppingIds = data.toppingIds !== undefined
+            ? await resolveToppingIds({
+                tenantId: existing.tenantId,
+                toppingIds: data.toppingIds,
+            })
+            : undefined;
+
+        const menuItem = await prisma.$transaction(async (tx) => {
+            if (categoryName) {
+                await ensureCategoryExists({
+                    db: tx,
+                    name: categoryName,
+                    branchId: existing.branchId,
+                    tenantId: existing.tenantId,
+                });
+            }
+
+            const effectiveDisabledBranchIds = disabledBranchIds ?? existing.disabledBranchIds ?? [];
+            const createdToppingIds = await createLinkedToppings({
+                db: tx,
                 branchId: existing.branchId,
                 tenantId: existing.tenantId,
+                sharedBranchIds: effectiveSharedBranchIds,
+                disabledBranchIds: effectiveDisabledBranchIds,
+                newToppings: normalizedNewToppings,
             });
-        }
+            const nextToppingIds = resolvedToppingIds !== undefined || createdToppingIds.length > 0
+                ? combineUniqueIds(resolvedToppingIds ?? existing.toppingIds ?? [], createdToppingIds)
+                : undefined;
 
-        const menuItem = await prisma.menuItem.update({
-            where: { id },
-            data: {
-                ...data,
-                ...(data.category !== undefined ? { category: categoryName } : {}),
-                ...(sharedBranchIds !== undefined ? { sharedBranchIds } : {}),
-                ...(disabledBranchIds !== undefined ? { disabledBranchIds } : {}),
-            },
-            include: { branch: true },
+            return tx.menuItem.update({
+                where: { id },
+                data: {
+                    ...data,
+                    ...(data.category !== undefined ? { category: categoryName } : {}),
+                    ...(sharedBranchIds !== undefined ? { sharedBranchIds } : {}),
+                    ...(disabledBranchIds !== undefined ? { disabledBranchIds } : {}),
+                    ...(nextToppingIds !== undefined ? { toppingIds: nextToppingIds } : {}),
+                },
+                include: { branch: true },
+            });
         });
 
         return normalizeMenuItem(menuItem);
@@ -228,11 +296,12 @@ export class MenuService {
     }
 }
 
-const normalizeMenuItem = (menuItem: any) => ({
+const normalizeMenuItem = (menuItem: any): any => ({
     ...menuItem,
     available: menuItem.isAvailable,
     sharedBranchIds: menuItem.sharedBranchIds || [],
     disabledBranchIds: menuItem.disabledBranchIds || [],
+    toppingIds: menuItem.toppingIds || [],
 });
 
 const resolveSharedBranchIds = async ({
@@ -306,12 +375,14 @@ const ensureCategoryExists = async ({
     name,
     branchId,
     tenantId,
+    db = prisma,
 }: {
     name: string;
     branchId: string;
     tenantId: string;
+    db?: CategoryDbClient;
 }) => {
-    const existing = await prisma.category.findFirst({
+    const existing = await db.category.findFirst({
         where: {
             tenantId,
             name,
@@ -325,7 +396,7 @@ const ensureCategoryExists = async ({
 
     if (existing) return;
 
-    await prisma.category.create({
+    await db.category.create({
         data: {
             name,
             branchId,
@@ -333,3 +404,143 @@ const ensureCategoryExists = async ({
         },
     });
 };
+
+const normalizeNewToppings = (newToppings?: NewToppingInput[]) => {
+    if (!newToppings || newToppings.length === 0) {
+        return [];
+    }
+
+    const seen = new Set<string>();
+
+    return newToppings.flatMap((topping) => {
+        const name = topping.name?.trim();
+        const price = Number(topping.price);
+
+        if (!name || !Number.isFinite(price) || price <= 0) {
+            return [];
+        }
+
+        const normalizedName = name.toLowerCase();
+        if (seen.has(normalizedName)) {
+            return [];
+        }
+
+        seen.add(normalizedName);
+
+        return [{
+            name,
+            price,
+        }];
+    });
+};
+
+const normalizeCategoryName = (value?: string | null) =>
+    (value ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/[-_]+/g, ' ')
+        .replace(/\s+/g, ' ');
+
+const isToppingCategoryName = (value?: string | null) => {
+    const normalized = normalizeCategoryName(value);
+
+    return [
+        'topping',
+        'toppings',
+        'addon',
+        'addons',
+        'add on',
+        'add ons',
+        'extra',
+        'extras',
+    ].includes(normalized);
+};
+
+const resolveToppingIds = async ({
+    tenantId,
+    toppingIds,
+}: {
+    tenantId: string;
+    toppingIds?: string[];
+}) => {
+    if (!toppingIds || toppingIds.length === 0) {
+        return [];
+    }
+
+    const uniqueIds = Array.from(new Set(toppingIds.filter(Boolean)));
+    if (uniqueIds.length === 0) {
+        return [];
+    }
+
+    const toppingItems = await prisma.menuItem.findMany({
+        where: {
+            id: { in: uniqueIds },
+            tenantId,
+        },
+        select: {
+            id: true,
+            category: true,
+        },
+    });
+
+    const validIds = new Set(
+        toppingItems
+            .filter((item) => isToppingCategoryName(item.category))
+            .map((item) => item.id)
+    );
+
+    return uniqueIds.filter((id) => validIds.has(id));
+};
+
+const createLinkedToppings = async ({
+    db,
+    branchId,
+    tenantId,
+    sharedBranchIds,
+    disabledBranchIds,
+    newToppings,
+}: {
+    db: Prisma.TransactionClient;
+    branchId: string;
+    tenantId: string;
+    sharedBranchIds: string[];
+    disabledBranchIds: string[];
+    newToppings: NewToppingInput[];
+}) => {
+    if (newToppings.length === 0) {
+        return [];
+    }
+
+    await ensureCategoryExists({
+        db,
+        name: DEFAULT_TOPPING_CATEGORY,
+        branchId,
+        tenantId,
+    });
+
+    const createdToppings: string[] = [];
+
+    for (const topping of newToppings) {
+        const created = await db.menuItem.create({
+            data: {
+                name: topping.name,
+                description: `${topping.name} topping`,
+                price: topping.price,
+                category: DEFAULT_TOPPING_CATEGORY,
+                branchId,
+                tenantId,
+                sharedBranchIds,
+                disabledBranchIds,
+                toppingIds: [],
+            },
+            select: { id: true },
+        });
+
+        createdToppings.push(created.id);
+    }
+
+    return createdToppings;
+};
+
+const combineUniqueIds = (...lists: string[][]) =>
+    Array.from(new Set(lists.flat().filter(Boolean)));

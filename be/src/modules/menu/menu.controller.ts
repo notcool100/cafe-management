@@ -25,6 +25,45 @@ const parseBranchIds = (value: unknown) => {
     return [];
 };
 
+const parseNewToppings = (value: unknown) => {
+    if (!value) return [];
+
+    const parseArray = (input: unknown) => {
+        if (Array.isArray(input)) {
+            return input;
+        }
+
+        if (typeof input === 'string') {
+            try {
+                const parsed = JSON.parse(input);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch {
+                return [];
+            }
+        }
+
+        return [];
+    };
+
+    return parseArray(value)
+        .map((entry) => {
+            if (!entry || typeof entry !== 'object') {
+                return null;
+            }
+
+            const candidate = entry as { name?: unknown; price?: unknown };
+            const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
+            const price = Number(candidate.price);
+
+            if (!name || !Number.isFinite(price) || price <= 0) {
+                return null;
+            }
+
+            return { name, price };
+        })
+        .filter((entry): entry is { name: string; price: number } => Boolean(entry));
+};
+
 export class MenuController {
     static createMenuItemValidation = [
         body('name').notEmpty().withMessage('Name is required'),
@@ -57,6 +96,8 @@ export class MenuController {
             const { name, description, price, category, branchId } = req.body;
             const sharedBranchIds = parseBranchIds(req.body.sharedBranchIds);
             const disabledBranchIds = parseBranchIds(req.body.disabledBranchIds);
+            const toppingIds = parseBranchIds(req.body.toppingIds);
+            const newToppings = parseNewToppings(req.body.newToppings);
             if (isManager(req)) {
                 const allowedBranchIds = managerBranchIds(req);
                 if (allowedBranchIds.length === 0) {
@@ -81,6 +122,8 @@ export class MenuController {
                 branchId,
                 sharedBranchIds,
                 disabledBranchIds,
+                toppingIds,
+                newToppings,
             }, req.user.tenantId);
 
             res.status(201).json(menuItem);
@@ -164,8 +207,12 @@ export class MenuController {
             const file = (req as AuthRequest & { file?: Express.Multer.File }).file;
             const hasSharedBranchIds = Object.prototype.hasOwnProperty.call(req.body, 'sharedBranchIds');
             const hasDisabledBranchIds = Object.prototype.hasOwnProperty.call(req.body, 'disabledBranchIds');
+            const hasToppingIds = Object.prototype.hasOwnProperty.call(req.body, 'toppingIds');
+            const hasNewToppings = Object.prototype.hasOwnProperty.call(req.body, 'newToppings');
             const sharedBranchIds = hasSharedBranchIds ? parseBranchIds(req.body.sharedBranchIds) : undefined;
             const disabledBranchIds = hasDisabledBranchIds ? parseBranchIds(req.body.disabledBranchIds) : undefined;
+            const toppingIds = hasToppingIds ? parseBranchIds(req.body.toppingIds) : undefined;
+            const newToppings = hasNewToppings ? parseNewToppings(req.body.newToppings) : undefined;
             if (!req.user?.tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
@@ -180,7 +227,7 @@ export class MenuController {
                 if (branchId && !allowedBranchIds.includes(branchId)) {
                     return res.status(403).json({ error: 'Forbidden: Cannot move item to unassigned branch' });
                 }
-                const existing = await MenuService.getMenuItem(id as string, req.user.tenantId);
+                const existing = await MenuService.getMenuItem(id as string, req.user.tenantId) as { branchId: string };
                 if (!allowedBranchIds.includes(existing.branchId)) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
@@ -200,6 +247,8 @@ export class MenuController {
                 isAvailable,
                 ...(sharedBranchIds !== undefined ? { sharedBranchIds } : {}),
                 ...(disabledBranchIds !== undefined ? { disabledBranchIds } : {}),
+                ...(toppingIds !== undefined ? { toppingIds } : {}),
+                ...(newToppings !== undefined ? { newToppings } : {}),
             }, req.user.tenantId);
 
             res.json(menuItem);
@@ -224,7 +273,7 @@ export class MenuController {
                 if (allowedBranchIds.length === 0) {
                     return res.status(400).json({ error: 'Manager is not assigned to any branch' });
                 }
-                const existing = await MenuService.getMenuItem(id as string, req.user.tenantId);
+                const existing = await MenuService.getMenuItem(id as string, req.user.tenantId) as { branchId: string };
                 if (!allowedBranchIds.includes(existing.branchId)) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }

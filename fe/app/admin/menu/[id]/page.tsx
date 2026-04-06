@@ -72,7 +72,10 @@ export default function EditMenuItemPage() {
                 router.push('/admin/menu');
             }, 1000);
         } catch (error: unknown) {
-            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            const message =
+                (error as { message?: string })?.message ||
+                (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data?.error ||
+                (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data?.message;
             setToast({
                 message: message || 'Failed to update menu item',
                 type: 'error',

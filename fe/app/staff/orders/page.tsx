@@ -11,6 +11,8 @@ import { format } from 'date-fns';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { resolveImageUrl } from '@/lib/utils/image';
 import { isMenuItemAvailableForBranch } from '@/lib/utils/menu';
+import { isToppingCategoryName } from '@/lib/utils/topping';
+import { formatOrderItemName, isToppingOrderItem } from '@/lib/utils/order-items';
 
 type NotificationItem =
   | { kind: 'shared'; timestamp: string; data: SharedItemNotification }
@@ -114,7 +116,9 @@ export default function StaffOrdersPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [failedMenuImageIds, setFailedMenuImageIds] = useState<Set<string>>(new Set());
+  const [openToppingMenuId, setOpenToppingMenuId] = useState<string | null>(null);
   const branchQrCode = branchInfo?.qrCode || user?.branches?.find(b => b.id === selectedBranchId)?.qrCode;
+  const toppingMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Fetch live orders from API
   const fetchLiveOrders = async () => {
@@ -192,6 +196,30 @@ export default function StaffOrdersPage() {
     };
   }, [previewImage]);
 
+  useEffect(() => {
+    if (!openToppingMenuId) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (toppingMenuRef.current && !toppingMenuRef.current.contains(event.target as Node)) {
+        setOpenToppingMenuId(null);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenToppingMenuId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [openToppingMenuId]);
+
   const statusOptions: Array<{ value: OrderStatus; label: string; disabled?: boolean }> = [
     { value: OrderStatus.PENDING, label: 'Pending' },
     { value: OrderStatus.PREPARING, label: 'Preparing' },
@@ -237,9 +265,19 @@ export default function StaffOrdersPage() {
 
   const getItemCategory = (item: MenuItem) => (item.category || 'Uncategorized').trim() || 'Uncategorized';
   const isItemAvailable = (item: MenuItem) => isMenuItemAvailableForBranch(item, selectedBranchId);
+  const availableMenuItems = useMemo(
+    () => menuItems.filter(item => isMenuItemAvailableForBranch(item, selectedBranchId)),
+    [menuItems, selectedBranchId]
+  );
+  const menuItemsById = useMemo(
+    () => new Map(menuItems.map(item => [item.id, item])),
+    [menuItems]
+  );
 
   const resolveMenuCategoryForBranch = (items: MenuItem[], branchId: string, previousCategory: string) => {
-    const availableItems = items.filter(item => isMenuItemAvailableForBranch(item, branchId));
+    const availableItems = items.filter(item =>
+      isMenuItemAvailableForBranch(item, branchId) && !isToppingCategoryName(getItemCategory(item))
+    );
     const availableCategories = Array.from(new Set(availableItems.map(getItemCategory)));
 
     if (previousCategory !== 'All' && availableCategories.includes(previousCategory)) {
@@ -258,8 +296,37 @@ export default function StaffOrdersPage() {
 
   const categories = useMemo(() => [
     'All',
-    ...Array.from(new Set(menuItems.filter(isItemAvailable).map(getItemCategory).filter(Boolean))),
-  ], [menuItems, selectedBranchId]);
+    ...Array.from(
+      new Set(
+        availableMenuItems
+          .filter(item => !isToppingCategoryName(getItemCategory(item)))
+          .map(getItemCategory)
+          .filter(Boolean)
+      )
+    ),
+  ], [availableMenuItems]);
+
+  const availableToppings = useMemo(
+    () =>
+      availableMenuItems
+        .filter(item => isToppingCategoryName(getItemCategory(item)))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [availableMenuItems]
+  );
+
+  const getToppingsForItem = (item: MenuItem) => {
+    const linkedToppings = (item.toppingIds || [])
+      .map(toppingId => menuItemsById.get(toppingId))
+      .filter((topping): topping is MenuItem => Boolean(topping))
+      .filter(topping => isItemAvailable(topping))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    if (linkedToppings.length > 0) {
+      return linkedToppings;
+    }
+
+    return availableToppings;
+  };
 
   // Fetch menu items from API
   const fetchMenuItems = async () => {
@@ -339,6 +406,15 @@ export default function StaffOrdersPage() {
         },
       ];
     });
+  };
+
+  const handleToggleToppingMenu = (itemId: string) => {
+    setOpenToppingMenuId(previousItemId => previousItemId === itemId ? null : itemId);
+  };
+
+  const handleSelectTopping = (topping: MenuItem) => {
+    addToCart(topping);
+    setOpenToppingMenuId(null);
   };
 
   const updateQuantity = (id: string, quantity: number) => {
@@ -601,19 +677,30 @@ export default function StaffOrdersPage() {
     }
   }, [categories, selectedCategory]);
 
+  useEffect(() => {
+    setOpenToppingMenuId(null);
+  }, [searchTerm, selectedBranchId, selectedCategory, viewMode]);
+
   const isItemFromOtherBranch = (item: MenuItem) =>
     Boolean(selectedBranchId && item.branchId && item.branchId !== selectedBranchId);
 
-  const hasOtherBranchItems = menuItems.some(item => isItemAvailable(item) && isItemFromOtherBranch(item));
+  const hasOtherBranchItems = menuItems.some(
+    item =>
+      isItemAvailable(item) &&
+      !isToppingCategoryName(getItemCategory(item)) &&
+      isItemFromOtherBranch(item)
+  );
 
   const filteredItems = menuItems.filter(item => {
     const itemCategory = getItemCategory(item);
+    const isToppingItem = isToppingCategoryName(itemCategory);
     const matchesCategory = selectedCategory === 'All'
       ? !isItemFromOtherBranch(item)
       : itemCategory === selectedCategory;
 
     return (
       isItemAvailable(item) &&
+      !isToppingItem &&
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
       matchesCategory
     );
@@ -932,6 +1019,9 @@ export default function StaffOrdersPage() {
                         const isFromOtherBranch = isItemFromOtherBranch(item);
                         const sourceBranchName = item.branch?.name?.trim();
                         const itemQuantity = getItemQuantity(item.id);
+                        const itemToppings = getToppingsForItem(item);
+                        const isToppingMenuOpen = openToppingMenuId === item.id;
+                        const hasAvailableToppings = itemToppings.length > 0;
 
                         return (
                           <article
@@ -1015,15 +1105,86 @@ export default function StaffOrdersPage() {
                               </p>
                             </div>
 
-                            <button
-                              onClick={() => addToCart(item)}
-                              disabled={!isItemAvailable(item)}
-                              className={`mx-auto mt-4 flex min-h-[46px] w-full max-w-[136px] items-center justify-center rounded-xl border-2 px-4 text-sm font-semibold tracking-[0.08em] transition-all duration-200 sm:text-[15px] ${itemQuantity > 0 ? 'border-[#252b36] bg-[#252b36] text-white shadow-[0_12px_24px_rgba(37,43,54,0.18)]' : 'border-[#252b36] bg-white text-[#111827] hover:bg-[#252b36] hover:text-white'} ${!isItemAvailable(item) ? 'cursor-not-allowed opacity-50 hover:bg-white hover:text-[#111827]' : ''}`}
-                              style={{ fontFamily: "'Quicksand', sans-serif", lineHeight: '125%' }}
-                              aria-label={`Add ${item.name}`}
+                            <div
+                              ref={isToppingMenuOpen ? toppingMenuRef : null}
+                              className="relative mt-4"
                             >
-                              ADD
-                            </button>
+                              <div className="mx-auto flex w-full max-w-[300px] items-center justify-center gap-2">
+                                <button
+                                  onClick={() => addToCart(item)}
+                                  disabled={!isItemAvailable(item)}
+                                  className={`flex min-h-[46px] flex-1 items-center justify-center rounded-xl border-2 px-4 text-sm font-semibold tracking-[0.08em] transition-all duration-200 sm:text-[15px] ${itemQuantity > 0 ? 'border-[#252b36] bg-[#252b36] text-white shadow-[0_12px_24px_rgba(37,43,54,0.18)]' : 'border-[#252b36] bg-white text-[#111827] hover:bg-[#252b36] hover:text-white'} ${!isItemAvailable(item) ? 'cursor-not-allowed opacity-50 hover:bg-white hover:text-[#111827]' : ''}`}
+                                  style={{ fontFamily: "'Quicksand', sans-serif", lineHeight: '125%' }}
+                                  aria-label={`Add ${item.name}`}
+                                >
+                                  ADD
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleToppingMenu(item.id)}
+                                  disabled={!hasAvailableToppings}
+                                  className={`flex min-h-[46px] items-center justify-center gap-2 rounded-xl border px-4 text-xs font-semibold tracking-[0.08em] transition-all duration-200 sm:text-sm ${isToppingMenuOpen ? 'border-amber-500 bg-amber-50 text-amber-800 shadow-[0_12px_24px_rgba(245,158,11,0.18)]' : 'border-gray-300 bg-white text-gray-700 hover:border-amber-400 hover:bg-amber-50 hover:text-amber-800'} ${!hasAvailableToppings ? 'cursor-not-allowed opacity-50 hover:border-gray-300 hover:bg-white hover:text-gray-700' : ''}`}
+                                  style={{ fontFamily: "'Quicksand', sans-serif", lineHeight: '125%' }}
+                                  aria-expanded={isToppingMenuOpen}
+                                  aria-haspopup="menu"
+                                  aria-label={`Show toppings for ${item.name}`}
+                                  title={hasAvailableToppings ? `Show toppings for ${item.name}` : 'Create menu items in a Topping category to show them here'}
+                                >
+                                  TOPPING
+                                  <svg className={`h-4 w-4 transition-transform duration-200 ${isToppingMenuOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                                  </svg>
+                                </button>
+                              </div>
+
+                              {isToppingMenuOpen && (
+                                <div
+                                  className="absolute left-1/2 z-20 mt-2 w-full max-w-[300px] -translate-x-1/2 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_24px_48px_rgba(15,23,42,0.18)]"
+                                  role="menu"
+                                  aria-label={`${item.name} toppings`}
+                                >
+                                  <div className="border-b border-gray-100 px-4 py-3">
+                                    <p className="text-sm font-semibold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                      Select a topping
+                                    </p>
+                                    <p className="text-xs text-gray-500" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                      Add toppings as separate order items.
+                                    </p>
+                                  </div>
+                                  <div className="max-h-60 overflow-y-auto py-2">
+                                    {itemToppings.map((topping) => {
+                                      const toppingQuantity = getItemQuantity(topping.id);
+                                      const toppingSourceBranch = topping.branch?.name?.trim();
+
+                                      return (
+                                        <button
+                                          key={topping.id}
+                                          type="button"
+                                          onClick={() => handleSelectTopping(topping)}
+                                          className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors duration-200 hover:bg-gray-50"
+                                          role="menuitem"
+                                        >
+                                          <span className="min-w-0">
+                                            <span className="block truncate text-sm font-semibold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                              {topping.name}
+                                            </span>
+                                            <span className="block text-xs text-gray-500" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                              {toppingSourceBranch && isItemFromOtherBranch(topping)
+                                                ? `Shared from ${toppingSourceBranch}`
+                                                : 'Available topping'}
+                                              {toppingQuantity > 0 ? ` • In cart: ${toppingQuantity}` : ''}
+                                            </span>
+                                          </span>
+                                          <span className="shrink-0 text-sm font-semibold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                            Rs {topping.price}
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
 
                             <div className="mt-auto flex items-center justify-between pt-5">
                               <button
@@ -1183,10 +1344,17 @@ export default function StaffOrdersPage() {
                                   {order.items.map((item, index) => (
                                     <div key={index} className="flex items-center justify-between text-sm" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                                       <div className="flex items-center space-x-2">
-                                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                                        <span className="text-gray-700 font-medium">
-                                          {item.menuItem?.name || 'Item'}
-                                        </span>
+                                        <div className={`w-2 h-2 rounded-full ${isToppingOrderItem(item) ? 'bg-amber-400' : 'bg-blue-400'}`}></div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-gray-700 font-medium">
+                                            {formatOrderItemName(item, { prefixTopping: true })}
+                                          </span>
+                                          {isToppingOrderItem(item) && (
+                                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-800">
+                                              Topping
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
                                       <div className="flex items-center space-x-3">
                                         <span className="text-gray-700">x{item.quantity}</span>
@@ -1378,10 +1546,17 @@ export default function StaffOrdersPage() {
                                   {order.items.map((item, index) => (
                                     <div key={index} className="flex items-center justify-between text-sm" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                                       <div className="flex items-center space-x-2">
-                                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                                        <span className="text-gray-700 font-medium">
-                                          {item.menuItem?.name || 'Item'}
-                                        </span>
+                                        <div className={`w-2 h-2 rounded-full ${isToppingOrderItem(item) ? 'bg-amber-400' : 'bg-blue-400'}`}></div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-gray-700 font-medium">
+                                            {formatOrderItemName(item, { prefixTopping: true })}
+                                          </span>
+                                          {isToppingOrderItem(item) && (
+                                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-800">
+                                              Topping
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
                                       <div className="flex items-center space-x-3">
                                         <span className="text-gray-700">x{item.quantity}</span>
@@ -1414,7 +1589,14 @@ export default function StaffOrdersPage() {
                       {cartItems.map((item, index) => (
                         <div key={index} className="flex items-center justify-between py-2 border-b border-gray-50">
                           <div className="flex-1">
-                            <p className="font-medium text-gray-900" style={{ fontFamily: 'Quicksand, sans-serif' }}>{item.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-900" style={{ fontFamily: 'Quicksand, sans-serif' }}>{item.name}</p>
+                              {isToppingCategoryName(item.category) && (
+                                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800">
+                                  Topping
+                                </span>
+                              )}
+                            </div>
                             <p className="text-sm text-gray-700" style={{ fontFamily: 'Quicksand, sans-serif' }}>Rs {item.price} x {item.quantity}</p>
                           </div>
                           <div className="flex items-center space-x-2">
@@ -1553,7 +1735,11 @@ export default function StaffOrdersPage() {
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {cartItems.map((item, index) => (
                     <div key={index} className="flex justify-between text-sm" style={{ fontFamily: 'Quicksand, sans-serif' }}>
-                      <span className="text-gray-700">{item.name} x {item.quantity}</span>
+                      <span className="text-gray-700">
+                        {item.name}
+                        {isToppingCategoryName(item.category) ? ' (Topping)' : ''}
+                        {' '}x {item.quantity}
+                      </span>
                       <span className="font-medium">Rs {item.price * item.quantity}</span>
                     </div>
                   ))}

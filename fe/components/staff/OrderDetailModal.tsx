@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Select from '@/components/ui/Select';
 import Toast from '@/components/ui/Toast';
+import { formatOrderItemName, isToppingOrderItem } from '@/lib/utils/order-items';
 
 interface OrderDetailModalProps {
     orderId: string | null;
@@ -233,7 +234,14 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                                 {order.items.map((item) => (
                                     <tr key={item.id} className="border-b border-gray-200 last:border-0">
                                         <td className="px-3 py-3 font-medium text-gray-900">
-                                            {item.menuItem?.name || 'Unknown Item'}
+                                            <div className="flex items-center gap-2">
+                                                <span>{formatOrderItemName(item, { prefixTopping: true })}</span>
+                                                {isToppingOrderItem(item) && (
+                                                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-800">
+                                                        Topping
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-3 py-3 text-center">{item.quantity}</td>
                                         <td className="px-3 py-3 text-right">Rs. {Number(item.price ?? 0).toFixed(2)}</td>

@@ -43,6 +43,38 @@ const formatPercentage = (value: number) => {
     return value.toFixed(2).replace(/\.?0+$/, '');
 };
 
+const normalizeCategoryName = (value?: string | null) =>
+    (value ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/[-_]+/g, ' ')
+        .replace(/\s+/g, ' ');
+
+const isToppingCategoryName = (value?: string | null) => {
+    const normalized = normalizeCategoryName(value);
+
+    return [
+        'topping',
+        'toppings',
+        'addon',
+        'addons',
+        'add on',
+        'add ons',
+        'extra',
+        'extras',
+    ].includes(normalized);
+};
+
+const formatReceiptItemName = (item: OrderWithItems['orderItems'][number]) => {
+    const name = item.menuItem?.name || 'Item';
+
+    if (!isToppingCategoryName(item.menuItem?.category)) {
+        return name;
+    }
+
+    return `+ ${name} (Topping)`;
+};
+
 const estimateReceiptHeight = (order: OrderWithItems, titleSize = 13) => {
     let height = 0;
 
@@ -122,7 +154,7 @@ const renderReceiptSection = (
     order.orderItems.forEach((item) => {
         const itemTotal = Number(item.price) * item.quantity;
         const rowY = doc.y;
-        doc.text(item.menuItem.name, ITEM_COL_X, rowY, { width: ITEM_COL_WIDTH });
+        doc.text(formatReceiptItemName(item), ITEM_COL_X, rowY, { width: ITEM_COL_WIDTH });
         doc.text(item.quantity.toString(), QTY_COL_X, rowY, { width: QTY_COL_WIDTH, align: 'center' });
         doc.text(`${Number(item.price).toFixed(2)}`, PRICE_COL_X, rowY, { width: PRICE_COL_WIDTH, align: 'right' });
         doc.text(`${itemTotal.toFixed(2)}`, TOTAL_COL_X, rowY, { width: TOTAL_COL_WIDTH, align: 'right' });

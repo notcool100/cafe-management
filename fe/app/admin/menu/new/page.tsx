@@ -34,6 +34,7 @@ export default function NewMenuItemPage() {
                 imageFile: data.imageFile || null,
                 available: data.available,
                 sharedBranchIds: data.sharedBranchIds,
+                newToppings: data.newToppings,
             });
 
             setToast({
@@ -45,11 +46,13 @@ export default function NewMenuItemPage() {
             setTimeout(() => {
                 router.push('/admin/menu');
             }, 1000);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message =
+                (error as { message?: string })?.message ||
+                (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data?.error ||
+                (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data?.message;
             setToast({
-                message:
-                    error?.response?.data?.message ||
-                    'Failed to create menu item',
+                message: message || 'Failed to create menu item',
                 type: 'error',
                 isVisible: true,
             });
@@ -110,6 +113,7 @@ export default function NewMenuItemPage() {
                         <MenuItemForm
                             onSubmit={handleSubmit}
                             isLoading={isLoading}
+                            showToppingsSection={true}
                             onImagePreview={(file) => {
                                 if (file) {
                                     setPreview(URL.createObjectURL(file));
