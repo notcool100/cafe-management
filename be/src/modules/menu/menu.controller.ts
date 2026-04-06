@@ -8,7 +8,7 @@ const isManager = (req: AuthRequest) =>
     req.user?.role === 'MANAGER' || req.user?.role === 'EMPLOYEE';
 const managerBranchIds = (req: AuthRequest) => req.user?.branchIds || [];
 
-const parseSharedBranchIds = (value: unknown) => {
+const parseBranchIds = (value: unknown) => {
     if (!value) return [];
     if (Array.isArray(value)) return value.map(String);
     if (typeof value === 'string') {
@@ -55,7 +55,8 @@ export class MenuController {
             }
 
             const { name, description, price, category, branchId } = req.body;
-            const sharedBranchIds = parseSharedBranchIds(req.body.sharedBranchIds);
+            const sharedBranchIds = parseBranchIds(req.body.sharedBranchIds);
+            const disabledBranchIds = parseBranchIds(req.body.disabledBranchIds);
             if (isManager(req)) {
                 const allowedBranchIds = managerBranchIds(req);
                 if (allowedBranchIds.length === 0) {
@@ -79,6 +80,7 @@ export class MenuController {
                 imageUrl,
                 branchId,
                 sharedBranchIds,
+                disabledBranchIds,
             }, req.user.tenantId);
 
             res.status(201).json(menuItem);
@@ -161,7 +163,9 @@ export class MenuController {
             const { name, description, price, category, branchId } = req.body;
             const file = (req as AuthRequest & { file?: Express.Multer.File }).file;
             const hasSharedBranchIds = Object.prototype.hasOwnProperty.call(req.body, 'sharedBranchIds');
-            const sharedBranchIds = hasSharedBranchIds ? parseSharedBranchIds(req.body.sharedBranchIds) : undefined;
+            const hasDisabledBranchIds = Object.prototype.hasOwnProperty.call(req.body, 'disabledBranchIds');
+            const sharedBranchIds = hasSharedBranchIds ? parseBranchIds(req.body.sharedBranchIds) : undefined;
+            const disabledBranchIds = hasDisabledBranchIds ? parseBranchIds(req.body.disabledBranchIds) : undefined;
             if (!req.user?.tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
@@ -195,6 +199,7 @@ export class MenuController {
                 imageUrl,
                 isAvailable,
                 ...(sharedBranchIds !== undefined ? { sharedBranchIds } : {}),
+                ...(disabledBranchIds !== undefined ? { disabledBranchIds } : {}),
             }, req.user.tenantId);
 
             res.json(menuItem);

@@ -14,6 +14,9 @@ const buildMenuItemFormData = (data: Partial<CreateMenuItemData>) => {
     if (data.sharedBranchIds !== undefined) {
         formData.append('sharedBranchIds', JSON.stringify(data.sharedBranchIds));
     }
+    if (data.disabledBranchIds !== undefined) {
+        formData.append('disabledBranchIds', JSON.stringify(data.disabledBranchIds));
+    }
 
     return formData;
 };
@@ -24,6 +27,7 @@ const normalizeMenuItem = (
     const normalizedPrice = typeof item.price === 'number' ? item.price : Number(item.price ?? 0);
     const availableFlag = item.available ?? item.isAvailable ?? false;
     const sharedBranchIds = Array.isArray(item.sharedBranchIds) ? item.sharedBranchIds : [];
+    const disabledBranchIds = Array.isArray(item.disabledBranchIds) ? item.disabledBranchIds : [];
     const branchId = item.branchId ?? item.branch?.id ?? '';
 
     return {
@@ -32,6 +36,7 @@ const normalizeMenuItem = (
         price: normalizedPrice,
         available: availableFlag,
         sharedBranchIds,
+        disabledBranchIds,
     } as MenuItem;
 };
 

@@ -12,6 +12,7 @@ import Toast from '@/components/ui/Toast';
 import { resolveImageUrl } from '@/lib/utils/image';
 import { orderService } from '@/lib/api/order-service';
 import { getOrCreateDeviceId } from '@/lib/utils/device';
+import { isMenuItemAvailableForBranch } from '@/lib/utils/menu';
 
 export default function PublicMenuPage() {
     const params = useParams();
@@ -37,9 +38,13 @@ export default function PublicMenuPage() {
     });
 
     const getItemCategory = useCallback((item: MenuItem) => (item.category || 'Uncategorized').trim() || 'Uncategorized', []);
+    const isItemAvailable = useCallback(
+        (item: MenuItem) => isMenuItemAvailableForBranch(item, branchId),
+        [branchId]
+    );
 
     const resolveMenuCategoryForBranch = useCallback((items: MenuItem[], currentBranchId: string, previousCategory: string) => {
-        const availableItems = items.filter(item => item.available !== false);
+        const availableItems = items.filter(item => isMenuItemAvailableForBranch(item, currentBranchId));
         const availableCategories = Array.from(new Set(availableItems.map(getItemCategory)));
 
         if (previousCategory !== 'ALL' && availableCategories.includes(previousCategory)) {
@@ -137,7 +142,7 @@ export default function PublicMenuPage() {
             : item.category === selectedCategory;
         const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
-        return item.available !== false && matchesCategory && matchesSearch;
+        return isItemAvailable(item) && matchesCategory && matchesSearch;
     });
 
     const categories = useMemo(() => {
@@ -366,8 +371,8 @@ export default function PublicMenuPage() {
                                                 {getItemQuantity(item.id) === 0 ? (
                                                     <button
                                                         onClick={() => handleAddToCart(item)}
-                                                        disabled={!item.available}
-                                                        className={`add-btn mt-2 min-w-[60px] px-3 py-1 text-[11px] sm:mt-3 sm:min-w-[68px] sm:text-xs ${!item.available ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        disabled={!isItemAvailable(item)}
+                                                        className={`add-btn mt-2 min-w-[60px] px-3 py-1 text-[11px] sm:mt-3 sm:min-w-[68px] sm:text-xs ${!isItemAvailable(item) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     >
                                                         ADD
                                                     </button>
@@ -385,8 +390,8 @@ export default function PublicMenuPage() {
                                                         </span>
                                                         <button
                                                             onClick={() => updateQuantity(item.id, getItemQuantity(item.id) + 1)}
-                                                            disabled={!item.available}
-                                                            className={`flex h-5 w-5 items-center justify-center transition-colors sm:h-6 sm:w-6 ${item.available ? 'text-gray-700 hover:text-gray-900' : 'text-gray-400 cursor-not-allowed'}`}
+                                                            disabled={!isItemAvailable(item)}
+                                                            className={`flex h-5 w-5 items-center justify-center transition-colors sm:h-6 sm:w-6 ${isItemAvailable(item) ? 'text-gray-700 hover:text-gray-900' : 'text-gray-400 cursor-not-allowed'}`}
                                                             aria-label={`Increase ${item.name}`}
                                                         >
                                                             <span className="text-lg font-bold">+</span>

@@ -68,6 +68,9 @@ export class OrderService {
                 id: { in: data.items.map((item) => item.menuItemId) },
                 tenantId: branch.tenantId,
                 isAvailable: true,
+                NOT: {
+                    disabledBranchIds: { has: data.branchId },
+                },
                 OR: [
                     { branchId: data.branchId },
                     { sharedBranchIds: { has: data.branchId } },

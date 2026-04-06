@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { menuService } from '@/lib/api/menu-service';
@@ -13,6 +13,7 @@ import Toast from '@/components/ui/Toast';
 import { resolveImageUrl } from '@/lib/utils/image';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { formatBranchLabel } from '@/lib/utils/format';
+import { getMenuItemVisibleBranchIds, isMenuItemDisabledForBranch } from '@/lib/utils/menu';
 
 export default function MenuPage() {
     const { selectedBranchId } = useAuthStore();
@@ -21,6 +22,9 @@ export default function MenuPage() {
     const [branches, setBranches] = useState<Branch[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+    const [availabilityTargetId, setAvailabilityTargetId] = useState<string | null>(null);
+    const [pendingDisabledBranchIds, setPendingDisabledBranchIds] = useState<string[]>([]);
+    const [isSavingDisabledBranches, setIsSavingDisabledBranches] = useState(false);
     const [filters, setFilters] = useState({
         search: '',
         category: '',
@@ -85,7 +89,7 @@ export default function MenuPage() {
     const handleDelete = async (id: string) => {
         try {
             await menuService.deleteMenuItem(id);
-            setMenuItems(menuItems.filter(item => item.id !== id));
+            setMenuItems((previous) => previous.filter((item) => item.id !== id));
             setDeleteConfirm(null);
             setToast({
                 message: 'Menu item deleted successfully',
@@ -102,12 +106,17 @@ export default function MenuPage() {
         }
     };
 
-    const handleToggleAvailability = async (item: MenuItem) => {
+    const handleEnableItem = async (item: MenuItem) => {
         try {
             const updatedItem = await menuService.updateMenuItem(item.id, {
-                available: !item.available
+                available: true
             });
-            setMenuItems(menuItems.map(i => i.id === item.id ? updatedItem : i));
+            setMenuItems((previous) => previous.map((currentItem) => currentItem.id === item.id ? updatedItem : currentItem));
+            setToast({
+                message: 'Menu item enabled successfully',
+                type: 'success',
+                isVisible: true,
+            });
         } catch {
             setToast({
                 message: 'Failed to update availability',
@@ -118,6 +127,75 @@ export default function MenuPage() {
     };
 
     const activeBranchId = filters.branchId || currentBranchId || (branches.length === 1 ? branches[0].id : '');
+
+    const getVisibleBranchesForItem = useCallback((item: MenuItem) => {
+        const visibleBranchIds = getMenuItemVisibleBranchIds(item);
+        return visibleBranchIds
+            .map((branchId) => branches.find((branch) => branch.id === branchId))
+            .filter((branch): branch is Branch => Boolean(branch));
+    }, [branches]);
+
+    const getDisabledBranchesForItem = useCallback((item: MenuItem) => {
+        const disabledBranchIdSet = new Set(item.disabledBranchIds || []);
+        return getVisibleBranchesForItem(item).filter((branch) => disabledBranchIdSet.has(branch.id));
+    }, [getVisibleBranchesForItem]);
+
+    const availabilityTarget = useMemo(
+        () => menuItems.find((item) => item.id === availabilityTargetId) || null,
+        [availabilityTargetId, menuItems]
+    );
+    const availabilityTargetBranches = availabilityTarget ? getVisibleBranchesForItem(availabilityTarget) : [];
+
+    const openAvailabilityModal = (item: MenuItem) => {
+        setAvailabilityTargetId(item.id);
+        setPendingDisabledBranchIds(item.disabledBranchIds || []);
+    };
+
+    const closeAvailabilityModal = () => {
+        if (isSavingDisabledBranches) return;
+        setAvailabilityTargetId(null);
+        setPendingDisabledBranchIds([]);
+    };
+
+    const handleToggleBranchDisabled = (branchId: string) => {
+        setPendingDisabledBranchIds((previous) =>
+            previous.includes(branchId)
+                ? previous.filter((id) => id !== branchId)
+                : [...previous, branchId]
+        );
+    };
+
+    const handleSaveDisabledBranches = async () => {
+        if (!availabilityTarget) {
+            return;
+        }
+
+        try {
+            setIsSavingDisabledBranches(true);
+            const updatedItem = await menuService.updateMenuItem(availabilityTarget.id, {
+                disabledBranchIds: pendingDisabledBranchIds,
+            });
+            setMenuItems((previous) =>
+                previous.map((item) => item.id === updatedItem.id ? updatedItem : item)
+            );
+            closeAvailabilityModal();
+            setToast({
+                message: pendingDisabledBranchIds.length > 0
+                    ? 'Branch availability updated'
+                    : 'Item is now available in all assigned branches',
+                type: 'success',
+                isVisible: true,
+            });
+        } catch {
+            setToast({
+                message: 'Failed to update branch availability',
+                type: 'error',
+                isVisible: true,
+            });
+        } finally {
+            setIsSavingDisabledBranches(false);
+        }
+    };
 
     const filteredItems = menuItems.filter(item =>
         item.name.toLowerCase().includes(filters.search.toLowerCase())
@@ -190,6 +268,18 @@ export default function MenuPage() {
                     const sourceBranch = item.branch || branches.find((branch) => branch.id === item.branchId);
                     const isFromOtherBranch = Boolean(activeBranchId && item.branchId && item.branchId !== activeBranchId);
                     const sourceBranchLabel = sourceBranch ? formatBranchLabel(sourceBranch) : 'Another branch';
+                    const disabledBranches = getDisabledBranchesForItem(item);
+                    const disabledBranchLabels = disabledBranches.map((branch) => formatBranchLabel(branch));
+                    const isDisabledInActiveBranch = isMenuItemDisabledForBranch(item, activeBranchId);
+                    const badge = !item.available
+                        ? { variant: 'danger' as const, label: 'Unavailable' }
+                        : disabledBranches.length === 0
+                            ? { variant: 'success' as const, label: 'Available' }
+                            : disabledBranches.length === getVisibleBranchesForItem(item).length
+                                ? { variant: 'warning' as const, label: 'Disabled in all' }
+                                : isDisabledInActiveBranch
+                                    ? { variant: 'warning' as const, label: 'Disabled here' }
+                                    : { variant: 'warning' as const, label: `Disabled in ${disabledBranches.length}` };
 
                     return (
                         <div key={item.id} className="rounded-xl bg-[#5b3629] p-3 shadow-[0_4px_10px_rgba(0,0,0,0.2)] sm:p-4">
@@ -209,8 +299,8 @@ export default function MenuPage() {
                                     </div>
                                 )}
                                 <div className="absolute top-2 right-2">
-                                    <Badge variant={item.available ? 'success' : 'danger'}>
-                                        {item.available ? 'Available' : 'Unavailable'}
+                                    <Badge variant={badge.variant}>
+                                        {badge.label}
                                     </Badge>
                                 </div>
                             </div>
@@ -230,16 +320,21 @@ export default function MenuPage() {
                                     </div>
                                 )}
                                 <p className="mt-1 text-base text-[#e9d8c5]">Rs. {Number(item.price).toFixed(2)}</p>
+                                {item.available && disabledBranchLabels.length > 0 && (
+                                    <p className="mt-2 text-xs leading-relaxed text-[#f3ddad]">
+                                        Disabled in: {disabledBranchLabels.join(', ')}
+                                    </p>
+                                )}
                                 <div className="mt-3 flex flex-wrap gap-2">
                                     <Link href={`/admin/menu/${item.id}`} className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]">
                                         Edit
                                     </Link>
                                     <button
                                         type="button"
-                                        onClick={() => handleToggleAvailability(item)}
+                                        onClick={() => item.available ? openAvailabilityModal(item) : handleEnableItem(item)}
                                         className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]"
                                     >
-                                        {item.available ? 'Disable' : 'Enable'}
+                                        {item.available ? 'Disable Branches' : 'Enable'}
                                     </button>
                                     <button
                                         type="button"
@@ -266,6 +361,87 @@ export default function MenuPage() {
                     </Link>
                 </div>
             )}
+
+            <Modal
+                isOpen={availabilityTarget !== null}
+                onClose={closeAvailabilityModal}
+                title="Disable Branches"
+                theme="light"
+            >
+                {availabilityTarget && (
+                    <div className="space-y-5 text-gray-900">
+                        <div>
+                            <p className="text-sm font-medium">
+                                Choose which branches should hide <span className="font-semibold">{availabilityTarget.name}</span>.
+                            </p>
+                            <p className="mt-1 text-sm text-gray-600">
+                                The home branch and any shared branches can be disabled independently.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setPendingDisabledBranchIds(availabilityTargetBranches.map((branch) => branch.id))}
+                                className="rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-100"
+                            >
+                                Select all
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPendingDisabledBranchIds([])}
+                                className="rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-100"
+                            >
+                                Clear all
+                            </button>
+                        </div>
+
+                        <div className="grid gap-2">
+                            {availabilityTargetBranches.map((branch) => {
+                                const checked = pendingDisabledBranchIds.includes(branch.id);
+
+                                return (
+                                    <label
+                                        key={branch.id}
+                                        className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800 transition hover:border-gray-300 hover:bg-gray-50"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={() => handleToggleBranchDisabled(branch.id)}
+                                            className="h-4 w-4 rounded border-gray-300 text-[#5b3629] focus:ring-[#5b3629]"
+                                        />
+                                        <span>{formatBranchLabel(branch)}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+
+                        <p className="text-xs text-gray-500">
+                            No branches selected means the item stays available everywhere it is assigned.
+                        </p>
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={closeAvailabilityModal}
+                                disabled={isSavingDisabledBranches}
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSaveDisabledBranches}
+                                disabled={isSavingDisabledBranches}
+                                className="rounded-lg bg-[#5b3629] px-4 py-2 text-[#f8efe1] transition hover:bg-[#4c2c20] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isSavingDisabledBranches ? 'Saving...' : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
 
             <Modal
                 isOpen={deleteConfirm !== null}

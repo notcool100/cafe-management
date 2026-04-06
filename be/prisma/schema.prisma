@@ -106,6 +106,7 @@ model MenuItem {
   updatedAt       DateTime    @updatedAt
   tenantId        String
   sharedBranchIds String[]    @default([])
+  disabledBranchIds String[]  @default([])
   branch          Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
   tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   orderItems      OrderItem[]

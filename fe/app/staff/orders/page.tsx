@@ -10,6 +10,7 @@ import { Order, CreateOrderData, OrderType, OrderStatus, Branch, OrderNotificati
 import { format } from 'date-fns';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { resolveImageUrl } from '@/lib/utils/image';
+import { isMenuItemAvailableForBranch } from '@/lib/utils/menu';
 
 type NotificationItem =
   | { kind: 'shared'; timestamp: string; data: SharedItemNotification }
@@ -54,9 +55,34 @@ interface MenuItemPreview {
   image?: string;
 }
 
+const getRequestErrorStatus = (error: unknown) =>
+  typeof error === 'object' &&
+    error &&
+    'status' in error &&
+    typeof (error as { status?: unknown }).status === 'number'
+    ? (error as { status: number }).status
+    : undefined;
+
+const getRequestErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (
+    typeof error === 'object' &&
+    error &&
+    'message' in error &&
+    typeof (error as { message?: unknown }).message === 'string'
+  ) {
+    return (error as { message: string }).message;
+  }
+
+  return 'Unknown error';
+};
+
 export default function StaffOrdersPage() {
   const router = useRouter();
-  const { user, selectedBranchId, setSelectedBranchId } = useAuthStore();
+  const { user, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [viewMode, setViewMode] = useState<'menu' | 'live-orders' | 'history'>('menu');
@@ -210,9 +236,10 @@ export default function StaffOrdersPage() {
   const [isLoadingMenu, setIsLoadingMenu] = useState(false);
 
   const getItemCategory = (item: MenuItem) => (item.category || 'Uncategorized').trim() || 'Uncategorized';
+  const isItemAvailable = (item: MenuItem) => isMenuItemAvailableForBranch(item, selectedBranchId);
 
   const resolveMenuCategoryForBranch = (items: MenuItem[], branchId: string, previousCategory: string) => {
-    const availableItems = items.filter(item => item.available !== false);
+    const availableItems = items.filter(item => isMenuItemAvailableForBranch(item, branchId));
     const availableCategories = Array.from(new Set(availableItems.map(getItemCategory)));
 
     if (previousCategory !== 'All' && availableCategories.includes(previousCategory)) {
@@ -231,8 +258,8 @@ export default function StaffOrdersPage() {
 
   const categories = useMemo(() => [
     'All',
-    ...Array.from(new Set(menuItems.map(getItemCategory).filter(Boolean))),
-  ], [menuItems]);
+    ...Array.from(new Set(menuItems.filter(isItemAvailable).map(getItemCategory).filter(Boolean))),
+  ], [menuItems, selectedBranchId]);
 
   // Fetch menu items from API
   const fetchMenuItems = async () => {
@@ -246,7 +273,13 @@ export default function StaffOrdersPage() {
         resolveMenuCategoryForBranch(items, selectedBranchId, previousCategory)
       );
     } catch (error) {
-      console.error('Failed to fetch menu items:', error);
+      const status = getRequestErrorStatus(error);
+      if (status === 403 || status === 404) {
+        await refreshUser();
+        return;
+      }
+
+      console.error('Failed to fetch menu items:', getRequestErrorMessage(error));
       setMenuItems([]);
       setSelectedCategory('All');
     } finally {
@@ -270,7 +303,13 @@ export default function StaffOrdersPage() {
         const menuData = await menuService.getPublicMenu(selectedBranchId);
         setBranchInfo(menuData.branch);
       } catch (error) {
-        console.error('Failed to fetch branch info:', error);
+        const status = getRequestErrorStatus(error);
+        if (status === 403 || status === 404) {
+          await refreshUser();
+          return;
+        }
+
+        console.error('Failed to fetch branch info:', getRequestErrorMessage(error));
         setBranchInfo(null);
       }
     };
@@ -565,7 +604,7 @@ export default function StaffOrdersPage() {
   const isItemFromOtherBranch = (item: MenuItem) =>
     Boolean(selectedBranchId && item.branchId && item.branchId !== selectedBranchId);
 
-  const hasOtherBranchItems = menuItems.some(isItemFromOtherBranch);
+  const hasOtherBranchItems = menuItems.some(item => isItemAvailable(item) && isItemFromOtherBranch(item));
 
   const filteredItems = menuItems.filter(item => {
     const itemCategory = getItemCategory(item);
@@ -574,7 +613,7 @@ export default function StaffOrdersPage() {
       : itemCategory === selectedCategory;
 
     return (
-      item.available !== false &&
+      isItemAvailable(item) &&
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
       matchesCategory
     );
@@ -964,7 +1003,8 @@ export default function StaffOrdersPage() {
 
                             <button
                               onClick={() => addToCart(item)}
-                              className={`mx-auto mt-4 flex min-h-[46px] w-full max-w-[136px] items-center justify-center rounded-xl border-2 px-4 text-sm font-semibold tracking-[0.08em] transition-all duration-200 sm:text-[15px] ${itemQuantity > 0 ? 'border-[#252b36] bg-[#252b36] text-white shadow-[0_12px_24px_rgba(37,43,54,0.18)]' : 'border-[#252b36] bg-white text-[#111827] hover:bg-[#252b36] hover:text-white'}`}
+                              disabled={!isItemAvailable(item)}
+                              className={`mx-auto mt-4 flex min-h-[46px] w-full max-w-[136px] items-center justify-center rounded-xl border-2 px-4 text-sm font-semibold tracking-[0.08em] transition-all duration-200 sm:text-[15px] ${itemQuantity > 0 ? 'border-[#252b36] bg-[#252b36] text-white shadow-[0_12px_24px_rgba(37,43,54,0.18)]' : 'border-[#252b36] bg-white text-[#111827] hover:bg-[#252b36] hover:text-white'} ${!isItemAvailable(item) ? 'cursor-not-allowed opacity-50 hover:bg-white hover:text-[#111827]' : ''}`}
                               style={{ fontFamily: "'Quicksand', sans-serif", lineHeight: '125%' }}
                               aria-label={`Add ${item.name}`}
                             >
@@ -990,7 +1030,8 @@ export default function StaffOrdersPage() {
 
                               <button
                                 onClick={() => updateQuantity(item.id, itemQuantity + 1)}
-                                className="flex h-11 w-11 items-center justify-center rounded-full text-[#111827] transition-all duration-200 hover:bg-gray-100"
+                                disabled={!isItemAvailable(item)}
+                                className={`flex h-11 w-11 items-center justify-center rounded-full text-[#111827] transition-all duration-200 ${isItemAvailable(item) ? 'hover:bg-gray-100' : 'cursor-not-allowed text-gray-300'}`}
                                 aria-label={`Increase ${item.name}`}
                               >
                                 <span className="text-[30px] leading-none">+</span>

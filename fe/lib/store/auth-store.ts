@@ -66,6 +66,16 @@ const normalizeUser = (user: User): User => {
     };
 };
 
+const resolveSelectedBranchId = (user: User, preferredBranchId?: string | null) => {
+    const branchIds = user.branchIds || [];
+
+    if (preferredBranchId && branchIds.includes(preferredBranchId)) {
+        return preferredBranchId;
+    }
+
+    return branchIds.length > 0 ? branchIds[0] : null;
+};
+
 const syncStoredTokens = (accessToken?: string | null, refreshToken?: string | null) => {
     if (typeof window === 'undefined') return;
 
@@ -112,10 +122,7 @@ export const useAuthStore = create<AuthState>()(
                     accessToken,
                     refreshToken,
                     isAuthenticated: true,
-                    selectedBranchId:
-                        normalizedUser.branchIds && normalizedUser.branchIds.length > 0
-                            ? normalizedUser.branchIds[0]
-                            : null,
+                    selectedBranchId: resolveSelectedBranchId(normalizedUser),
                 });
 
                 console.log('✅ [AuthStore] Auth state updated');
@@ -172,7 +179,13 @@ export const useAuthStore = create<AuthState>()(
             },
 
             setSelectedBranchId: (id: string | null) => {
-                set({ selectedBranchId: id });
+                const { user } = get();
+                if (!user) {
+                    set({ selectedBranchId: id });
+                    return;
+                }
+
+                set({ selectedBranchId: resolveSelectedBranchId(user, id) });
             },
 
             refreshUser: async () => {
@@ -191,7 +204,7 @@ export const useAuthStore = create<AuthState>()(
                     const user = normalizeUser(await authService.getMe());
                     set((state) => ({
                         user,
-                        selectedBranchId: state.selectedBranchId || (user.branchIds && user.branchIds.length > 0 ? user.branchIds[0] : null)
+                        selectedBranchId: resolveSelectedBranchId(user, state.selectedBranchId),
                     }));
                 } catch (error) {
                     const status = (error as { status?: number })?.status;

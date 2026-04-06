@@ -76,6 +76,7 @@ export interface MenuItem {
     category?: string;
     imageUrl?: string;
     sharedBranchIds?: string[];
+    disabledBranchIds?: string[];
     available: boolean;
     branchId: string;
     branch?: Branch;
@@ -92,6 +93,7 @@ export interface CreateMenuItemData {
     available: boolean;
     branchId: string;
     sharedBranchIds?: string[];
+    disabledBranchIds?: string[];
 }
 
 export interface Category {
