@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../config/app_config.dart';
 
 class ApiService {
-  // Use http://10.0.2.2:4100 for Android emulator
-  // Use http://localhost:4100 for iOS and Linux
-  static const String baseUrl = 'http://localhost:4100/api';
+  static String get baseUrl => AppConfig.apiBaseUrl;
   final _storage = const FlutterSecureStorage();
 
   Future<Map<String, dynamic>> login(String email, String password) async {
