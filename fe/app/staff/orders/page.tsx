@@ -41,6 +41,7 @@ const formatEditableDiscountValue = (value: number) => {
 };
 
 interface CartItem {
+  cartKey: string;
   id: string;
   name: string;
   price: number;
@@ -49,6 +50,8 @@ interface CartItem {
   image?: string;
   description: string;
   quantity: number;
+  toppingForItemId?: string;
+  toppingForItemName?: string;
 }
 
 interface MenuItemPreview {
@@ -81,6 +84,9 @@ const getRequestErrorMessage = (error: unknown) => {
 
   return 'Unknown error';
 };
+
+const buildCartItemKey = (menuItemId: string, toppingForItemId?: string) =>
+  toppingForItemId ? `${menuItemId}::${toppingForItemId}` : menuItemId;
 
 export default function StaffOrdersPage() {
   const router = useRouter();
@@ -369,12 +375,15 @@ export default function StaffOrdersPage() {
     loadBranch();
   }, [selectedBranchId]);
 
-  const addToCart = (item: MenuItem) => {
+  const addToCart = (item: MenuItem, options?: { toppingFor?: MenuItem }) => {
+    const toppingFor = options?.toppingFor;
+    const cartKey = buildCartItemKey(item.id, toppingFor?.id);
+
     setCartItems(prevItems => {
-      const existingItem = prevItems.find(cartItem => cartItem.id === item.id);
+      const existingItem = prevItems.find(cartItem => cartItem.cartKey === cartKey);
       if (existingItem) {
         return prevItems.map(cartItem =>
-          cartItem.id === item.id
+          cartItem.cartKey === cartKey
             ? { ...cartItem, quantity: cartItem.quantity + 1 }
             : cartItem
         );
@@ -382,6 +391,7 @@ export default function StaffOrdersPage() {
       return [
         ...prevItems,
         {
+          cartKey,
           id: item.id,
           name: item.name,
           price: item.price,
@@ -389,6 +399,8 @@ export default function StaffOrdersPage() {
           imageUrl: item.imageUrl,
           description: item.description || '',
           quantity: 1,
+          toppingForItemId: toppingFor?.id,
+          toppingForItemName: toppingFor?.name,
         },
       ];
     });
@@ -398,27 +410,33 @@ export default function StaffOrdersPage() {
     setOpenToppingMenuId(previousItemId => previousItemId === itemId ? null : itemId);
   };
 
-  const handleSelectTopping = (topping: MenuItem) => {
-    addToCart(topping);
+  const handleSelectTopping = (menuItem: MenuItem, topping: MenuItem) => {
+    addToCart(topping, { toppingFor: menuItem });
     setOpenToppingMenuId(null);
   };
 
-  const updateQuantity = (id: string, quantity: number) => {
+  const updateQuantity = (cartKey: string, quantity: number) => {
     if (quantity <= 0) {
-      setCartItems(prevItems => prevItems.filter(item => item.id !== id));
+      setCartItems(prevItems => prevItems.filter(item => item.cartKey !== cartKey));
       return;
     }
     setCartItems(prevItems =>
       prevItems.map(item =>
-        item.id === id
+        item.cartKey === cartKey
           ? { ...item, quantity }
           : item
       )
     );
   };
 
-  const removeFromCart = (id: string) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== id));
+  const updateMenuItemQuantity = (menuItemId: string, quantity: number) => {
+    const baseItem = cartItems.find(item => item.id === menuItemId && !item.toppingForItemId);
+
+    if (!baseItem) {
+      return;
+    }
+
+    updateQuantity(baseItem.cartKey, quantity);
   };
 
   const cartSubtotal = useMemo(
@@ -441,7 +459,9 @@ export default function StaffOrdersPage() {
   };
 
   const getItemQuantity = (id: string) => {
-    return cartItems.find(item => item.id === id)?.quantity ?? 0;
+    return cartItems.reduce((total, item) => (
+      item.id === id ? total + item.quantity : total
+    ), 0);
   };
 
   const handleCheckout = () => {
@@ -463,6 +483,16 @@ export default function StaffOrdersPage() {
     setIsSubmittingOrder(true);
 
     try {
+      const summarizedOrderItems = Array.from(
+        cartItems.reduce((itemsMap, item) => {
+          itemsMap.set(item.id, (itemsMap.get(item.id) ?? 0) + item.quantity);
+          return itemsMap;
+        }, new Map<string, number>())
+      ).map(([menuItemId, quantity]) => ({
+        menuItemId,
+        quantity,
+      }));
+
       // Create order data
       const orderData: CreateOrderData = {
         branchId: selectedBranchId,
@@ -471,10 +501,7 @@ export default function StaffOrdersPage() {
         orderType: customerInfo.orderType === 'dine-in' ? OrderType.DINE_IN : OrderType.TAKEAWAY,
         paymentMethod: customerInfo.paymentMethod,
         discountPercentage: appliedDiscountPercentage > 0 ? appliedDiscountPercentage : undefined,
-        items: cartItems.map(item => ({
-          menuItemId: item.id,
-          quantity: item.quantity
-        }))
+        items: summarizedOrderItems
       };
 
       console.log('Creating order with data:', orderData);
@@ -1147,7 +1174,7 @@ export default function StaffOrdersPage() {
                                         <button
                                           key={topping.id}
                                           type="button"
-                                          onClick={() => handleSelectTopping(topping)}
+                                          onClick={() => handleSelectTopping(item, topping)}
                                           className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left transition-colors duration-200 hover:bg-slate-50"
                                           role="menuitem"
                                         >
@@ -1176,7 +1203,7 @@ export default function StaffOrdersPage() {
                             <div className="mt-auto flex items-center justify-center pt-5">
                               <div className="flex w-full max-w-[120px] items-center justify-between">
                                 <button
-                                  onClick={() => updateQuantity(item.id, itemQuantity - 1)}
+                                  onClick={() => updateMenuItemQuantity(item.id, itemQuantity - 1)}
                                   disabled={itemQuantity === 0}
                                   className="flex h-8 w-8 items-center justify-center text-[#252b36] transition-colors duration-200 hover:text-black disabled:cursor-not-allowed disabled:text-slate-300"
                                   aria-label={`Decrease ${item.name}`}
@@ -1192,7 +1219,7 @@ export default function StaffOrdersPage() {
                                 </span>
 
                                 <button
-                                  onClick={() => updateQuantity(item.id, itemQuantity + 1)}
+                                  onClick={() => addToCart(item)}
                                   disabled={!isItemAvailable(item)}
                                   className={`flex h-8 w-8 items-center justify-center transition-colors duration-200 ${isItemAvailable(item) ? 'text-[#252b36] hover:text-black' : 'cursor-not-allowed text-slate-300'}`}
                                   aria-label={`Increase ${item.name}`}
@@ -1575,8 +1602,8 @@ export default function StaffOrdersPage() {
                 {cartItems.length > 0 ? (
                   <>
                     <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
-                      {cartItems.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between py-2 border-b border-gray-50">
+                      {cartItems.map((item) => (
+                        <div key={item.cartKey} className="flex items-center justify-between py-2 border-b border-gray-50">
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-gray-900" style={{ fontFamily: 'Quicksand, sans-serif' }}>{item.name}</p>
@@ -1586,18 +1613,23 @@ export default function StaffOrdersPage() {
                                 </span>
                               )}
                             </div>
+                            {item.toppingForItemName && (
+                              <p className="mt-1 text-xs font-medium text-amber-700" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                                For {item.toppingForItemName}
+                              </p>
+                            )}
                             <p className="text-sm text-gray-700" style={{ fontFamily: 'Quicksand, sans-serif' }}>Rs {item.price} x {item.quantity}</p>
                           </div>
                           <div className="flex items-center space-x-2">
                             <button
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              onClick={() => updateQuantity(item.cartKey, item.quantity - 1)}
                               className="w-6 h-6 rounded-full border border-gray-700 text-gray-700 hover:bg-gray-100 flex items-center justify-center text-sm"
                             >
                               -
                             </button>
                             <span className="text-sm font-medium text-gray-700 w-4 text-center">{item.quantity}</span>
                             <button
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              onClick={() => updateQuantity(item.cartKey, item.quantity + 1)}
                               className="w-6 h-6 rounded-full border border-gray-700 text-gray-700 hover:bg-gray-100 flex items-center justify-center text-sm"
                             >
                               +
@@ -1722,12 +1754,19 @@ export default function StaffOrdersPage() {
               <div className="mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3">Order Summary</h3>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {cartItems.map((item, index) => (
-                    <div key={index} className="flex justify-between text-sm" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                  {cartItems.map((item) => (
+                    <div key={item.cartKey} className="flex justify-between gap-3 text-sm" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                       <span className="text-gray-700">
-                        {item.name}
-                        {isToppingCategoryName(item.category) ? ' (Topping)' : ''}
-                        {' '}x {item.quantity}
+                        <span>
+                          {item.name}
+                          {isToppingCategoryName(item.category) ? ' (Topping)' : ''}
+                          {' '}x {item.quantity}
+                        </span>
+                        {item.toppingForItemName && (
+                          <span className="block text-xs font-medium text-amber-700">
+                            For {item.toppingForItemName}
+                          </span>
+                        )}
                       </span>
                       <span className="font-medium">Rs {item.price * item.quantity}</span>
                     </div>
