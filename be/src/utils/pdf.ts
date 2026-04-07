@@ -25,6 +25,9 @@ const ITEM_COL_X = CONTENT_LEFT_X;
 const QTY_COL_X = ITEM_COL_X + ITEM_COL_WIDTH;
 const PRICE_COL_X = QTY_COL_X + QTY_COL_WIDTH;
 const TOTAL_COL_X = PRICE_COL_X + PRICE_COL_WIDTH;
+const SUMMARY_GAP = 6;
+const SUMMARY_LABEL_X = CONTENT_LEFT_X;
+const SUMMARY_LABEL_WIDTH = TOTAL_COL_X - SUMMARY_LABEL_X - SUMMARY_GAP;
 
 const LINE_HEIGHT_7 = 9;
 const LINE_HEIGHT_8 = 10;
@@ -73,6 +76,18 @@ const formatReceiptItemName = (item: OrderWithItems['orderItems'][number]) => {
     }
 
     return `+ ${name} (Topping)`;
+};
+
+const drawRightAlignedSingleLineText = (
+    doc: PDFKit.PDFDocument,
+    text: string,
+    rightX: number,
+    y: number,
+    minX = CONTENT_LEFT_X
+) => {
+    const textWidth = doc.widthOfString(text);
+    const x = Math.max(minX, rightX - textWidth);
+    doc.text(text, x, y, { lineBreak: false });
 };
 
 const estimateReceiptHeight = (order: OrderWithItems, titleSize = 13) => {
@@ -183,36 +198,28 @@ const renderReceiptSection = (
 
     if (hasDiscount) {
         const subtotalY = doc.y;
-        doc.text('Subtotal:', PRICE_COL_X, subtotalY, { width: PRICE_COL_WIDTH, align: 'right' });
-        doc.text(`${subtotalAmount.toFixed(2)}`, TOTAL_COL_X, subtotalY, {
-            width: TOTAL_COL_WIDTH,
-            align: 'right',
-        });
+        drawRightAlignedSingleLineText(doc, 'Subtotal:', TOTAL_COL_X - SUMMARY_GAP, subtotalY, SUMMARY_LABEL_X);
+        drawRightAlignedSingleLineText(doc, `${subtotalAmount.toFixed(2)}`, CONTENT_RIGHT_X, subtotalY, TOTAL_COL_X);
 
         doc.moveDown(0.4);
         const discountY = doc.y;
-        doc.text(`Discount (${formatPercentage(discountPercentage)}%):`, PRICE_COL_X, discountY, {
-            width: PRICE_COL_WIDTH,
-            align: 'right',
-        });
-        doc.text(`- ${discountAmount.toFixed(2)}`, TOTAL_COL_X, discountY, {
-            width: TOTAL_COL_WIDTH,
-            align: 'right',
-        });
+        drawRightAlignedSingleLineText(
+            doc,
+            `Discount (${formatPercentage(discountPercentage)}%):`,
+            TOTAL_COL_X - SUMMARY_GAP,
+            discountY,
+            SUMMARY_LABEL_X
+        );
+        drawRightAlignedSingleLineText(doc, `- ${discountAmount.toFixed(2)}`, CONTENT_RIGHT_X, discountY, TOTAL_COL_X);
 
         doc.moveDown(0.6);
     }
 
     doc.fontSize(9);
     const totalY = doc.y;
-    doc.font(boldFont).text(hasDiscount ? 'Net Total:' : 'Total:', PRICE_COL_X, totalY, {
-        width: PRICE_COL_WIDTH,
-        align: 'right',
-    });
-    doc.text(`${Number(order.totalAmount || 0).toFixed(2)}`, TOTAL_COL_X, totalY, {
-        width: TOTAL_COL_WIDTH,
-        align: 'right',
-    });
+    doc.font(boldFont);
+    drawRightAlignedSingleLineText(doc, hasDiscount ? 'Net Total:' : 'Total:', TOTAL_COL_X - SUMMARY_GAP, totalY, SUMMARY_LABEL_X);
+    drawRightAlignedSingleLineText(doc, `${Number(order.totalAmount || 0).toFixed(2)}`, CONTENT_RIGHT_X, totalY, TOTAL_COL_X);
 
     doc.moveDown(1);
     doc.font('Helvetica');

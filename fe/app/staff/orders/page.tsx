@@ -306,26 +306,12 @@ export default function StaffOrdersPage() {
     ),
   ], [availableMenuItems]);
 
-  const availableToppings = useMemo(
-    () =>
-      availableMenuItems
-        .filter(item => isToppingCategoryName(getItemCategory(item)))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [availableMenuItems]
-  );
-
   const getToppingsForItem = (item: MenuItem) => {
-    const linkedToppings = (item.toppingIds || [])
+    return (item.toppingIds || [])
       .map(toppingId => menuItemsById.get(toppingId))
       .filter((topping): topping is MenuItem => Boolean(topping))
       .filter(topping => isItemAvailable(topping))
       .sort((a, b) => a.name.localeCompare(b.name));
-
-    if (linkedToppings.length > 0) {
-      return linkedToppings;
-    }
-
-    return availableToppings;
   };
 
   // Fetch menu items from API
@@ -1020,8 +1006,8 @@ export default function StaffOrdersPage() {
                         const sourceBranchName = item.branch?.name?.trim();
                         const itemQuantity = getItemQuantity(item.id);
                         const itemToppings = getToppingsForItem(item);
-                        const isToppingMenuOpen = openToppingMenuId === item.id;
                         const hasAvailableToppings = itemToppings.length > 0;
+                        const isToppingMenuOpen = hasAvailableToppings && openToppingMenuId === item.id;
 
                         return (
                           <article
@@ -1119,31 +1105,32 @@ export default function StaffOrdersPage() {
                                 >
                                   ADD
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleToppingMenu(item.id)}
-                                  disabled={!hasAvailableToppings}
-                                  className={`flex min-h-[46px] items-center justify-center gap-2 rounded-xl border px-4 text-xs font-semibold tracking-[0.08em] transition-all duration-200 sm:text-sm ${isToppingMenuOpen ? 'border-amber-500 bg-amber-50 text-amber-800 shadow-[0_12px_24px_rgba(245,158,11,0.18)]' : 'border-gray-300 bg-white text-gray-700 hover:border-amber-400 hover:bg-amber-50 hover:text-amber-800'} ${!hasAvailableToppings ? 'cursor-not-allowed opacity-50 hover:border-gray-300 hover:bg-white hover:text-gray-700' : ''}`}
-                                  style={{ fontFamily: "'Quicksand', sans-serif", lineHeight: '125%' }}
-                                  aria-expanded={isToppingMenuOpen}
-                                  aria-haspopup="menu"
-                                  aria-label={`Show toppings for ${item.name}`}
-                                  title={hasAvailableToppings ? `Show toppings for ${item.name}` : 'Create menu items in a Topping category to show them here'}
-                                >
-                                  TOPPING
-                                  <svg className={`h-4 w-4 transition-transform duration-200 ${isToppingMenuOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                                  </svg>
-                                </button>
+                                {hasAvailableToppings && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleToppingMenu(item.id)}
+                                    className={`flex min-h-[46px] items-center justify-center gap-2 rounded-xl border px-4 text-xs font-semibold tracking-[0.08em] transition-all duration-200 sm:text-sm ${isToppingMenuOpen ? 'border-amber-500 bg-amber-50 text-amber-800 shadow-[0_12px_24px_rgba(245,158,11,0.18)]' : 'border-gray-300 bg-white text-gray-700 hover:border-amber-400 hover:bg-amber-50 hover:text-amber-800'}`}
+                                    style={{ fontFamily: "'Quicksand', sans-serif", lineHeight: '125%' }}
+                                    aria-expanded={isToppingMenuOpen}
+                                    aria-haspopup="menu"
+                                    aria-label={`Show toppings for ${item.name}`}
+                                    title={`Show toppings for ${item.name}`}
+                                  >
+                                    TOPPING
+                                    <svg className={`h-4 w-4 transition-transform duration-200 ${isToppingMenuOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                      <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                                    </svg>
+                                  </button>
+                                )}
                               </div>
 
-                              {isToppingMenuOpen && (
+                              {hasAvailableToppings && isToppingMenuOpen && (
                                 <div
-                                  className="absolute left-1/2 z-20 mt-2 w-full max-w-[300px] -translate-x-1/2 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_24px_48px_rgba(15,23,42,0.18)]"
+                                  className="absolute left-1/2 z-20 mt-3 w-full max-w-[300px] -translate-x-1/2 overflow-hidden rounded-2xl border border-amber-100 bg-white shadow-[0_20px_40px_rgba(15,23,42,0.12)]"
                                   role="menu"
                                   aria-label={`${item.name} toppings`}
                                 >
-                                  <div className="border-b border-gray-100 px-4 py-3">
+                                  <div className="border-b border-amber-100 bg-amber-50/60 px-4 py-3">
                                     <p className="text-sm font-semibold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>
                                       Select a topping
                                     </p>

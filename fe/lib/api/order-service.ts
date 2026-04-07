@@ -143,15 +143,23 @@ export const orderService = {
     },
 
     async generateKOT(id: string): Promise<Blob> {
-        const response = await apiClient.get(`/staff/orders/${id}/kot`, {
+        const response = await apiClient.get(`/staff/orders/${id}/kot?t=${Date.now()}`, {
             responseType: 'blob',
+            headers: {
+                'Cache-Control': 'no-cache',
+                Pragma: 'no-cache',
+            },
         });
         return response.data;
     },
 
     async generateBill(id: string): Promise<Blob> {
-        const response = await apiClient.get(`/staff/orders/${id}/bill`, {
+        const response = await apiClient.get(`/staff/orders/${id}/bill?t=${Date.now()}`, {
             responseType: 'blob',
+            headers: {
+                'Cache-Control': 'no-cache',
+                Pragma: 'no-cache',
+            },
         });
         return response.data;
     },
