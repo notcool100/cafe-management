@@ -998,7 +998,7 @@ export default function StaffOrdersPage() {
                       <p className="text-gray-400 text-sm mt-2">Contact your manager to set up the menu</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-4 sm:gap-5 xl:grid-cols-3 2xl:grid-cols-4">
+                    <div className="grid grid-cols-1 justify-items-center gap-4 min-[380px]:grid-cols-2 sm:gap-5 lg:grid-cols-3 2xl:grid-cols-4">
                       {filteredItems.map((item) => {
                         const imageKey = String(item.id);
                         const imageSrc = failedMenuImageIds.has(imageKey) ? undefined : getMenuItemImage(item);
@@ -1012,18 +1012,18 @@ export default function StaffOrdersPage() {
                         return (
                           <article
                             key={item.id}
-                            className="group flex min-h-[320px] flex-col rounded-[28px] border border-[#d8dce2] bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-4 py-5 shadow-[0_18px_35px_rgba(15,23,42,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_rgba(15,23,42,0.14)] sm:px-5"
+                            className={`group relative flex min-h-[320px] w-full max-w-[230px] flex-col overflow-visible rounded-none border-2 border-[#252b36] bg-white px-4 py-5 ${isToppingMenuOpen ? 'z-30' : ''}`}
                           >
                             <div className="min-h-[72px] text-center">
                               <h3
                                 style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, lineHeight: '125%' }}
-                                className="line-clamp-2 text-[17px] text-gray-900 sm:text-[19px]"
+                                className="line-clamp-2 text-[17px] text-[#3b3b3b] sm:text-[18px]"
                               >
                                 {item.name}
                               </h3>
                               {isFromOtherBranch && (
                                 <div className="mt-2 flex flex-col items-center gap-1">
-                                  <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800">
+                                  <span className="inline-flex items-center border border-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-700">
                                     Shared item
                                   </span>
                                   {sourceBranchName && (
@@ -1045,7 +1045,7 @@ export default function StaffOrdersPage() {
                                   }
                                 }}
                                 disabled={!imageSrc}
-                                className={`relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-[2.5px] border-[#252b36] bg-[#d9d9d9] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)] transition-transform duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${imageSrc ? 'cursor-pointer group-hover:scale-[1.03]' : 'cursor-default'}`}
+                                className={`relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-[2px] border-[#252b36] bg-white transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:h-28 sm:w-28 ${imageSrc ? 'cursor-pointer' : 'cursor-default'}`}
                                 aria-label={imageSrc ? `Preview ${item.name} image` : `${item.name} image unavailable`}
                               >
                                 {imageSrc ? (
@@ -1076,16 +1076,16 @@ export default function StaffOrdersPage() {
                               </button>
                             </div>
 
-                            <div className="mt-5 min-h-[56px] text-center">
+                            <div className="mt-4 min-h-[44px] text-center">
                               <p
                                 style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 600, lineHeight: '125%' }}
-                                className="text-lg text-gray-900"
+                                className="text-[16px] text-[#3b3b3b]"
                               >
                                 Rs {item.price}
                               </p>
                               <p
                                 style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '140%' }}
-                                className="mt-2 line-clamp-2 min-h-[2.5rem] text-xs text-gray-500"
+                                className="mt-1 hidden line-clamp-2 min-h-[2rem] text-[11px] text-slate-400 lg:block"
                               >
                                 {item.description || ''}
                               </p>
@@ -1093,30 +1093,30 @@ export default function StaffOrdersPage() {
 
                             <div
                               ref={isToppingMenuOpen ? toppingMenuRef : null}
-                              className="relative mt-4"
+                              className="relative mt-5"
                             >
-                              <div className="mx-auto flex w-full max-w-[300px] items-center justify-center gap-2">
+                              <div className="mx-auto flex w-full flex-col items-center gap-2">
                                 <button
                                   onClick={() => addToCart(item)}
                                   disabled={!isItemAvailable(item)}
-                                  className={`flex min-h-[46px] flex-1 items-center justify-center rounded-xl border-2 px-4 text-sm font-semibold tracking-[0.08em] transition-all duration-200 sm:text-[15px] ${itemQuantity > 0 ? 'border-[#252b36] bg-[#252b36] text-white shadow-[0_12px_24px_rgba(37,43,54,0.18)]' : 'border-[#252b36] bg-white text-[#111827] hover:bg-[#252b36] hover:text-white'} ${!isItemAvailable(item) ? 'cursor-not-allowed opacity-50 hover:bg-white hover:text-[#111827]' : ''}`}
+                                  className={`flex min-h-[44px] w-full max-w-[130px] items-center justify-center border-2 border-[#252b36] bg-white px-4 text-sm font-semibold text-[#252b36] transition-colors duration-200 hover:bg-[#252b36] hover:text-white ${!isItemAvailable(item) ? 'cursor-not-allowed opacity-50 hover:bg-white hover:text-[#252b36]' : ''}`}
                                   style={{ fontFamily: "'Quicksand', sans-serif", lineHeight: '125%' }}
                                   aria-label={`Add ${item.name}`}
                                 >
-                                  ADD
+                                  Add
                                 </button>
                                 {hasAvailableToppings && (
                                   <button
                                     type="button"
                                     onClick={() => handleToggleToppingMenu(item.id)}
-                                    className={`flex min-h-[46px] items-center justify-center gap-2 rounded-xl border px-4 text-xs font-semibold tracking-[0.08em] transition-all duration-200 sm:text-sm ${isToppingMenuOpen ? 'border-amber-500 bg-amber-50 text-amber-800 shadow-[0_12px_24px_rgba(245,158,11,0.18)]' : 'border-gray-300 bg-white text-gray-700 hover:border-amber-400 hover:bg-amber-50 hover:text-amber-800'}`}
+                                    className={`flex items-center justify-center gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors duration-200 ${isToppingMenuOpen ? 'text-amber-700' : 'text-slate-500 hover:text-amber-700'}`}
                                     style={{ fontFamily: "'Quicksand', sans-serif", lineHeight: '125%' }}
                                     aria-expanded={isToppingMenuOpen}
                                     aria-haspopup="menu"
                                     aria-label={`Show toppings for ${item.name}`}
                                     title={`Show toppings for ${item.name}`}
                                   >
-                                    TOPPING
+                                    Topping
                                     <svg className={`h-4 w-4 transition-transform duration-200 ${isToppingMenuOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                       <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
                                     </svg>
@@ -1126,19 +1126,19 @@ export default function StaffOrdersPage() {
 
                               {hasAvailableToppings && isToppingMenuOpen && (
                                 <div
-                                  className="absolute left-1/2 z-20 mt-3 w-full max-w-[300px] -translate-x-1/2 overflow-hidden rounded-2xl border border-amber-100 bg-white shadow-[0_20px_40px_rgba(15,23,42,0.12)]"
+                                  className="absolute left-1/2 z-30 mt-2 w-full max-w-[210px] -translate-x-1/2 overflow-hidden border-2 border-[#252b36] bg-white shadow-[0_16px_30px_rgba(15,23,42,0.12)] sm:max-w-[220px]"
                                   role="menu"
                                   aria-label={`${item.name} toppings`}
                                 >
-                                  <div className="border-b border-amber-100 bg-amber-50/60 px-4 py-3">
-                                    <p className="text-sm font-semibold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                  <div className="border-b border-slate-200 px-3 py-3">
+                                    <p className="text-sm font-semibold text-[#252b36]" style={{ fontFamily: "'Quicksand', sans-serif" }}>
                                       Select a topping
                                     </p>
-                                    <p className="text-xs text-gray-500" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                    <p className="text-[11px] text-slate-400" style={{ fontFamily: "'Quicksand', sans-serif" }}>
                                       Add toppings as separate order items.
                                     </p>
                                   </div>
-                                  <div className="max-h-60 overflow-y-auto py-2">
+                                  <div className="max-h-60 overflow-y-auto py-1">
                                     {itemToppings.map((topping) => {
                                       const toppingQuantity = getItemQuantity(topping.id);
                                       const toppingSourceBranch = topping.branch?.name?.trim();
@@ -1148,21 +1148,21 @@ export default function StaffOrdersPage() {
                                           key={topping.id}
                                           type="button"
                                           onClick={() => handleSelectTopping(topping)}
-                                          className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors duration-200 hover:bg-gray-50"
+                                          className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left transition-colors duration-200 hover:bg-slate-50"
                                           role="menuitem"
                                         >
                                           <span className="min-w-0">
-                                            <span className="block truncate text-sm font-semibold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                            <span className="block truncate text-sm font-semibold text-slate-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>
                                               {topping.name}
                                             </span>
-                                            <span className="block text-xs text-gray-500" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                            <span className="block text-xs text-slate-300" style={{ fontFamily: "'Quicksand', sans-serif" }}>
                                               {toppingSourceBranch && isItemFromOtherBranch(topping)
                                                 ? `Shared from ${toppingSourceBranch}`
                                                 : 'Available topping'}
-                                              {toppingQuantity > 0 ? ` • In cart: ${toppingQuantity}` : ''}
+                                              {toppingQuantity > 0 ? ` | In cart: ${toppingQuantity}` : ''}
                                             </span>
                                           </span>
-                                          <span className="shrink-0 text-sm font-semibold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                          <span className="shrink-0 text-sm font-semibold text-slate-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>
                                             Rs {topping.price}
                                           </span>
                                         </button>
@@ -1173,31 +1173,33 @@ export default function StaffOrdersPage() {
                               )}
                             </div>
 
-                            <div className="mt-auto flex items-center justify-between pt-5">
-                              <button
-                                onClick={() => updateQuantity(item.id, itemQuantity - 1)}
-                                disabled={itemQuantity === 0}
-                                className="flex h-11 w-11 items-center justify-center rounded-full text-[#111827] transition-all duration-200 hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
-                                aria-label={`Decrease ${item.name}`}
-                              >
-                                <span className="text-[30px] leading-none">-</span>
-                              </button>
+                            <div className="mt-auto flex items-center justify-center pt-5">
+                              <div className="flex w-full max-w-[120px] items-center justify-between">
+                                <button
+                                  onClick={() => updateQuantity(item.id, itemQuantity - 1)}
+                                  disabled={itemQuantity === 0}
+                                  className="flex h-8 w-8 items-center justify-center text-[#252b36] transition-colors duration-200 hover:text-black disabled:cursor-not-allowed disabled:text-slate-300"
+                                  aria-label={`Decrease ${item.name}`}
+                                >
+                                  <span className="text-[28px] leading-none">-</span>
+                                </button>
 
-                              <span
-                                className={`min-w-[54px] rounded-full border px-3 py-1 text-center text-sm font-semibold transition-all duration-200 ${itemQuantity > 0 ? 'border-[#252b36] bg-[#252b36] text-white' : 'border-gray-300 bg-gray-50 text-gray-500'}`}
-                                style={{ fontFamily: "'Quicksand', sans-serif" }}
-                              >
-                                {itemQuantity}
-                              </span>
+                                <span
+                                  className={`min-w-[20px] text-center text-sm font-semibold ${itemQuantity > 0 ? 'text-[#252b36]' : 'text-slate-300'}`}
+                                  style={{ fontFamily: "'Quicksand', sans-serif" }}
+                                >
+                                  {itemQuantity}
+                                </span>
 
-                              <button
-                                onClick={() => updateQuantity(item.id, itemQuantity + 1)}
-                                disabled={!isItemAvailable(item)}
-                                className={`flex h-11 w-11 items-center justify-center rounded-full text-[#111827] transition-all duration-200 ${isItemAvailable(item) ? 'hover:bg-gray-100' : 'cursor-not-allowed text-gray-300'}`}
-                                aria-label={`Increase ${item.name}`}
-                              >
-                                <span className="text-[30px] leading-none">+</span>
-                              </button>
+                                <button
+                                  onClick={() => updateQuantity(item.id, itemQuantity + 1)}
+                                  disabled={!isItemAvailable(item)}
+                                  className={`flex h-8 w-8 items-center justify-center transition-colors duration-200 ${isItemAvailable(item) ? 'text-[#252b36] hover:text-black' : 'cursor-not-allowed text-slate-300'}`}
+                                  aria-label={`Increase ${item.name}`}
+                                >
+                                  <span className="text-[28px] leading-none">+</span>
+                                </button>
+                              </div>
                             </div>
                           </article>
                         );
