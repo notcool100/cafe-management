@@ -751,7 +751,7 @@ export default function StaffOrdersPage() {
       <div className="w-full bg-white min-h-screen relative">
 
         {/* Sticky Header */}
-        <header className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-gray-100 transition-all duration-300">
+        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-100 transition-all duration-300">
           <div className="flex items-center justify-between gap-3 p-4">
             {/* Navigation */}
             <div className="flex items-center space-x-4">
@@ -1039,7 +1039,7 @@ export default function StaffOrdersPage() {
                         return (
                           <article
                             key={item.id}
-                            className={`group relative flex min-h-[320px] w-full max-w-[230px] flex-col overflow-visible rounded-none border-2 border-[#252b36] bg-white px-4 py-5 ${isToppingMenuOpen ? 'z-30' : ''}`}
+                            className={`group relative flex min-h-[320px] w-full max-w-[230px] flex-col overflow-visible rounded-none border-2 border-[#252b36] bg-white px-4 py-5 ${isToppingMenuOpen ? 'z-20' : ''}`}
                           >
                             <div className="min-h-[72px] text-center">
                               <h3
@@ -1153,7 +1153,7 @@ export default function StaffOrdersPage() {
 
                               {hasAvailableToppings && isToppingMenuOpen && (
                                 <div
-                                  className="absolute left-1/2 z-30 mt-2 w-full max-w-[210px] -translate-x-1/2 overflow-hidden border-2 border-[#252b36] bg-white shadow-[0_16px_30px_rgba(15,23,42,0.12)] sm:max-w-[220px]"
+                                  className="absolute left-1/2 top-full z-20 mt-2 w-[min(220px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden border-2 border-[#252b36] bg-white shadow-[0_16px_30px_rgba(15,23,42,0.12)]"
                                   role="menu"
                                   aria-label={`${item.name} toppings`}
                                 >
