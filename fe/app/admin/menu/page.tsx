@@ -15,16 +15,22 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import { formatBranchLabel } from '@/lib/utils/format';
 import { getMenuItemVisibleBranchIds, isMenuItemDisabledForBranch } from '@/lib/utils/menu';
 
+const MENU_PAGE_SIZE = 16;
+
 export default function MenuPage() {
     const { selectedBranchId } = useAuthStore();
     const currentBranchId = selectedBranchId || '';
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingBranches, setIsLoadingBranches] = useState(true);
+    const [isLoadingItems, setIsLoadingItems] = useState(true);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [availabilityTargetId, setAvailabilityTargetId] = useState<string | null>(null);
     const [pendingDisabledBranchIds, setPendingDisabledBranchIds] = useState<string[]>([]);
     const [isSavingDisabledBranches, setIsSavingDisabledBranches] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [menuTotalItems, setMenuTotalItems] = useState(0);
+    const [menuTotalPages, setMenuTotalPages] = useState(1);
     const [filters, setFilters] = useState({
         search: '',
         category: '',
@@ -35,16 +41,13 @@ export default function MenuPage() {
         type: 'success',
         isVisible: false,
     });
+    const isLoading = isLoadingBranches || isLoadingItems;
 
-    const loadData = useCallback(async () => {
+    const loadBranches = useCallback(async () => {
         try {
-            setIsLoading(true);
-            const [branchesData, itemsData] = await Promise.all([
-                branchService.getBranches(),
-                menuService.getMenuItems({})
-            ]);
+            setIsLoadingBranches(true);
+            const branchesData = await branchService.getBranches();
             setBranches(branchesData);
-            setMenuItems(itemsData);
 
             // Auto-apply branch filter for managers or single-branch tenants
             if (currentBranchId) {
@@ -60,27 +63,42 @@ export default function MenuPage() {
                 isVisible: true,
             });
         } finally {
-            setIsLoading(false);
+            setIsLoadingBranches(false);
         }
     }, [filters.branchId, currentBranchId]);
 
-    // Reload menu items when filters change (except search which is client-side filtered for responsiveness)
     const loadMenuItems = useCallback(async () => {
         try {
-            // Only toggle loading if it takes a bit, but for now just simple state
-            const items = await menuService.getMenuItems({
+            setIsLoadingItems(true);
+            const response = await menuService.getMenuItemsPage({
+                search: filters.search || undefined,
                 category: filters.category || undefined,
                 branchId: filters.branchId || undefined,
+                page: currentPage,
+                limit: MENU_PAGE_SIZE,
             });
-            setMenuItems(items);
+            setMenuItems(response.items);
+            setMenuTotalItems(response.total);
+            setMenuTotalPages(response.totalPages);
+            if (response.page !== currentPage) {
+                setCurrentPage(response.page);
+            }
         } catch (error) {
             console.log('Failed to load items:', error);
+        } finally {
+            setIsLoadingItems(false);
         }
-    }, [filters.branchId, filters.category]);
+    }, [currentPage, filters.branchId, filters.category, filters.search]);
 
     useEffect(() => {
-        loadData();
-    }, [loadData]);
+        loadBranches();
+    }, [loadBranches]);
+
+    useEffect(() => {
+        if (currentPage !== 1) {
+            setCurrentPage(1);
+        }
+    }, [currentPage, filters.branchId, filters.category, filters.search]);
 
     useEffect(() => {
         loadMenuItems();
@@ -89,8 +107,12 @@ export default function MenuPage() {
     const handleDelete = async (id: string) => {
         try {
             await menuService.deleteMenuItem(id);
-            setMenuItems((previous) => previous.filter((item) => item.id !== id));
             setDeleteConfirm(null);
+            if (menuItems.length === 1 && currentPage > 1) {
+                setCurrentPage((previousPage) => previousPage - 1);
+            } else {
+                await loadMenuItems();
+            }
             setToast({
                 message: 'Menu item deleted successfully',
                 type: 'success',
@@ -262,6 +284,17 @@ export default function MenuPage() {
                 </div>
             </div>
 
+            {menuTotalItems > 0 && (
+                <div className="mb-4 flex flex-col gap-2 text-sm text-[#6e4b3d] sm:flex-row sm:items-center sm:justify-between">
+                    <p>
+                        Showing page {currentPage} of {menuTotalPages} ({menuTotalItems} items)
+                    </p>
+                    <p>
+                        {filteredItems.length} item{filteredItems.length === 1 ? '' : 's'} on this page
+                    </p>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 gap-4 min-[460px]:grid-cols-2 sm:gap-6 md:grid-cols-3 xl:grid-cols-4">
                 {filteredItems.map((item) => {
                     const imageSrc = resolveImageUrl(item.imageUrl);
@@ -359,6 +392,32 @@ export default function MenuPage() {
                     >
                         Add First Item
                     </Link>
+                </div>
+            )}
+
+            {menuTotalItems > 0 && (
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-[#6e4b3d]">
+                        Page {currentPage} of {menuTotalPages}
+                    </p>
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage((previousPage) => Math.max(previousPage - 1, 1))}
+                            disabled={currentPage === 1 || isLoadingItems}
+                            className="rounded-lg border border-[#d8c4aa] px-4 py-2 text-sm text-[#5b3629] transition hover:bg-[#f7efdf] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Previous
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage((previousPage) => Math.min(previousPage + 1, menuTotalPages))}
+                            disabled={currentPage >= menuTotalPages || isLoadingItems}
+                            className="rounded-lg bg-[#5b3629] px-4 py-2 text-sm text-[#f8efe1] transition hover:bg-[#4c2c20] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Next
+                        </button>
+                    </div>
                 </div>
             )}
 

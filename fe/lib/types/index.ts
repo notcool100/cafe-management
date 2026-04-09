@@ -202,11 +202,17 @@ export interface ApiResponse<T> {
     message?: string;
 }
 
-export interface PaginatedResponse<T> {
-    data: T[];
+export interface PaginatedListResponse<T> {
+    items: T[];
     total: number;
     page: number;
     limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+}
+
+export interface PaginatedMenuItemsResponse extends PaginatedListResponse<MenuItem> {
+    relatedItems?: MenuItem[];
 }
 
 export interface ApiError {
@@ -220,6 +226,11 @@ export interface MenuFilters {
     category?: string;
     search?: string;
     available?: boolean;
+    page?: number;
+    limit?: number;
+    excludeToppings?: boolean;
+    includeRelatedToppings?: boolean;
+    includeShared?: boolean;
 }
 
 export interface OrderFilters {

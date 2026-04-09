@@ -64,6 +64,36 @@ const parseNewToppings = (value: unknown) => {
         .filter((entry): entry is { name: string; price: number } => Boolean(entry));
 };
 
+const parseBooleanQuery = (value: unknown) => {
+    if (typeof value === 'boolean') {
+        return value;
+    }
+
+    if (typeof value !== 'string') {
+        return undefined;
+    }
+
+    if (value === 'true') {
+        return true;
+    }
+
+    if (value === 'false') {
+        return false;
+    }
+
+    return undefined;
+};
+
+const parsePositiveIntegerQuery = (value: unknown, fallback: number) => {
+    const parsed = Number(value);
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+        return fallback;
+    }
+
+    return parsed;
+};
+
 export class MenuController {
     static createMenuItemValidation = [
         body('name').notEmpty().withMessage('Name is required'),
@@ -136,7 +166,7 @@ export class MenuController {
 
     static async listMenuItems(req: AuthRequest, res: Response) {
         try {
-            const { branchId, category } = req.query;
+            const { branchId, category, search } = req.query;
             const tenantId = req.user?.tenantId;
             if (!tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
@@ -168,10 +198,26 @@ export class MenuController {
                 }
             }
 
+            const available = parseBooleanQuery(req.query.available);
+            const page = parsePositiveIntegerQuery(req.query.page, 1);
+            const limit = parsePositiveIntegerQuery(req.query.limit, 24);
+            const excludeToppings = parseBooleanQuery(req.query.excludeToppings) ?? false;
+            const includeRelatedToppings = parseBooleanQuery(req.query.includeRelatedToppings) ?? false;
+            const includeShared = parseBooleanQuery(req.query.includeShared);
+
             const menuItems = await MenuService.listMenuItems(
-                effectiveBranchId,
-                category as string,
-                tenantId
+                {
+                    branchId: effectiveBranchId,
+                    category: category as string | undefined,
+                    search: search as string | undefined,
+                    available,
+                    tenantId,
+                    page,
+                    limit,
+                    excludeToppings,
+                    includeRelatedToppings,
+                    includeShared,
+                }
             );
 
             res.json(menuItems);

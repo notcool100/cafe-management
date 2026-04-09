@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orderService } from '@/lib/api/order-service';
 import { menuService } from '@/lib/api/menu-service';
+import { categoryService } from '@/lib/api/category-service';
 import BranchSelector from '@/components/ui/BranchSelector';
 import { Order, CreateOrderData, OrderType, OrderStatus, Branch, OrderNotification, SharedItemNotification, MenuItem, PaymentMethod } from '@/lib/types';
 import { format } from 'date-fns';
@@ -19,6 +20,7 @@ type NotificationItem =
   | { kind: 'order'; timestamp: string; data: OrderNotification };
 
 const DISCOUNT_PRESETS = [0, 5, 10, 15, 20];
+const MENU_PAGE_SIZE = 24;
 
 const clampDiscountPercentage = (value: number) => Math.min(Math.max(value, 0), 100);
 
@@ -87,6 +89,16 @@ const getRequestErrorMessage = (error: unknown) => {
 
 const buildCartItemKey = (menuItemId: string, toppingForItemId?: string) =>
   toppingForItemId ? `${menuItemId}::${toppingForItemId}` : menuItemId;
+
+const mergeMenuItemCollections = (currentItems: MenuItem[], nextItems: MenuItem[]) => {
+  const mergedItems = new Map(currentItems.map(item => [item.id, item]));
+
+  nextItems.forEach((item) => {
+    mergedItems.set(item.id, item);
+  });
+
+  return Array.from(mergedItems.values());
+};
 
 export default function StaffOrdersPage() {
   const router = useRouter();
@@ -267,17 +279,24 @@ export default function StaffOrdersPage() {
 
   // Menu items state - starts empty, will be fetched from API
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [relatedMenuItems, setRelatedMenuItems] = useState<MenuItem[]>([]);
   const [isLoadingMenu, setIsLoadingMenu] = useState(false);
+  const [isLoadingMoreMenu, setIsLoadingMoreMenu] = useState(false);
+  const [menuCategories, setMenuCategories] = useState<string[]>([]);
+  const [menuPage, setMenuPage] = useState(1);
+  const [menuTotalItems, setMenuTotalItems] = useState(0);
+  const [menuHasNextPage, setMenuHasNextPage] = useState(false);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
   const getItemCategory = (item: MenuItem) => (item.category || 'Uncategorized').trim() || 'Uncategorized';
   const isItemAvailable = (item: MenuItem) => isMenuItemAvailableForBranch(item, selectedBranchId);
-  const availableMenuItems = useMemo(
-    () => menuItems.filter(item => isMenuItemAvailableForBranch(item, selectedBranchId)),
-    [menuItems, selectedBranchId]
+  const allLoadedMenuItems = useMemo(
+    () => mergeMenuItemCollections(menuItems, relatedMenuItems),
+    [menuItems, relatedMenuItems]
   );
   const menuItemsById = useMemo(
-    () => new Map(menuItems.map(item => [item.id, item])),
-    [menuItems]
+    () => new Map(allLoadedMenuItems.map(item => [item.id, item])),
+    [allLoadedMenuItems]
   );
 
   const resolveMenuCategoryForBranch = (items: MenuItem[], branchId: string, previousCategory: string) => {
@@ -300,17 +319,7 @@ export default function StaffOrdersPage() {
     return 'All';
   };
 
-  const categories = useMemo(() => [
-    'All',
-    ...Array.from(
-      new Set(
-        availableMenuItems
-          .filter(item => !isToppingCategoryName(getItemCategory(item)))
-          .map(getItemCategory)
-          .filter(Boolean)
-      )
-    ),
-  ], [availableMenuItems]);
+  const categories = useMemo(() => ['All', ...menuCategories], [menuCategories]);
 
   const getToppingsForItem = (item: MenuItem) => {
     return (item.toppingIds || [])
@@ -320,17 +329,102 @@ export default function StaffOrdersPage() {
       .sort((a, b) => a.name.localeCompare(b.name));
   };
 
-  // Fetch menu items from API
-  const fetchMenuItems = async () => {
-    if (!selectedBranchId) return;
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      if (!selectedBranchId) {
+        setMenuCategories([]);
+        return;
+      }
+
+      try {
+        const data = await categoryService.getCategories(selectedBranchId);
+        setMenuCategories(
+          Array.from(
+            new Set(
+              data
+                .map((category) => category.name?.trim())
+                .filter((categoryName): categoryName is string => Boolean(categoryName))
+            )
+          )
+        );
+      } catch (error) {
+        const status = getRequestErrorStatus(error);
+        if (status === 403 || status === 404) {
+          await refreshUser();
+          return;
+        }
+
+        console.error('Failed to fetch menu categories:', getRequestErrorMessage(error));
+        setMenuCategories([]);
+      }
+    };
+
+    loadCategories();
+  }, [selectedBranchId, refreshUser]);
+
+  const loadMenuItems = async (nextPage = 1, append = false) => {
+    if (!selectedBranchId) {
+      setMenuItems([]);
+      setRelatedMenuItems([]);
+      setMenuPage(1);
+      setMenuTotalItems(0);
+      setMenuHasNextPage(false);
+      return;
+    }
+
+    const setLoadingState = append ? setIsLoadingMoreMenu : setIsLoadingMenu;
 
     try {
-      setIsLoadingMenu(true);
-      const items = await menuService.getMenuItems({ branchId: selectedBranchId });
-      setMenuItems(items);
-      setSelectedCategory(previousCategory =>
-        resolveMenuCategoryForBranch(items, selectedBranchId, previousCategory)
+      setLoadingState(true);
+
+      let response = await menuService.getMenuItemsPage({
+        branchId: selectedBranchId,
+        category: selectedCategory !== 'All' ? selectedCategory : undefined,
+        search: debouncedSearchTerm || undefined,
+        page: nextPage,
+        limit: MENU_PAGE_SIZE,
+        excludeToppings: true,
+        includeRelatedToppings: true,
+        includeShared: selectedCategory !== 'All',
+      });
+
+      if (!append && selectedCategory === 'All' && response.total === 0) {
+        const sharedItemsResponse = await menuService.getMenuItemsPage({
+          branchId: selectedBranchId,
+          search: debouncedSearchTerm || undefined,
+          page: 1,
+          limit: MENU_PAGE_SIZE,
+          excludeToppings: true,
+          includeRelatedToppings: true,
+          includeShared: true,
+        });
+        const resolvedCategory = resolveMenuCategoryForBranch(sharedItemsResponse.items, selectedBranchId, 'All');
+
+        if (resolvedCategory !== 'All') {
+          setSelectedCategory(resolvedCategory);
+          return;
+        }
+
+        response = sharedItemsResponse;
+      }
+
+      setMenuItems(previousItems =>
+        append ? mergeMenuItemCollections(previousItems, response.items) : response.items
       );
+      setRelatedMenuItems(previousItems =>
+        append ? mergeMenuItemCollections(previousItems, response.relatedItems || []) : (response.relatedItems || [])
+      );
+      setMenuPage(response.page);
+      setMenuTotalItems(response.total);
+      setMenuHasNextPage(response.hasNextPage);
     } catch (error) {
       const status = getRequestErrorStatus(error);
       if (status === 403 || status === 404) {
@@ -340,16 +434,19 @@ export default function StaffOrdersPage() {
 
       console.error('Failed to fetch menu items:', getRequestErrorMessage(error));
       setMenuItems([]);
-      setSelectedCategory('All');
+      setRelatedMenuItems([]);
+      setMenuPage(1);
+      setMenuTotalItems(0);
+      setMenuHasNextPage(false);
     } finally {
-      setIsLoadingMenu(false);
+      setLoadingState(false);
     }
   };
 
-  // Fetch menu items on component mount or branch change
   useEffect(() => {
-    fetchMenuItems();
-  }, [selectedBranchId]);
+    setMenuPage(1);
+    loadMenuItems(1, false);
+  }, [selectedBranchId, selectedCategory, debouncedSearchTerm]);
 
   // Fetch branch info for header display
   useEffect(() => {
@@ -714,10 +811,17 @@ export default function StaffOrdersPage() {
     return (
       isItemAvailable(item) &&
       !isToppingItem &&
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
       matchesCategory
     );
   });
+
+  const handleLoadMoreMenuItems = () => {
+    if (isLoadingMenu || isLoadingMoreMenu || !menuHasNextPage) {
+      return;
+    }
+
+    void loadMenuItems(menuPage + 1, true);
+  };
 
   const getMenuItemImage = (item: MenuItemPreview) =>
     resolveImageUrl(item.imageUrl ?? item.image);
@@ -1007,6 +1111,18 @@ export default function StaffOrdersPage() {
                       Items from other branches are hidden in All. Pick a category to view them.
                     </p>
                   )}
+                  {menuTotalItems > 0 && (
+                    <div className="mb-6 flex flex-col gap-1 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
+                      <p>
+                        Showing {filteredItems.length} of {menuTotalItems} items
+                      </p>
+                      {debouncedSearchTerm && (
+                        <p>
+                          Search results for &quot;{debouncedSearchTerm}&quot;
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {isLoadingMenu ? (
                     <div className="text-center py-12">
@@ -1025,42 +1141,43 @@ export default function StaffOrdersPage() {
                       <p className="text-gray-400 text-sm mt-2">Contact your manager to set up the menu</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 justify-items-center gap-4 min-[380px]:grid-cols-2 sm:gap-5 lg:grid-cols-3 2xl:grid-cols-4">
-                      {filteredItems.map((item) => {
-                        const imageKey = String(item.id);
-                        const imageSrc = failedMenuImageIds.has(imageKey) ? undefined : getMenuItemImage(item);
-                        const isFromOtherBranch = isItemFromOtherBranch(item);
-                        const sourceBranchName = item.branch?.name?.trim();
-                        const itemQuantity = getItemQuantity(item.id);
-                        const itemToppings = getToppingsForItem(item);
-                        const hasAvailableToppings = itemToppings.length > 0;
-                        const isToppingMenuOpen = hasAvailableToppings && openToppingMenuId === item.id;
+                    <>
+                      <div className="grid grid-cols-1 justify-items-center gap-4 min-[380px]:grid-cols-2 sm:gap-5 lg:grid-cols-3 2xl:grid-cols-4">
+                        {filteredItems.map((item) => {
+                          const imageKey = String(item.id);
+                          const imageSrc = failedMenuImageIds.has(imageKey) ? undefined : getMenuItemImage(item);
+                          const isFromOtherBranch = isItemFromOtherBranch(item);
+                          const sourceBranchName = item.branch?.name?.trim();
+                          const itemQuantity = getItemQuantity(item.id);
+                          const itemToppings = getToppingsForItem(item);
+                          const hasAvailableToppings = itemToppings.length > 0;
+                          const isToppingMenuOpen = hasAvailableToppings && openToppingMenuId === item.id;
 
-                        return (
-                          <article
-                            key={item.id}
-                            className={`group relative flex min-h-[320px] w-full max-w-[230px] flex-col overflow-visible rounded-none border-2 border-[#252b36] bg-white px-4 py-5 ${isToppingMenuOpen ? 'z-20' : ''}`}
-                          >
-                            <div className="min-h-[72px] text-center">
-                              <h3
-                                style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, lineHeight: '125%' }}
-                                className="line-clamp-2 text-[17px] text-[#3b3b3b] sm:text-[18px]"
-                              >
-                                {item.name}
-                              </h3>
-                              {isFromOtherBranch && (
-                                <div className="mt-2 flex flex-col items-center gap-1">
-                                  <span className="inline-flex items-center border border-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-700">
-                                    Shared item
-                                  </span>
-                                  {sourceBranchName && (
-                                    <p className="text-[10px] font-medium text-amber-800">
-                                      {sourceBranchName}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                            </div>
+                          return (
+                            <article
+                              key={item.id}
+                              className={`group relative flex min-h-[320px] w-full max-w-[230px] flex-col overflow-visible rounded-none border-2 border-[#252b36] bg-white px-4 py-5 ${isToppingMenuOpen ? 'z-20' : ''}`}
+                            >
+                              <div className="min-h-[72px] text-center">
+                                <h3
+                                  style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, lineHeight: '125%' }}
+                                  className="line-clamp-2 text-[17px] text-[#3b3b3b] sm:text-[18px]"
+                                >
+                                  {item.name}
+                                </h3>
+                                {isFromOtherBranch && (
+                                  <div className="mt-2 flex flex-col items-center gap-1">
+                                    <span className="inline-flex items-center border border-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-700">
+                                      Shared item
+                                    </span>
+                                    {sourceBranchName && (
+                                      <p className="text-[10px] font-medium text-amber-800">
+                                        {sourceBranchName}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
 
                             <div className="mt-4 flex justify-center">
                               <button
@@ -1228,10 +1345,23 @@ export default function StaffOrdersPage() {
                                 </button>
                               </div>
                             </div>
-                          </article>
-                        );
-                      })}
-                    </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                      {(menuHasNextPage || isLoadingMoreMenu) && (
+                        <div className="mt-8 flex justify-center">
+                          <button
+                            type="button"
+                            onClick={handleLoadMoreMenuItems}
+                            disabled={isLoadingMoreMenu}
+                            className="inline-flex min-w-[180px] items-center justify-center rounded-full border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-900 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isLoadingMoreMenu ? 'Loading more...' : 'Load more items'}
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </section>

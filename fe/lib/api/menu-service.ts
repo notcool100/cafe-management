@@ -1,5 +1,5 @@
 import apiClient from './api-client';
-import { Branch, MenuItem, CreateMenuItemData, MenuFilters } from '../types';
+import { Branch, MenuItem, CreateMenuItemData, MenuFilters, PaginatedMenuItemsResponse } from '../types';
 
 const buildMenuItemFormData = (data: Partial<CreateMenuItemData>) => {
     const formData = new FormData();
@@ -48,17 +48,37 @@ const normalizeMenuItem = (
     } as MenuItem;
 };
 
+const buildMenuItemQuery = (filters?: MenuFilters) => {
+    const params = new URLSearchParams();
+
+    if (filters?.branchId) params.append('branchId', filters.branchId);
+    if (filters?.category) params.append('category', filters.category);
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.available !== undefined) params.append('available', String(filters.available));
+    if (filters?.page !== undefined) params.append('page', String(filters.page));
+    if (filters?.limit !== undefined) params.append('limit', String(filters.limit));
+    if (filters?.excludeToppings !== undefined) params.append('excludeToppings', String(filters.excludeToppings));
+    if (filters?.includeRelatedToppings !== undefined) params.append('includeRelatedToppings', String(filters.includeRelatedToppings));
+    if (filters?.includeShared !== undefined) params.append('includeShared', String(filters.includeShared));
+
+    const query = params.toString();
+    return query ? `/menu/items?${query}` : '/menu/items';
+};
+
 export const menuService = {
+    async getMenuItemsPage(filters?: MenuFilters): Promise<PaginatedMenuItemsResponse> {
+        const response = await apiClient.get<PaginatedMenuItemsResponse>(buildMenuItemQuery(filters));
+
+        return {
+            ...response.data,
+            items: (response.data.items || []).map(normalizeMenuItem),
+            relatedItems: (response.data.relatedItems || []).map(normalizeMenuItem),
+        };
+    },
+
     async getMenuItems(filters?: MenuFilters): Promise<MenuItem[]> {
-        const params = new URLSearchParams();
-
-        if (filters?.branchId) params.append('branchId', filters.branchId);
-        if (filters?.category) params.append('category', filters.category);
-        if (filters?.search) params.append('search', filters.search);
-        if (filters?.available !== undefined) params.append('available', String(filters.available));
-
-        const response = await apiClient.get<MenuItem[]>(`/menu/items?${params.toString()}`);
-        return response.data.map(normalizeMenuItem);
+        const response = await this.getMenuItemsPage(filters);
+        return response.items;
     },
 
     async getMenuItem(id: string): Promise<MenuItem> {

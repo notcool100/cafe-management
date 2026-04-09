@@ -33,9 +33,45 @@ type MenuUpdateData = {
     newToppings?: NewToppingInput[];
 };
 
+type ListMenuItemsOptions = {
+    branchId?: string;
+    category?: string;
+    search?: string;
+    available?: boolean;
+    tenantId?: string;
+    page?: number;
+    limit?: number;
+    excludeToppings?: boolean;
+    includeRelatedToppings?: boolean;
+    includeShared?: boolean;
+};
+
+type PaginatedMenuItemsResult = {
+    items: any[];
+    relatedItems?: any[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+};
+
 type CategoryDbClient = typeof prisma | Prisma.TransactionClient;
 
 const DEFAULT_TOPPING_CATEGORY = 'Topping';
+const DEFAULT_MENU_PAGE = 1;
+const DEFAULT_MENU_PAGE_SIZE = 24;
+const MAX_MENU_PAGE_SIZE = 100;
+const TOPPING_CATEGORY_ALIASES = [
+    'topping',
+    'toppings',
+    'addon',
+    'addons',
+    'add on',
+    'add ons',
+    'extra',
+    'extras',
+];
 
 export class MenuService {
     static async createMenuItem(
@@ -115,23 +151,112 @@ export class MenuService {
         return normalizeMenuItem(menuItem);
     }
 
-    static async listMenuItems(branchId?: string, category?: string, tenantId?: string) {
+    static async listMenuItems(options: ListMenuItemsOptions = {}): Promise<PaginatedMenuItemsResult> {
+        const page = Math.max(options.page ?? DEFAULT_MENU_PAGE, 1);
+        const limit = Math.min(Math.max(options.limit ?? DEFAULT_MENU_PAGE_SIZE, 1), MAX_MENU_PAGE_SIZE);
+        const filters: Prisma.MenuItemWhereInput[] = [];
+
+        if (options.tenantId) {
+            filters.push({ tenantId: options.tenantId });
+        }
+
+        if (options.branchId) {
+            filters.push(
+                options.includeShared === false
+                    ? { branchId: options.branchId }
+                    : {
+                        OR: [
+                            { branchId: options.branchId },
+                            { sharedBranchIds: { has: options.branchId } },
+                        ],
+                    }
+            );
+        }
+
+        if (options.category) {
+            filters.push({ category: options.category });
+        }
+
+        if (options.available !== undefined) {
+            filters.push({ isAvailable: options.available });
+        }
+
+        const search = options.search?.trim();
+        if (search) {
+            filters.push({
+                OR: [
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { description: { contains: search, mode: 'insensitive' } },
+                ],
+            });
+        }
+
+        if (options.excludeToppings) {
+            filters.push({
+                NOT: {
+                    OR: TOPPING_CATEGORY_ALIASES.map((categoryName) => ({
+                        category: { equals: categoryName, mode: 'insensitive' },
+                    })),
+                },
+            });
+        }
+
+        const where =
+            filters.length === 0
+                ? undefined
+                : filters.length === 1
+                    ? filters[0]
+                    : { AND: filters };
+
+        const total = await prisma.menuItem.count({ where });
+        const totalPages = Math.max(Math.ceil(total / limit), 1);
+        const effectivePage = total === 0 ? 1 : Math.min(page, totalPages);
+
         const menuItems = await prisma.menuItem.findMany({
-            where: {
-                ...(tenantId ? { tenantId } : {}),
-                ...(branchId && {
-                    OR: [
-                        { branchId },
-                        { sharedBranchIds: { has: branchId } },
-                    ],
-                }),
-                ...(category && { category }),
-            },
+            where,
             include: { branch: true },
             orderBy: { createdAt: 'desc' },
+            skip: (effectivePage - 1) * limit,
+            take: limit,
         });
 
-        return menuItems.map(normalizeMenuItem);
+        const relatedToppingIds = options.includeRelatedToppings
+            ? Array.from(
+                new Set(
+                    menuItems
+                        .flatMap((item) => item.toppingIds || [])
+                        .filter(Boolean)
+                )
+            )
+            : [];
+
+        const relatedItems = relatedToppingIds.length > 0
+            ? await prisma.menuItem.findMany({
+                where: {
+                    id: { in: relatedToppingIds },
+                    ...(options.tenantId ? { tenantId: options.tenantId } : {}),
+                    ...(options.branchId
+                        ? {
+                            OR: [
+                                { branchId: options.branchId },
+                                { sharedBranchIds: { has: options.branchId } },
+                            ],
+                        }
+                        : {}),
+                },
+                include: { branch: true },
+            })
+            : [];
+
+        return {
+            items: menuItems.map(normalizeMenuItem),
+            ...(options.includeRelatedToppings ? { relatedItems: relatedItems.map(normalizeMenuItem) } : {}),
+            total,
+            page: effectivePage,
+            limit,
+            totalPages,
+            hasNextPage: effectivePage < totalPages,
+        };
     }
 
     static async getMenuItem(id: string, tenantId?: string) {
@@ -444,16 +569,7 @@ const normalizeCategoryName = (value?: string | null) =>
 const isToppingCategoryName = (value?: string | null) => {
     const normalized = normalizeCategoryName(value);
 
-    return [
-        'topping',
-        'toppings',
-        'addon',
-        'addons',
-        'add on',
-        'add ons',
-        'extra',
-        'extras',
-    ].includes(normalized);
+    return TOPPING_CATEGORY_ALIASES.includes(normalized);
 };
 
 const resolveToppingIds = async ({

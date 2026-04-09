@@ -214,7 +214,7 @@ export const useAuthStore = create<AuthState>()(
                         return;
                     }
 
-                    console.error('Failed to refresh user:', error);
+                    // console.error('Failed to refresh user:', error);
                 }
             },
         }),
