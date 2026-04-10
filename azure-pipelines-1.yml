@@ -125,7 +125,7 @@ stages:
   dependsOn: 
     - BuildFrontend
     - BuildBackend
-  condition: and(succeeded('BuildFrontend'), succeeded('BuildBackend'), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  condition: and(succeeded('BuildFrontend'), succeeded('BuildBackend'), eq(variables['Build.SourceBranch'], 'refs/heads/uat'))
   jobs:
   - job: DeployFrontendDev
     displayName: 'Deploy Frontend to Dev'
