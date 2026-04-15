@@ -128,42 +128,40 @@ stages:
   condition: and(succeeded('BuildFrontend'), succeeded('BuildBackend'), eq(variables['Build.SourceBranch'], 'refs/heads/uat'))
   jobs:
   - job: DeployFrontendDev
-    displayName: 'Deploy Frontend to Dev'
+    displayName: 'Deploy Frontend to UAT'
     steps:
     - task: DownloadBuildArtifacts@1
       inputs:
         buildType: 'current'
         downloadType: 'single'
-        artifactName: 'cafe-frontend'
+        artifactName: 'cafe-frontend' # Ensure this matches the Publish task
         downloadPath: '$(System.ArtifactsDirectory)'
 
     - script: |
-         # Extract to UAT directory
          mkdir -p /var/www/cafe-management-uat/frontend
-         tar -xzf $(System.ArtifactsDirectory)/cafe-frontend-uat/cafe-frontend-uat.tar.gz -C /var/www/cafe-management-uat/frontend
+         tar -xzf $(System.ArtifactsDirectory)/cafe-frontend/cafe-frontend.tar.gz -C /var/www/cafe-management-uat/frontend
          
-         # Crucial: Install dependencies on the VPS because pnpm symlinks are not portable
          cd /var/www/cafe-management-uat/frontend
          pnpm install --frozen-lockfile
          
+         # Correct service name: cafe-frontend-uat
          sudo systemctl restart cafe-frontend-uat
          sudo systemctl status cafe-frontend-uat --no-pager
       displayName: 'Deploy and Restart Frontend UAT'
 
   - job: DeployBackendDev
-    displayName: 'Deploy Backend to Dev'
+    displayName: 'Deploy Backend to UAT'
     steps:
     - task: DownloadBuildArtifacts@1
       inputs:
         buildType: 'current'
         downloadType: 'single'
-        artifactName: 'cafe-backend'
+        artifactName: 'cafe-backend' # Ensure this matches the Publish task
         downloadPath: '$(System.ArtifactsDirectory)'
 
     - script: |
-         # Extract to UAT directory
          mkdir -p /var/www/cafe-management-uat/backend
-         tar -xzf $(System.ArtifactsDirectory)/cafe-backend-uat/cafe-backend-uat.tar.gz -C /var/www/cafe-management-uat/backend
+         tar -xzf $(System.ArtifactsDirectory)/cafe-backend/cafe-backend.tar.gz -C /var/www/cafe-management-uat/backend
          
          cd /var/www/cafe-management-uat/backend
          pnpm install --frozen-lockfile
@@ -172,6 +170,7 @@ stages:
          # Forcefully clear the port in case of zombie processes
          sudo fuser -k 6002/tcp || true
          
+         # Correct service name: cafe-backend-uat
          sudo systemctl restart cafe-backend-uat
          sudo systemctl status cafe-backend-uat --no-pager
       displayName: 'Deploy and Restart Backend UAT'
