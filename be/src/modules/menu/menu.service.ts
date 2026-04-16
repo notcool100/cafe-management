@@ -7,6 +7,10 @@ type NewToppingInput = {
     price: number;
 };
 
+type UpdatedToppingInput = NewToppingInput & {
+    id: string;
+};
+
 type MenuWriteData = {
     name: string;
     description?: string;
@@ -18,6 +22,7 @@ type MenuWriteData = {
     disabledBranchIds?: string[];
     toppingIds?: string[];
     newToppings?: NewToppingInput[];
+    updatedToppings?: UpdatedToppingInput[];
 };
 
 type MenuUpdateData = {
@@ -31,6 +36,7 @@ type MenuUpdateData = {
     disabledBranchIds?: string[];
     toppingIds?: string[];
     newToppings?: NewToppingInput[];
+    updatedToppings?: UpdatedToppingInput[];
 };
 
 type ListMenuItemsOptions = {
@@ -268,7 +274,24 @@ export class MenuService {
             throw new Error('Menu item not found');
         }
 
-        return normalizeMenuItem(menuItem);
+        const toppings = menuItem.toppingIds?.length
+            ? await prisma.menuItem.findMany({
+                where: {
+                    id: { in: menuItem.toppingIds },
+                    ...(tenantId ? { tenantId } : {}),
+                },
+                include: { branch: true },
+            })
+            : [];
+
+        const toppingsById = new Map(toppings.map((topping) => [topping.id, topping]));
+
+        return normalizeMenuItem({
+            ...menuItem,
+            toppings: (menuItem.toppingIds || [])
+                .map((toppingId) => toppingsById.get(toppingId))
+                .filter(Boolean),
+        });
     }
 
     static async updateMenuItem(
@@ -327,6 +350,18 @@ export class MenuService {
                 toppingIds: data.toppingIds,
             })
             : undefined;
+        const normalizedUpdatedToppings = normalizeUpdatedToppings(data.updatedToppings);
+        const validUpdatedToppings = normalizedUpdatedToppings.filter((topping) =>
+            (resolvedToppingIds ?? existing.toppingIds ?? []).includes(topping.id)
+        );
+        const {
+            newToppings: _newToppings,
+            updatedToppings: _updatedToppings,
+            toppingIds: _toppingIds,
+            sharedBranchIds: _sharedBranchIds,
+            disabledBranchIds: _disabledBranchIds,
+            ...menuItemUpdateData
+        } = data;
 
         const menuItem = await prisma.$transaction(async (tx) => {
             if (categoryName) {
@@ -339,6 +374,14 @@ export class MenuService {
             }
 
             const effectiveDisabledBranchIds = disabledBranchIds ?? existing.disabledBranchIds ?? [];
+            await updateLinkedToppings({
+                db: tx,
+                branchId: existing.branchId,
+                tenantId: existing.tenantId,
+                sharedBranchIds: effectiveSharedBranchIds,
+                disabledBranchIds: effectiveDisabledBranchIds,
+                updatedToppings: validUpdatedToppings,
+            });
             const createdToppingIds = await createLinkedToppings({
                 db: tx,
                 branchId: existing.branchId,
@@ -354,7 +397,7 @@ export class MenuService {
             return tx.menuItem.update({
                 where: { id },
                 data: {
-                    ...data,
+                    ...menuItemUpdateData,
                     ...(data.category !== undefined ? { category: categoryName } : {}),
                     ...(sharedBranchIds !== undefined ? { sharedBranchIds } : {}),
                     ...(disabledBranchIds !== undefined ? { disabledBranchIds } : {}),
@@ -427,6 +470,7 @@ const normalizeMenuItem = (menuItem: any): any => ({
     sharedBranchIds: menuItem.sharedBranchIds || [],
     disabledBranchIds: menuItem.disabledBranchIds || [],
     toppingIds: menuItem.toppingIds || [],
+    toppings: Array.isArray(menuItem.toppings) ? menuItem.toppings.map(normalizeMenuItem) : [],
 });
 
 const resolveSharedBranchIds = async ({
@@ -658,5 +702,61 @@ const createLinkedToppings = async ({
     return createdToppings;
 };
 
+const updateLinkedToppings = async ({
+    db,
+    branchId,
+    tenantId,
+    sharedBranchIds,
+    disabledBranchIds,
+    updatedToppings,
+}: {
+    db: Prisma.TransactionClient;
+    branchId: string;
+    tenantId: string;
+    sharedBranchIds: string[];
+    disabledBranchIds: string[];
+    updatedToppings: UpdatedToppingInput[];
+}) => {
+    if (updatedToppings.length === 0) {
+        return;
+    }
+
+    for (const topping of updatedToppings) {
+        await db.menuItem.updateMany({
+            where: {
+                id: topping.id,
+                tenantId,
+            },
+            data: {
+                name: topping.name,
+                description: `${topping.name} topping`,
+                price: topping.price,
+                category: DEFAULT_TOPPING_CATEGORY,
+                branchId,
+                sharedBranchIds,
+                disabledBranchIds,
+            },
+        });
+    }
+};
+
 const combineUniqueIds = (...lists: string[][]) =>
     Array.from(new Set(lists.flat().filter(Boolean)));
+
+const normalizeUpdatedToppings = (updatedToppings?: UpdatedToppingInput[]) => {
+    if (!updatedToppings || updatedToppings.length === 0) {
+        return [];
+    }
+
+    return updatedToppings.flatMap((topping) => {
+        const id = topping.id?.trim();
+        const name = topping.name?.trim();
+        const price = Number(topping.price);
+
+        if (!id || !name || !Number.isFinite(price) || price <= 0) {
+            return [];
+        }
+
+        return [{ id, name, price }];
+    });
+};

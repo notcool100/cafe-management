@@ -64,6 +64,46 @@ const parseNewToppings = (value: unknown) => {
         .filter((entry): entry is { name: string; price: number } => Boolean(entry));
 };
 
+const parseUpdatedToppings = (value: unknown) => {
+    if (!value) return [];
+
+    const parseArray = (input: unknown) => {
+        if (Array.isArray(input)) {
+            return input;
+        }
+
+        if (typeof input === 'string') {
+            try {
+                const parsed = JSON.parse(input);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch {
+                return [];
+            }
+        }
+
+        return [];
+    };
+
+    return parseArray(value)
+        .map((entry) => {
+            if (!entry || typeof entry !== 'object') {
+                return null;
+            }
+
+            const candidate = entry as { id?: unknown; name?: unknown; price?: unknown };
+            const id = typeof candidate.id === 'string' ? candidate.id.trim() : '';
+            const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
+            const price = Number(candidate.price);
+
+            if (!id || !name || !Number.isFinite(price) || price <= 0) {
+                return null;
+            }
+
+            return { id, name, price };
+        })
+        .filter((entry): entry is { id: string; name: string; price: number } => Boolean(entry));
+};
+
 const parseBooleanQuery = (value: unknown) => {
     if (typeof value === 'boolean') {
         return value;
@@ -255,10 +295,12 @@ export class MenuController {
             const hasDisabledBranchIds = Object.prototype.hasOwnProperty.call(req.body, 'disabledBranchIds');
             const hasToppingIds = Object.prototype.hasOwnProperty.call(req.body, 'toppingIds');
             const hasNewToppings = Object.prototype.hasOwnProperty.call(req.body, 'newToppings');
+            const hasUpdatedToppings = Object.prototype.hasOwnProperty.call(req.body, 'updatedToppings');
             const sharedBranchIds = hasSharedBranchIds ? parseBranchIds(req.body.sharedBranchIds) : undefined;
             const disabledBranchIds = hasDisabledBranchIds ? parseBranchIds(req.body.disabledBranchIds) : undefined;
             const toppingIds = hasToppingIds ? parseBranchIds(req.body.toppingIds) : undefined;
             const newToppings = hasNewToppings ? parseNewToppings(req.body.newToppings) : undefined;
+            const updatedToppings = hasUpdatedToppings ? parseUpdatedToppings(req.body.updatedToppings) : undefined;
             if (!req.user?.tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
@@ -295,6 +337,7 @@ export class MenuController {
                 ...(disabledBranchIds !== undefined ? { disabledBranchIds } : {}),
                 ...(toppingIds !== undefined ? { toppingIds } : {}),
                 ...(newToppings !== undefined ? { newToppings } : {}),
+                ...(updatedToppings !== undefined ? { updatedToppings } : {}),
             }, req.user.tenantId);
 
             res.json(menuItem);

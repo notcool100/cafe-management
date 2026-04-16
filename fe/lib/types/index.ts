@@ -73,6 +73,10 @@ export interface MenuItemToppingDraft {
     price: number;
 }
 
+export interface MenuItemToppingUpdateDraft extends MenuItemToppingDraft {
+    id: string;
+}
+
 export interface MenuItem {
     id: string;
     name: string;
@@ -83,6 +87,7 @@ export interface MenuItem {
     sharedBranchIds?: string[];
     disabledBranchIds?: string[];
     toppingIds?: string[];
+    toppings?: MenuItem[];
     available: boolean;
     branchId: string;
     branch?: Branch;
@@ -102,6 +107,7 @@ export interface CreateMenuItemData {
     disabledBranchIds?: string[];
     toppingIds?: string[];
     newToppings?: MenuItemToppingDraft[];
+    updatedToppings?: MenuItemToppingUpdateDraft[];
 }
 
 export interface Category {

@@ -23,6 +23,9 @@ const buildMenuItemFormData = (data: Partial<CreateMenuItemData>) => {
     if (data.newToppings !== undefined) {
         formData.append('newToppings', JSON.stringify(data.newToppings));
     }
+    if (data.updatedToppings !== undefined) {
+        formData.append('updatedToppings', JSON.stringify(data.updatedToppings));
+    }
 
     return formData;
 };
@@ -36,6 +39,7 @@ const normalizeMenuItem = (
     const disabledBranchIds = Array.isArray(item.disabledBranchIds) ? item.disabledBranchIds : [];
     const toppingIds = Array.isArray(item.toppingIds) ? item.toppingIds : [];
     const branchId = item.branchId ?? item.branch?.id ?? '';
+    const toppings = Array.isArray(item.toppings) ? item.toppings.map((topping) => normalizeMenuItem(topping)) : [];
 
     return {
         ...item,
@@ -45,6 +49,7 @@ const normalizeMenuItem = (
         sharedBranchIds,
         disabledBranchIds,
         toppingIds,
+        toppings,
     } as MenuItem;
 };
 

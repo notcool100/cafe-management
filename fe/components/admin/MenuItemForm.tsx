@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { MenuItem, Branch, UserRole, Category, MenuItemToppingDraft } from '@/lib/types';
+import { MenuItem, Branch, UserRole, Category, MenuItemToppingDraft, MenuItemToppingUpdateDraft } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -27,11 +27,14 @@ const menuItemSchema = z.object({
 export interface MenuItemFormData extends z.infer<typeof menuItemSchema> {
     imageFile?: File | null;
     sharedBranchIds?: string[];
+    toppingIds?: string[];
     newToppings?: MenuItemToppingDraft[];
+    updatedToppings?: MenuItemToppingUpdateDraft[];
 }
 
 interface ToppingDraftRow {
     id: string;
+    toppingId?: string;
     name: string;
     price: string;
 }
@@ -51,6 +54,19 @@ const createToppingRow = (): ToppingDraftRow => ({
     name: '',
     price: '',
 });
+
+const createToppingRowFromItem = (topping: MenuItem): ToppingDraftRow => ({
+    id: `existing-${topping.id}`,
+    toppingId: topping.id,
+    name: topping.name || '',
+    price: topping.price ? String(topping.price) : '',
+});
+
+interface SanitizedToppingsPayload {
+    toppingIds: string[];
+    newToppings?: MenuItemToppingDraft[];
+    updatedToppings?: MenuItemToppingUpdateDraft[];
+}
 
 export default function MenuItemForm({
     initialData,
@@ -97,6 +113,7 @@ export default function MenuItemForm({
         handleSubmit,
         formState: { errors },
         clearErrors,
+        reset,
         setValue,
         watch,
     } = useForm<MenuItemFormData>({
@@ -117,6 +134,28 @@ export default function MenuItemForm({
     const shareableBranches = selectedBranchId
         ? branches.filter((branch) => branch.id !== selectedBranchId)
         : [];
+
+    useEffect(() => {
+        if (!isEdit || !initialData) {
+            return;
+        }
+
+        reset({
+            name: initialData.name || '',
+            description: initialData.description || '',
+            price: initialData.price || 0,
+            category: initialData.category || '',
+            branchId: initialData.branchId || initialData.branch?.id || lockedBranchId || '',
+            available: initialData.available ?? true,
+        });
+        setImageFile(null);
+        setToppingRows(
+            showToppingsSection
+                ? (initialData.toppings || []).map(createToppingRowFromItem)
+                : []
+        );
+        setToppingError(null);
+    }, [initialData, isEdit, lockedBranchId, reset, showToppingsSection]);
 
     useEffect(() => {
         if (!canUseProtectedApis) {
@@ -169,8 +208,14 @@ export default function MenuItemForm({
         if (initialData?.sharedBranchIds) {
             setSharedBranchIds(initialData.sharedBranchIds);
             setIsTransferable(initialData.sharedBranchIds.length > 0);
+            return;
         }
-    }, [initialData?.id, initialData?.sharedBranchIds]);
+
+        if (isEdit) {
+            setSharedBranchIds([]);
+            setIsTransferable(false);
+        }
+    }, [initialData?.id, initialData?.sharedBranchIds, isEdit]);
 
     useEffect(() => {
         if (!selectedBranchId) return;
@@ -265,8 +310,7 @@ export default function MenuItemForm({
         ? 'border-gray-300 bg-white text-black placeholder:text-black/70 focus:border-blue-500 focus:ring-blue-500/20'
         : undefined;
     const labelClassName = isLightTheme ? 'text-black' : undefined;
-    const categorySuggestionsId = `menu-item-category-suggestions-${isEdit ? 'edit' : 'new'}`;
-
+    const blackLabelClassName = 'menu-item-black-label text-center';
     const updateToppingRow = (id: string, field: 'name' | 'price', value: string) => {
         setToppingRows((previous) =>
             previous.map((row) => row.id === id ? { ...row, [field]: value } : row)
@@ -284,8 +328,9 @@ export default function MenuItemForm({
         setToppingError(null);
     };
 
-    const sanitizeToppings = (): MenuItemToppingDraft[] | null => {
+    const sanitizeToppings = (): SanitizedToppingsPayload | null => {
         const normalizedRows = toppingRows.map((row) => ({
+            toppingId: row.toppingId,
             name: row.name.trim(),
             price: row.price.trim(),
         }));
@@ -301,6 +346,7 @@ export default function MenuItemForm({
         const parsedRows = normalizedRows
             .filter((row) => row.name && row.price)
             .map((row) => ({
+                toppingId: row.toppingId,
                 name: row.name,
                 price: Number(row.price),
             }));
@@ -311,15 +357,27 @@ export default function MenuItemForm({
         }
 
         setToppingError(null);
-        return parsedRows;
+        const toppingIds = parsedRows.flatMap((row) => (row.toppingId ? [row.toppingId] : []));
+        const newToppings = parsedRows.flatMap((row) =>
+            row.toppingId ? [] : [{ name: row.name, price: row.price }]
+        );
+        const updatedToppings = parsedRows.flatMap((row) =>
+            row.toppingId ? [{ id: row.toppingId, name: row.name, price: row.price }] : []
+        );
+
+        return {
+            toppingIds,
+            ...(newToppings.length > 0 ? { newToppings } : {}),
+            ...(updatedToppings.length > 0 ? { updatedToppings } : {}),
+        };
     };
 
     return (
         <form
             onSubmit={handleSubmit((data) => {
-                const newToppings = showToppingsSection ? sanitizeToppings() : undefined;
+                const toppingPayload = showToppingsSection ? sanitizeToppings() : undefined;
 
-                if (showToppingsSection && newToppings === null) {
+                if (showToppingsSection && toppingPayload === null) {
                     return;
                 }
 
@@ -327,13 +385,14 @@ export default function MenuItemForm({
                     ...data,
                     imageFile,
                     sharedBranchIds: isTransferable ? sharedBranchIds : [],
-                    ...(showToppingsSection ? { newToppings: newToppings ?? undefined } : {}),
+                    ...(showToppingsSection ? toppingPayload : {}),
                 };
 
                 return onSubmit(payload);
             })}
             className={cn(
                 'space-y-4 sm:space-y-6',
+                '[&_label.menu-item-black-label]:!text-black',
                 isLightTheme
                     ? 'text-black'
                     : 'text-white [&_label]:!text-white [&_p]:!text-white [&_span]:!text-white'
@@ -400,7 +459,7 @@ export default function MenuItemForm({
                     <Input
                         label="Price"
                         floatingLabel={!isLightTheme}
-                        labelClassName={labelClassName}
+                        labelClassName={cn(labelClassName, 'text-center')}
                         className={cn(inputClassName, 'no-number-spinner')}
                         type="number"
                         step="0.01"
@@ -410,41 +469,38 @@ export default function MenuItemForm({
                     />
 
                     <div className="w-full">
-                        <Input
+                        <Select
                             label="Category"
-                            floatingLabel={!isLightTheme}
                             labelClassName={labelClassName}
+                            optionClassName={isLightTheme ? 'bg-white text-black' : undefined}
                             className={inputClassName}
                             {...register('category')}
+                            value={selectedCategory || ''}
                             error={errors.category?.message}
-                            disabled={!selectedBranchId}
-                            list={selectedBranchId && categoryOptions.length > 0 ? categorySuggestionsId : undefined}
-                            placeholder={
-                                !selectedBranchId
-                                    ? 'Select branch first'
-                                    : categoryLoading
-                                        ? 'Loading categories...'
-                                        : categoryOptions.length > 0
-                                            ? 'Type or choose a category'
-                                            : 'Type a new category'
-                            }
-                            helperText={
+                            disabled={!selectedBranchId || categoryLoading || categoryOptions.length === 0}
+                            description={
                                 !selectedBranchId
                                     ? 'Select a branch first to set the category.'
                                     : categoryLoading
                                         ? 'Loading existing categories for this branch.'
                                         : categoryOptions.length > 0
-                                            ? 'Choose an existing category or type a new one.'
-                                            : 'No categories found for this branch. Type one here and it will be created.'
+                                            ? 'Choose an existing category for this branch.'
+                                            : 'No categories found for this branch.'
+                            }
+                            descriptionClassName={isLightTheme ? 'text-black' : undefined}
+                            options={
+                                !selectedBranchId
+                                    ? [{ value: '', label: 'Select branch first' }]
+                                    : categoryLoading
+                                        ? [{ value: '', label: 'Loading categories...' }]
+                                        : categoryOptions.length > 0
+                                            ? [
+                                                { value: '', label: 'Select Category' },
+                                                ...categoryOptions,
+                                            ]
+                                            : [{ value: '', label: 'No categories available' }]
                             }
                         />
-                        {selectedBranchId && categoryOptions.length > 0 && (
-                            <datalist id={categorySuggestionsId}>
-                                {categoryOptions.map((option) => (
-                                    <option key={option.value} value={option.value} />
-                                ))}
-                            </datalist>
-                        )}
                     </div>
                 </div>
 
@@ -482,7 +538,7 @@ export default function MenuItemForm({
                                 {toppingRows.map((row, index) => (
                                     <div key={row.id} className="grid gap-3 rounded-xl border border-black/5 bg-white/70 p-3 md:grid-cols-[1fr_140px_auto]">
                                         <div>
-                                            <label className={cn('mb-1 block text-xs font-medium', isLightTheme ? 'text-gray-700' : 'text-gray-900')}>
+                                            <label className={cn(blackLabelClassName, 'mb-1 block text-xs font-medium', isLightTheme ? 'text-black' : 'text-gray-900')}>
                                                 Topping Name {index + 1}
                                             </label>
                                             <input
@@ -493,7 +549,7 @@ export default function MenuItemForm({
                                             />
                                         </div>
                                         <div>
-                                            <label className={cn('mb-1 block text-xs font-medium', isLightTheme ? 'text-gray-700' : 'text-gray-900')}>
+                                            <label className={cn(blackLabelClassName, 'mb-1 block text-xs font-medium text-black')}>
                                                 Price
                                             </label>
                                             <input
