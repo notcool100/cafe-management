@@ -10,7 +10,10 @@ import Toast from '@/components/ui/Toast';
 import Spinner from '@/components/ui/Spinner';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
-import { formatBranchLabel } from '@/lib/utils/format';
+
+const getCategoryErrorMessage = (error: unknown) =>
+    (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data?.error ||
+    (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data?.message;
 
 export default function CategoriesPage() {
     const { user, selectedBranchId } = useAuthStore();
@@ -88,7 +91,7 @@ export default function CategoriesPage() {
             });
             await loadCategories();
         } catch (error: unknown) {
-            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            const message = getCategoryErrorMessage(error);
             setToast({
                 message: message || 'Failed to create category',
                 type: 'error',
@@ -112,7 +115,7 @@ export default function CategoriesPage() {
                 isVisible: true,
             });
         } catch (error: unknown) {
-            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            const message = getCategoryErrorMessage(error);
             setToast({
                 message: message || 'Failed to update category',
                 type: 'error',
@@ -135,7 +138,7 @@ export default function CategoriesPage() {
                 isVisible: true,
             });
         } catch (error: unknown) {
-            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            const message = getCategoryErrorMessage(error);
             setToast({
                 message: message || 'Failed to delete category',
                 type: 'error',
@@ -303,7 +306,7 @@ export default function CategoriesPage() {
                 title="Delete Category"
             >
                 <p className="mb-6 leading-relaxed text-gray-300">
-                    Are you sure you want to delete the category "{deleteConfirm?.name}"? This will not remove existing
+                    Are you sure you want to delete the category &quot;{deleteConfirm?.name}&quot;? This will not remove existing
                     menu items but they may become harder to filter.
                 </p>
                 <div className="flex justify-end gap-3">

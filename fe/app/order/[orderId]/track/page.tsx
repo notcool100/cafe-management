@@ -8,6 +8,7 @@ import { Order, OrderStatus, OrderType } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
 import { Card, CardContent } from '@/components/ui/Card';
+import { formatOrderItemName, isToppingOrderItem } from '@/lib/utils/order-items';
 
 export default function OrderTrackingPage() {
     const params = useParams();
@@ -121,9 +122,14 @@ export default function OrderTrackingPage() {
                             <h3 className="font-bold text-gray-900">Items</h3>
                             {order.items.map((item) => (
                                 <div key={item.id} className="flex justify-between text-sm">
-                                    <span className="text-gray-800 font-medium">
+                                    <span className="flex items-center gap-2 text-gray-800 font-medium">
                                         <span className="text-gray-400 mr-2">{item.quantity}x</span>
-                                        {item.menuItem?.name}
+                                        <span>{formatOrderItemName(item, { prefixTopping: true })}</span>
+                                        {isToppingOrderItem(item) && (
+                                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-800">
+                                                Topping
+                                            </span>
+                                        )}
                                     </span>
                                     <span className="text-gray-600 font-semibold">Rs. {(item.price * item.quantity).toFixed(2)}</span>
                                 </div>

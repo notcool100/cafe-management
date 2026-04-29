@@ -1,5 +1,27 @@
 import prisma from '../../config/database';
 
+const normalizeCategoryName = (value?: string | null) =>
+    (value ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/[-_]+/g, ' ')
+        .replace(/\s+/g, ' ');
+
+const isToppingCategoryName = (value?: string | null) => {
+    const normalized = normalizeCategoryName(value);
+
+    return [
+        'topping',
+        'toppings',
+        'addon',
+        'addons',
+        'add on',
+        'add ons',
+        'extra',
+        'extras',
+    ].includes(normalized);
+};
+
 export class CategoryService {
     static async createCategory(
         data: {
@@ -12,6 +34,9 @@ export class CategoryService {
         const name = data.name?.trim();
         if (!name) {
             throw new Error('Category name is required');
+        }
+        if (isToppingCategoryName(name)) {
+            throw new Error('Toppings are managed separately. Use the toppings section on menu items instead.');
         }
 
         const branch = await prisma.branch.findFirst({
@@ -57,7 +82,9 @@ export class CategoryService {
             orderBy: { name: 'asc' },
         });
 
-        return categories.map(normalizeCategory);
+        return categories
+            .filter((category) => !isToppingCategoryName(category.name))
+            .map(normalizeCategory);
     }
 
     static async getCategory(id: string, tenantId?: string) {
@@ -89,6 +116,9 @@ export class CategoryService {
         if (!existing) {
             throw new Error('Category not found');
         }
+        if (isToppingCategoryName(existing.name)) {
+            throw new Error('Topping categories are managed separately and cannot be edited here.');
+        }
 
         const sharedBranchIds = data.sharedBranchIds !== undefined
             ? await resolveSharedBranchIds({
@@ -99,6 +129,9 @@ export class CategoryService {
             : undefined;
 
         const nextName = data.name?.trim();
+        if (nextName && isToppingCategoryName(nextName)) {
+            throw new Error('Toppings are managed separately. Use the toppings section on menu items instead.');
+        }
         const category = await prisma.category.update({
             where: { id },
             data: {
@@ -129,11 +162,14 @@ export class CategoryService {
     static async deleteCategory(id: string, tenantId?: string) {
         const existing = await prisma.category.findFirst({
             where: { id, ...(tenantId ? { tenantId } : {}) },
-            select: { id: true },
+            select: { id: true, name: true },
         });
 
         if (!existing) {
             throw new Error('Category not found');
+        }
+        if (isToppingCategoryName(existing.name)) {
+            throw new Error('Topping categories are managed separately and cannot be deleted here.');
         }
 
         await prisma.category.delete({ where: { id } });

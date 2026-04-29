@@ -9,11 +9,12 @@ import Button from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import Spinner from '@/components/ui/Spinner';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Branch, Order, OrderStatus, OrderType, UserRole } from '@/lib/types';
+import { Branch, Order, OrderStatus, OrderType, PaymentMethod, UserRole } from '@/lib/types';
 import Toast from '@/components/ui/Toast';
 import OrderDetailModal from '@/components/staff/OrderDetailModal';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { formatBranchLabel } from '@/lib/utils/format';
+import { formatOrderItemName, isToppingOrderItem } from '@/lib/utils/order-items';
 
 type DateFilter = 'TODAY' | 'LAST_24H' | 'THIS_WEEK' | 'ALL' | 'CUSTOM';
 type OrderView = 'LIVE' | 'COMPLETED' | 'CANCELLED';
@@ -32,7 +33,7 @@ const LIVE_ORDER_STATUSES: OrderStatus[] = [
 ];
 
 export default function AdminOrdersPage() {
-    const { user, selectedBranchId, setSelectedBranchId, refreshUser } = useAuthStore();
+    const { user, selectedBranchId, setSelectedBranchId } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
     const managerBranchId = isManager ? selectedBranchId : undefined;
 
@@ -45,6 +46,7 @@ export default function AdminOrdersPage() {
     const [customStartDate, setCustomStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [customEndDate, setCustomEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [isLoading, setIsLoading] = useState(true);
+    const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [isDetailView, setIsDetailView] = useState(false);
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -90,8 +92,13 @@ export default function AdminOrdersPage() {
             });
             setOrders(data);
         } catch (error) {
-            console.error(error);
-            setToast({ message: 'Failed to load orders', type: 'error', isVisible: true });
+            const message = error instanceof Error
+                ? error.message
+                : (typeof error === 'object' && error && 'message' in error && typeof (error as { message?: unknown }).message === 'string'
+                    ? (error as { message: string }).message
+                    : 'Failed to load orders');
+            console.error('Failed to load orders:', message, error);
+            setToast({ message, type: 'error', isVisible: true });
         } finally {
             setIsLoading(false);
         }
@@ -100,10 +107,6 @@ export default function AdminOrdersPage() {
     useEffect(() => {
         void loadBranches();
     }, [loadBranches]);
-
-    useEffect(() => {
-        refreshUser();
-    }, []);
 
     useEffect(() => {
         void loadOrders();
@@ -159,7 +162,7 @@ export default function AdminOrdersPage() {
 
     const selectedOrderSubtotal = useMemo(() => {
         if (!selectedOrder) return 0;
-        return selectedOrder.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+        return selectedOrder.subtotalAmount;
     }, [selectedOrder]);
 
     const selectedOrderDelivery = useMemo(() => {
@@ -167,10 +170,10 @@ export default function AdminOrdersPage() {
         return 25;
     }, [selectedOrder]);
 
-    const selectedOrderHandling = useMemo(() => {
+    const selectedOrderDiscountAmount = useMemo(() => {
         if (!selectedOrder) return 0;
-        return Math.max(selectedOrder.totalAmount - selectedOrderSubtotal - selectedOrderDelivery, 0);
-    }, [selectedOrder, selectedOrderDelivery, selectedOrderSubtotal]);
+        return selectedOrder.discountAmount;
+    }, [selectedOrder]);
 
     const handleShare = useCallback(async () => {
         if (!selectedOrder) return;
@@ -253,6 +256,29 @@ export default function AdminOrdersPage() {
             setToast({ message: 'Failed to print bill', type: 'error', isVisible: true });
         }
     }, [selectedOrder]);
+
+    const handleCancelOrder = useCallback(async (orderId: string) => {
+        if (typeof window !== 'undefined' && !window.confirm('Mark this order as cancelled?')) {
+            return;
+        }
+
+        setCancellingOrderId(orderId);
+        try {
+            const updatedOrder = await orderService.cancelOrder(orderId);
+            setOrders((currentOrders) =>
+                currentOrders.map((order) => (order.id === orderId ? updatedOrder : order))
+            );
+            setToast({ message: 'Order marked as cancelled', type: 'success', isVisible: true });
+        } catch (error) {
+            const message = error instanceof Error
+                ? error.message
+                : 'Failed to cancel order';
+            console.error('Failed to cancel order:', message, error);
+            setToast({ message, type: 'error', isVisible: true });
+        } finally {
+            setCancellingOrderId(null);
+        }
+    }, []);
 
     return (
         <div className="min-h-screen bg-[#fff9e5] p-6 font-sans">
@@ -385,13 +411,13 @@ export default function AdminOrdersPage() {
                                     </td>
                                     <td className="px-4 py-4 text-sm text-[#6f584f]">
                                         {order.items.length > 0 ? (
-                                            <span className="cursor-help underline decoration-dotted" title={order.items.map(i => `${i.menuItem?.name} x${i.quantity}`).join(', ')}>
+                                            <span className="cursor-help underline decoration-dotted" title={order.items.map(i => `${formatOrderItemName(i, { prefixTopping: true })} x${i.quantity}`).join(', ')}>
                                                 Order Details
                                             </span>
                                         ) : 'No items'}
                                     </td>
                                     <td className="px-4 py-4 text-sm font-semibold text-[#4e2f27]">Rs. {order.totalAmount.toFixed(0)}</td>
-                                    <td className="px-4 py-4 text-sm text-[#6f584f]">Cash/Fonepay</td>
+                                    <td className="px-4 py-4 text-sm text-[#6f584f]">{paymentMethodLabel(order.paymentMethod)}</td>
                                     <td className="px-4 py-4">
                                         <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${order.status === OrderStatus.COMPLETED ? 'bg-[#50ff99] text-[#1f5a36]' :
                                             order.status === OrderStatus.CANCELLED ? 'bg-red-100 text-red-700' :
@@ -418,9 +444,19 @@ export default function AdminOrdersPage() {
                                             >
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                             </button>
-                                            <button className="p-1.5 bg-white shadow-sm border border-gray-100 rounded text-gray-900 hover:text-red-900">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                            </button>
+                                            {order.status !== OrderStatus.COMPLETED && order.status !== OrderStatus.CANCELLED && (
+                                                <button
+                                                    className="p-1.5 bg-white shadow-sm border border-gray-100 rounded text-gray-900 hover:text-red-900 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        void handleCancelOrder(order.id);
+                                                    }}
+                                                    disabled={cancellingOrderId === order.id}
+                                                    title="Cancel order"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -456,10 +492,11 @@ export default function AdminOrdersPage() {
                                     </td>
                                     <td className="px-4 py-4 text-sm text-[#6f584f]">Order Details</td>
                                     <td className="px-4 py-4 text-sm font-semibold text-[#4e2f27]">Rs. {selectedOrder.totalAmount.toFixed(0)}</td>
-                                    <td className="px-4 py-4 text-sm text-[#6f584f]">Cash/Fonepay</td>
+                                    <td className="px-4 py-4 text-sm text-[#6f584f]">{paymentMethodLabel(selectedOrder.paymentMethod)}</td>
                                     <td className="px-4 py-4">
                                         <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${selectedOrder.status === OrderStatus.COMPLETED ? 'bg-[#50ff99] text-[#1f5a36]' :
-                                            'bg-amber-100 text-amber-700'
+                                            selectedOrder.status === OrderStatus.CANCELLED ? 'bg-red-100 text-red-700' :
+                                                'bg-amber-100 text-amber-700'
                                             }`}>
                                             {statusLabel(selectedOrder.status)}
                                         </span>
@@ -490,7 +527,14 @@ export default function AdminOrdersPage() {
                                     {selectedOrder.items.length > 0 ? (
                                         selectedOrder.items.map((item, idx) => (
                                             <div key={idx} className="flex justify-between items-start gap-4 text-sm">
-                                                <span className="text-[#f1e6db]">{item.menuItem?.name || 'Item'} x{item.quantity}</span>
+                                                <div className="flex items-center gap-2 text-[#f1e6db]">
+                                                    <span>{formatOrderItemName(item, { prefixTopping: true })} x{item.quantity}</span>
+                                                    {isToppingOrderItem(item) && (
+                                                        <span className="rounded-full bg-[#f3ddad] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#5b3629]">
+                                                            Topping
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <span className="shrink-0 font-medium">Rs {(item.price * item.quantity).toFixed(0)}</span>
                                             </div>
                                         ))
@@ -522,13 +566,15 @@ export default function AdminOrdersPage() {
                                     </div>
                                     <div className="space-y-4">
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-[#f1e6db]">Total</span>
+                                            <span className="text-[#f1e6db]">Subtotal</span>
                                             <span>Rs {selectedOrderSubtotal.toFixed(0)}</span>
                                         </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-[#f1e6db]">Handling Charge</span>
-                                            <span>Rs {selectedOrderHandling.toFixed(0)}</span>
-                                        </div>
+                                        {selectedOrderDiscountAmount > 0 && (
+                                            <div className="flex justify-between items-center text-sm text-[#b6f2c7]">
+                                                <span>Discount ({formatDiscountPercentage(selectedOrder.discountPercentage)})</span>
+                                                <span>- Rs {selectedOrderDiscountAmount.toFixed(0)}</span>
+                                            </div>
+                                        )}
                                         <div className="flex justify-between items-center text-sm">
                                             <span className="text-[#f1e6db]">Delivery Fee</span>
                                             <span>Rs {selectedOrderDelivery.toFixed(0)}</span>
@@ -590,7 +636,7 @@ function OrderCard({ order, selected, onSelect }: { order: Order; selected: bool
                     <div className="space-y-1">
                         {lineItems.map((item) => (
                             <div key={item.id} className="flex items-start justify-between gap-2 text-xs text-[#f4e8de]">
-                                <span className="min-w-0 flex-1 break-words leading-tight">{item.menuItem?.name || 'Item'}</span>
+                                <span className="min-w-0 flex-1 break-words leading-tight">{formatOrderItemName(item, { prefixTopping: true })}</span>
                                 <span className="shrink-0">x{item.quantity}</span>
                             </div>
                         ))}
@@ -651,8 +697,33 @@ function statusLabel(status: OrderStatus) {
     }
 }
 
+function paymentMethodLabel(paymentMethod?: PaymentMethod | string) {
+    switch (paymentMethod) {
+        case PaymentMethod.FONEPAY:
+            return 'Fonepay';
+        case PaymentMethod.CREDIT_CARD:
+            return 'Credit Card';
+        case PaymentMethod.DEBIT_CARD:
+            return 'Debit Card';
+        case PaymentMethod.UPI:
+            return 'UPI';
+        case 'CASH':
+        case PaymentMethod.CASH_PAYMENT:
+        default:
+            return 'Cash Payment';
+    }
+}
+
 function formatCurrency(value: number) {
     return `Rs ${value.toFixed(2)}`;
+}
+
+function formatDiscountPercentage(value: number) {
+    if (Number.isInteger(value)) {
+        return `${value.toFixed(0)}%`;
+    }
+
+    return `${value.toFixed(2).replace(/\.?0+$/, '')}%`;
 }
 
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {

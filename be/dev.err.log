@@ -1,0 +1,17 @@
+^CError: listen EADDRINUSE: address already in use :::4100
+    at Server.setupListenHandle [as _listen2] (node:net:1948:16)
+    at listenInCluster (node:net:2005:12)
+    at Server.listen (node:net:2110:7)
+    at app.listen (C:\Users\acer\cafe-management\be\node_modules\.pnpm\express@4.22.1\node_modules\express\lib\application.js:635:24)
+    at Object.<anonymous> (C:\Users\acer\cafe-management\be\src\index.ts:89:5)
+    at Module._compile (node:internal/modules/cjs/loader:1812:14)
+    at Module.m._compile (C:\Users\acer\cafe-management\be\node_modules\.pnpm\ts-node@10.9.2_@types+node@25.0.9_typescript@5.9.3\node_modules\ts-node\src\index.ts:1618:23)
+    at node:internal/modules/cjs/loader:1943:10
+    at Object.require.extensions.<computed> [as .ts] (C:\Users\acer\cafe-management\be\node_modules\.pnpm\ts-node@10.9.2_@types+node@25.0.9_typescript@5.9.3\node_modules\ts-node\src\index.ts:1621:12)
+    at Module.load (node:internal/modules/cjs/loader:1533:32) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 4100
+}

@@ -266,7 +266,10 @@ async function main() {
             tenantId: tenant.id,
             tokenNumber: 1,
             status: 'COMPLETED',
+            subtotalAmount: 530,
             totalAmount: 530,
+            discountPercentage: 0,
+            discountAmount: 0,
             completedAt: new Date(),
             orderItems: {
                 create: [
@@ -294,7 +297,10 @@ async function main() {
             cancellationRequestedAt: new Date(),
             cancellationExpiresAt: new Date(Date.now() + 60_000),
             cancellationPreviousStatus: 'PREPARING',
+            subtotalAmount: 830,
             totalAmount: 830,
+            discountPercentage: 0,
+            discountAmount: 0,
             orderItems: {
                 create: [
                     {

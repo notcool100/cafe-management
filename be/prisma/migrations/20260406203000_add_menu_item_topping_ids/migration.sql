@@ -1,0 +1,2 @@
+ALTER TABLE "MenuItem"
+ADD COLUMN "toppingIds" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

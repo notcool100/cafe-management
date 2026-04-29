@@ -68,6 +68,15 @@ export interface CreateBranchData {
 }
 
 // Menu Item Types
+export interface MenuItemToppingDraft {
+    name: string;
+    price: number;
+}
+
+export interface MenuItemToppingUpdateDraft extends MenuItemToppingDraft {
+    id: string;
+}
+
 export interface MenuItem {
     id: string;
     name: string;
@@ -76,6 +85,9 @@ export interface MenuItem {
     category?: string;
     imageUrl?: string;
     sharedBranchIds?: string[];
+    disabledBranchIds?: string[];
+    toppingIds?: string[];
+    toppings?: MenuItem[];
     available: boolean;
     branchId: string;
     branch?: Branch;
@@ -92,6 +104,10 @@ export interface CreateMenuItemData {
     available: boolean;
     branchId: string;
     sharedBranchIds?: string[];
+    disabledBranchIds?: string[];
+    toppingIds?: string[];
+    newToppings?: MenuItemToppingDraft[];
+    updatedToppings?: MenuItemToppingUpdateDraft[];
 }
 
 export interface Category {
@@ -125,6 +141,14 @@ export enum OrderType {
     TAKEAWAY = 'TAKEAWAY',
 }
 
+export enum PaymentMethod {
+    CASH_PAYMENT = 'CASH_PAYMENT',
+    CREDIT_CARD = 'CREDIT_CARD',
+    DEBIT_CARD = 'DEBIT_CARD',
+    FONEPAY = 'FONEPAY',
+    UPI = 'UPI',
+}
+
 export interface OrderItem {
     id: string;
     orderId: string;
@@ -142,9 +166,13 @@ export interface Order {
     status: OrderStatus;
     tokenNumber?: number;
     orderType?: OrderType;
+    paymentMethod?: PaymentMethod;
     customerName?: string;
     customerPhone?: string;
+    subtotalAmount: number;
     totalAmount: number;
+    discountPercentage: number;
+    discountAmount: number;
     items: OrderItem[];
     createdAt: string;
     updatedAt: string;
@@ -160,6 +188,8 @@ export interface CreateOrderData {
     customerPhone?: string;
     deviceId?: string;
     orderType?: OrderType;
+    paymentMethod?: PaymentMethod;
+    discountPercentage?: number;
     items: {
         menuItemId: string;
         quantity: number;
@@ -178,11 +208,17 @@ export interface ApiResponse<T> {
     message?: string;
 }
 
-export interface PaginatedResponse<T> {
-    data: T[];
+export interface PaginatedListResponse<T> {
+    items: T[];
     total: number;
     page: number;
     limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+}
+
+export interface PaginatedMenuItemsResponse extends PaginatedListResponse<MenuItem> {
+    relatedItems?: MenuItem[];
 }
 
 export interface ApiError {
@@ -196,6 +232,11 @@ export interface MenuFilters {
     category?: string;
     search?: string;
     available?: boolean;
+    page?: number;
+    limit?: number;
+    excludeToppings?: boolean;
+    includeRelatedToppings?: boolean;
+    includeShared?: boolean;
 }
 
 export interface OrderFilters {

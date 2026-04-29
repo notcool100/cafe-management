@@ -5,16 +5,45 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { orderService } from '@/lib/api/order-service';
 import { menuService } from '@/lib/api/menu-service';
+import { categoryService } from '@/lib/api/category-service';
 import BranchSelector from '@/components/ui/BranchSelector';
-import { Order, CreateOrderData, OrderType, OrderStatus, Branch, OrderNotification, SharedItemNotification, MenuItem } from '@/lib/types';
+import { Order, CreateOrderData, OrderType, OrderStatus, Branch, OrderNotification, SharedItemNotification, MenuItem, PaymentMethod } from '@/lib/types';
 import { format } from 'date-fns';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { resolveImageUrl } from '@/lib/utils/image';
+import { isMenuItemAvailableForBranch } from '@/lib/utils/menu';
+import { isToppingCategoryName } from '@/lib/utils/topping';
+import { formatOrderItemName, isToppingOrderItem } from '@/lib/utils/order-items';
+
 type NotificationItem =
   | { kind: 'shared'; timestamp: string; data: SharedItemNotification }
   | { kind: 'order'; timestamp: string; data: OrderNotification };
 
+const DISCOUNT_PRESETS = [0, 5, 10, 15, 20];
+const MENU_PAGE_SIZE = 24;
+
+const clampDiscountPercentage = (value: number) => Math.min(Math.max(value, 0), 100);
+
+const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+const formatDiscountPercentage = (value: number) => {
+  if (Number.isInteger(value)) {
+    return `${value.toFixed(0)}%`;
+  }
+
+  return `${value.toFixed(2).replace(/\.?0+$/, '')}%`;
+};
+
+const formatEditableDiscountValue = (value: number) => {
+  if (Number.isInteger(value)) {
+    return value.toFixed(0);
+  }
+
+  return value.toFixed(2).replace(/\.?0+$/, '');
+};
+
 interface CartItem {
+  cartKey: string;
   id: string;
   name: string;
   price: number;
@@ -23,6 +52,8 @@ interface CartItem {
   image?: string;
   description: string;
   quantity: number;
+  toppingForItemId?: string;
+  toppingForItemName?: string;
 }
 
 interface MenuItemPreview {
@@ -30,6 +61,44 @@ interface MenuItemPreview {
   imageUrl?: string;
   image?: string;
 }
+
+const getRequestErrorStatus = (error: unknown) =>
+  typeof error === 'object' &&
+    error &&
+    'status' in error &&
+    typeof (error as { status?: unknown }).status === 'number'
+    ? (error as { status: number }).status
+    : undefined;
+
+const getRequestErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (
+    typeof error === 'object' &&
+    error &&
+    'message' in error &&
+    typeof (error as { message?: unknown }).message === 'string'
+  ) {
+    return (error as { message: string }).message;
+  }
+
+  return 'Unknown error';
+};
+
+const buildCartItemKey = (menuItemId: string, toppingForItemId?: string) =>
+  toppingForItemId ? `${menuItemId}::${toppingForItemId}` : menuItemId;
+
+const mergeMenuItemCollections = (currentItems: MenuItem[], nextItems: MenuItem[]) => {
+  const mergedItems = new Map(currentItems.map(item => [item.id, item]));
+
+  nextItems.forEach((item) => {
+    mergedItems.set(item.id, item);
+  });
+
+  return Array.from(mergedItems.values());
+};
 
 export default function StaffOrdersPage() {
   const router = useRouter();
@@ -43,8 +112,10 @@ export default function StaffOrdersPage() {
   const [customerInfo, setCustomerInfo] = useState({
     name: '',
     phone: '',
-    orderType: 'dine-in' as 'dine-in' | 'takeaway'
+    orderType: 'dine-in' as 'dine-in' | 'takeaway',
+    paymentMethod: PaymentMethod.CASH_PAYMENT
   });
+  const [discountInput, setDiscountInput] = useState('0');
 
   // Real live orders state - starts empty, only shows confirmed orders
   const [liveOrders, setLiveOrders] = useState<Order[]>([]);
@@ -63,7 +134,9 @@ export default function StaffOrdersPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [failedMenuImageIds, setFailedMenuImageIds] = useState<Set<string>>(new Set());
+  const [openToppingMenuId, setOpenToppingMenuId] = useState<string | null>(null);
   const branchQrCode = branchInfo?.qrCode || user?.branches?.find(b => b.id === selectedBranchId)?.qrCode;
+  const toppingMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Fetch live orders from API
   const fetchLiveOrders = async () => {
@@ -73,7 +146,7 @@ export default function StaffOrdersPage() {
       const orders = await orderService.getActiveOrders(selectedBranchId);
       setLiveOrders(orders);
     } catch (error) {
-      console.error('Failed to fetch live orders:', error);
+      // console.error('Failed to fetch live orders:', error);
       setLiveOrders([]);
     } finally {
       setIsLoadingOrders(false);
@@ -141,6 +214,30 @@ export default function StaffOrdersPage() {
     };
   }, [previewImage]);
 
+  useEffect(() => {
+    if (!openToppingMenuId) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (toppingMenuRef.current && !toppingMenuRef.current.contains(event.target as Node)) {
+        setOpenToppingMenuId(null);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenToppingMenuId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [openToppingMenuId]);
+
   const statusOptions: Array<{ value: OrderStatus; label: string; disabled?: boolean }> = [
     { value: OrderStatus.PENDING, label: 'Pending' },
     { value: OrderStatus.PREPARING, label: 'Preparing' },
@@ -182,12 +279,30 @@ export default function StaffOrdersPage() {
 
   // Menu items state - starts empty, will be fetched from API
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [relatedMenuItems, setRelatedMenuItems] = useState<MenuItem[]>([]);
   const [isLoadingMenu, setIsLoadingMenu] = useState(false);
+  const [isLoadingMoreMenu, setIsLoadingMoreMenu] = useState(false);
+  const [menuCategories, setMenuCategories] = useState<string[]>([]);
+  const [menuPage, setMenuPage] = useState(1);
+  const [menuTotalItems, setMenuTotalItems] = useState(0);
+  const [menuHasNextPage, setMenuHasNextPage] = useState(false);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
   const getItemCategory = (item: MenuItem) => (item.category || 'Uncategorized').trim() || 'Uncategorized';
+  const isItemAvailable = (item: MenuItem) => isMenuItemAvailableForBranch(item, selectedBranchId);
+  const allLoadedMenuItems = useMemo(
+    () => mergeMenuItemCollections(menuItems, relatedMenuItems),
+    [menuItems, relatedMenuItems]
+  );
+  const menuItemsById = useMemo(
+    () => new Map(allLoadedMenuItems.map(item => [item.id, item])),
+    [allLoadedMenuItems]
+  );
 
   const resolveMenuCategoryForBranch = (items: MenuItem[], branchId: string, previousCategory: string) => {
-    const availableItems = items.filter(item => item.available !== false);
+    const availableItems = items.filter(item =>
+      isMenuItemAvailableForBranch(item, branchId) && !isToppingCategoryName(getItemCategory(item))
+    );
     const availableCategories = Array.from(new Set(availableItems.map(getItemCategory)));
 
     if (previousCategory !== 'All' && availableCategories.includes(previousCategory)) {
@@ -204,35 +319,134 @@ export default function StaffOrdersPage() {
     return 'All';
   };
 
-  const categories = useMemo(() => [
-    'All',
-    ...Array.from(new Set(menuItems.map(getItemCategory).filter(Boolean))),
-  ], [menuItems]);
+  const categories = useMemo(() => ['All', ...menuCategories], [menuCategories]);
 
-  // Fetch menu items from API
-  const fetchMenuItems = async () => {
-    if (!selectedBranchId) return;
+  const getToppingsForItem = (item: MenuItem) => {
+    return (item.toppingIds || [])
+      .map(toppingId => menuItemsById.get(toppingId))
+      .filter((topping): topping is MenuItem => Boolean(topping))
+      .filter(topping => isItemAvailable(topping))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  };
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      if (!selectedBranchId) {
+        setMenuCategories([]);
+        return;
+      }
+
+      try {
+        const data = await categoryService.getCategories(selectedBranchId);
+        setMenuCategories(
+          Array.from(
+            new Set(
+              data
+                .map((category) => category.name?.trim())
+                .filter((categoryName): categoryName is string => Boolean(categoryName))
+            )
+          )
+        );
+      } catch (error) {
+        const status = getRequestErrorStatus(error);
+        if (status === 403 || status === 404) {
+          await refreshUser();
+          return;
+        }
+
+        console.error('Failed to fetch menu categories:', getRequestErrorMessage(error));
+        setMenuCategories([]);
+      }
+    };
+
+    loadCategories();
+  }, [selectedBranchId, refreshUser]);
+
+  const loadMenuItems = async (nextPage = 1, append = false) => {
+    if (!selectedBranchId) {
+      setMenuItems([]);
+      setRelatedMenuItems([]);
+      setMenuPage(1);
+      setMenuTotalItems(0);
+      setMenuHasNextPage(false);
+      return;
+    }
+
+    const setLoadingState = append ? setIsLoadingMoreMenu : setIsLoadingMenu;
 
     try {
-      setIsLoadingMenu(true);
-      const items = await menuService.getMenuItems({ branchId: selectedBranchId });
-      setMenuItems(items);
-      setSelectedCategory(previousCategory =>
-        resolveMenuCategoryForBranch(items, selectedBranchId, previousCategory)
+      setLoadingState(true);
+
+      let response = await menuService.getMenuItemsPage({
+        branchId: selectedBranchId,
+        category: selectedCategory !== 'All' ? selectedCategory : undefined,
+        search: debouncedSearchTerm || undefined,
+        page: nextPage,
+        limit: MENU_PAGE_SIZE,
+        excludeToppings: true,
+        includeRelatedToppings: true,
+        includeShared: selectedCategory !== 'All',
+      });
+
+      if (!append && selectedCategory === 'All' && response.total === 0) {
+        const sharedItemsResponse = await menuService.getMenuItemsPage({
+          branchId: selectedBranchId,
+          search: debouncedSearchTerm || undefined,
+          page: 1,
+          limit: MENU_PAGE_SIZE,
+          excludeToppings: true,
+          includeRelatedToppings: true,
+          includeShared: true,
+        });
+        const resolvedCategory = resolveMenuCategoryForBranch(sharedItemsResponse.items, selectedBranchId, 'All');
+
+        if (resolvedCategory !== 'All') {
+          setSelectedCategory(resolvedCategory);
+          return;
+        }
+
+        response = sharedItemsResponse;
+      }
+
+      setMenuItems(previousItems =>
+        append ? mergeMenuItemCollections(previousItems, response.items) : response.items
       );
+      setRelatedMenuItems(previousItems =>
+        append ? mergeMenuItemCollections(previousItems, response.relatedItems || []) : (response.relatedItems || [])
+      );
+      setMenuPage(response.page);
+      setMenuTotalItems(response.total);
+      setMenuHasNextPage(response.hasNextPage);
     } catch (error) {
-      console.error('Failed to fetch menu items:', error);
+      const status = getRequestErrorStatus(error);
+      if (status === 403 || status === 404) {
+        await refreshUser();
+        return;
+      }
+
+      console.error('Failed to fetch menu items:', getRequestErrorMessage(error));
       setMenuItems([]);
-      setSelectedCategory('All');
+      setRelatedMenuItems([]);
+      setMenuPage(1);
+      setMenuTotalItems(0);
+      setMenuHasNextPage(false);
     } finally {
-      setIsLoadingMenu(false);
+      setLoadingState(false);
     }
   };
 
-  // Fetch menu items on component mount or branch change
   useEffect(() => {
-    fetchMenuItems();
-  }, [selectedBranchId]);
+    setMenuPage(1);
+    loadMenuItems(1, false);
+  }, [selectedBranchId, selectedCategory, debouncedSearchTerm]);
 
   // Fetch branch info for header display
   useEffect(() => {
@@ -245,19 +459,28 @@ export default function StaffOrdersPage() {
         const menuData = await menuService.getPublicMenu(selectedBranchId);
         setBranchInfo(menuData.branch);
       } catch (error) {
-        console.error('Failed to fetch branch info:', error);
+        const status = getRequestErrorStatus(error);
+        if (status === 403 || status === 404) {
+          await refreshUser();
+          return;
+        }
+
+        console.error('Failed to fetch branch info:', getRequestErrorMessage(error));
         setBranchInfo(null);
       }
     };
     loadBranch();
   }, [selectedBranchId]);
 
-  const addToCart = (item: MenuItem) => {
+  const addToCart = (item: MenuItem, options?: { toppingFor?: MenuItem }) => {
+    const toppingFor = options?.toppingFor;
+    const cartKey = buildCartItemKey(item.id, toppingFor?.id);
+
     setCartItems(prevItems => {
-      const existingItem = prevItems.find(cartItem => cartItem.id === item.id);
+      const existingItem = prevItems.find(cartItem => cartItem.cartKey === cartKey);
       if (existingItem) {
         return prevItems.map(cartItem =>
-          cartItem.id === item.id
+          cartItem.cartKey === cartKey
             ? { ...cartItem, quantity: cartItem.quantity + 1 }
             : cartItem
         );
@@ -265,6 +488,7 @@ export default function StaffOrdersPage() {
       return [
         ...prevItems,
         {
+          cartKey,
           id: item.id,
           name: item.name,
           price: item.price,
@@ -272,39 +496,69 @@ export default function StaffOrdersPage() {
           imageUrl: item.imageUrl,
           description: item.description || '',
           quantity: 1,
+          toppingForItemId: toppingFor?.id,
+          toppingForItemName: toppingFor?.name,
         },
       ];
     });
   };
 
-  const updateQuantity = (id: string, quantity: number) => {
+  const handleToggleToppingMenu = (itemId: string) => {
+    setOpenToppingMenuId(previousItemId => previousItemId === itemId ? null : itemId);
+  };
+
+  const handleSelectTopping = (menuItem: MenuItem, topping: MenuItem) => {
+    addToCart(topping, { toppingFor: menuItem });
+    setOpenToppingMenuId(null);
+  };
+
+  const updateQuantity = (cartKey: string, quantity: number) => {
     if (quantity <= 0) {
-      setCartItems(prevItems => prevItems.filter(item => item.id !== id));
+      setCartItems(prevItems => prevItems.filter(item => item.cartKey !== cartKey));
       return;
     }
     setCartItems(prevItems =>
       prevItems.map(item =>
-        item.id === id
+        item.cartKey === cartKey
           ? { ...item, quantity }
           : item
       )
     );
   };
 
-  const removeFromCart = (id: string) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== id));
+  const updateMenuItemQuantity = (menuItemId: string, quantity: number) => {
+    const baseItem = cartItems.find(item => item.id === menuItemId && !item.toppingForItemId);
+
+    if (!baseItem) {
+      return;
+    }
+
+    updateQuantity(baseItem.cartKey, quantity);
   };
 
-  const getTotalPrice = () => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
+  const cartSubtotal = useMemo(
+    () => roundCurrency(cartItems.reduce((total, item) => total + (item.price * item.quantity), 0)),
+    [cartItems]
+  );
+
+  const parsedDiscountPercentage = Number.parseFloat(discountInput);
+  const appliedDiscountPercentage = Number.isFinite(parsedDiscountPercentage)
+    ? clampDiscountPercentage(parsedDiscountPercentage)
+    : 0;
+  const discountAmount = roundCurrency(cartSubtotal * (appliedDiscountPercentage / 100));
+  const discountedTotal = roundCurrency(Math.max(cartSubtotal - discountAmount, 0));
+  const hasDiscount = discountAmount > 0;
+
+  const getTotalPrice = () => discountedTotal;
 
   const getTotalItems = () => {
     return cartItems.reduce((total, item) => total + item.quantity, 0);
   };
 
   const getItemQuantity = (id: string) => {
-    return cartItems.find(item => item.id === id)?.quantity ?? 0;
+    return cartItems.reduce((total, item) => (
+      item.id === id ? total + item.quantity : total
+    ), 0);
   };
 
   const handleCheckout = () => {
@@ -326,22 +580,31 @@ export default function StaffOrdersPage() {
     setIsSubmittingOrder(true);
 
     try {
+      const summarizedOrderItems = Array.from(
+        cartItems.reduce((itemsMap, item) => {
+          itemsMap.set(item.id, (itemsMap.get(item.id) ?? 0) + item.quantity);
+          return itemsMap;
+        }, new Map<string, number>())
+      ).map(([menuItemId, quantity]) => ({
+        menuItemId,
+        quantity,
+      }));
+
       // Create order data
       const orderData: CreateOrderData = {
         branchId: selectedBranchId,
         customerName: customerInfo.name || undefined,
         customerPhone: customerInfo.phone || undefined,
         orderType: customerInfo.orderType === 'dine-in' ? OrderType.DINE_IN : OrderType.TAKEAWAY,
-        items: cartItems.map(item => ({
-          menuItemId: item.id,
-          quantity: item.quantity
-        }))
+        paymentMethod: customerInfo.paymentMethod,
+        discountPercentage: appliedDiscountPercentage > 0 ? appliedDiscountPercentage : undefined,
+        items: summarizedOrderItems
       };
 
       console.log('Creating order with data:', orderData);
 
       // Create the order
-      const newOrder = await orderService.createOrder(orderData);
+      const newOrder = await orderService.createStaffOrder(orderData);
       console.log('Order created successfully:', newOrder);
 
       // Clear cart and close checkout
@@ -350,11 +613,20 @@ export default function StaffOrdersPage() {
       setCustomerInfo({
         name: '',
         phone: '',
-        orderType: 'dine-in'
+        orderType: 'dine-in',
+        paymentMethod: PaymentMethod.CASH_PAYMENT
       });
+      setDiscountInput('0');
 
       // Show success message
       alert('Order placed successfully!');
+
+      // Auto-generate & print KOT for new orders
+      try {
+        await handlePrintKOT(newOrder.id);
+      } catch (printError) {
+        console.error('Failed to auto-print KOT:', printError);
+      }
 
       // Switch to live orders view and refresh
       setViewMode('live-orders');
@@ -362,10 +634,36 @@ export default function StaffOrdersPage() {
 
     } catch (error) {
       console.error('Failed to create order:', error);
-      alert(`Failed to place order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object' && error && 'message' in error && typeof (error as { message?: unknown }).message === 'string'
+            ? (error as { message: string }).message
+            : 'Unknown error';
+      alert(`Failed to place order: ${errorMessage}`);
     } finally {
       setIsSubmittingOrder(false);
     }
+  };
+
+  const printPdfBlob = (blob: Blob) => {
+    const fileURL = URL.createObjectURL(blob);
+    const printWindow = window.open(fileURL, '_blank');
+    if (printWindow) {
+      printWindow.onload = () => {
+        printWindow.print();
+        printWindow.onafterprint = () => {
+          printWindow.close();
+        };
+      };
+    }
+    setTimeout(() => URL.revokeObjectURL(fileURL), 60000);
+  };
+
+  const handlePrintKOT = async (orderId: string) => {
+    const kotBlob = await orderService.generateKOT(orderId);
+    orderService.downloadPDF(kotBlob, `KOT-${orderId}.pdf`);
+    printPdfBlob(kotBlob);
   };
 
   // Print bill function
@@ -373,34 +671,37 @@ export default function StaffOrdersPage() {
     try {
       const billBlob = await orderService.generateBill(orderId);
       orderService.downloadPDF(billBlob, `bill-${orderId}.pdf`);
-
-      // Also try to open print dialog
-      const fileURL = URL.createObjectURL(billBlob);
-      const printWindow = window.open(fileURL, '_blank');
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print();
-          printWindow.onafterprint = () => {
-            printWindow.close();
-          };
-        };
-      }
-      URL.revokeObjectURL(fileURL);
+      printPdfBlob(billBlob);
     } catch (error) {
       console.error('Failed to generate bill:', error);
       alert('Failed to generate bill. Please try again.');
     }
   };
 
-  // Remove order function
-  const handleRemoveOrder = async (orderId: string) => {
+  const sortHistoryOrders = (orders: Order[]) =>
+    [...orders].sort((a, b) => {
+      const aTime = new Date(a.updatedAt || a.createdAt).getTime();
+      const bTime = new Date(b.updatedAt || b.createdAt).getTime();
+      return bTime - aTime;
+    });
+
+  // Cancel order function
+  const handleCancelOrder = async (orderId: string) => {
     try {
-      await orderService.updateOrderStatus(orderId, OrderStatus.CANCELLED);
-      // Refresh the live orders list
-      await fetchLiveOrders();
+      setUpdatingOrderId(orderId);
+      const cancelledOrder = await orderService.cancelOrder(orderId);
+      setLiveOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
+      setHistoryOrders(prevOrders =>
+        sortHistoryOrders([
+          cancelledOrder,
+          ...prevOrders.filter(order => order.id !== orderId),
+        ])
+      );
     } catch (error) {
-      console.error('Failed to remove order:', error);
-      alert('Failed to remove order. Please try again.');
+      console.error('Failed to cancel order:', error);
+      alert('Failed to cancel order. Please try again.');
+    } finally {
+      setUpdatingOrderId(null);
     }
   };
 
@@ -411,6 +712,14 @@ export default function StaffOrdersPage() {
       setLiveOrders(prevOrders =>
         prevOrders.map(order => (order.id === orderId ? updatedOrder : order))
       );
+
+      if (status === OrderStatus.COMPLETED) {
+        try {
+          await handlePrintBill(orderId);
+        } catch (printError) {
+          console.error('Failed to auto-print bill:', printError);
+        }
+      }
     } catch (error) {
       console.error('Failed to update order status:', error);
       alert('Failed to update order status. Please try again.');
@@ -460,11 +769,6 @@ export default function StaffOrdersPage() {
     }
   }, [selectedBranchId]);
 
-  // Initial branch selection and user refresh
-  useEffect(() => {
-    refreshUser();
-  }, []);
-
   const handleToggleNotifications = () => {
     setIsNotificationsOpen(!isNotificationsOpen);
     if (!isNotificationsOpen) {
@@ -483,30 +787,53 @@ export default function StaffOrdersPage() {
     }
   }, [categories, selectedCategory]);
 
+  useEffect(() => {
+    setOpenToppingMenuId(null);
+  }, [searchTerm, selectedBranchId, selectedCategory, viewMode]);
+
   const isItemFromOtherBranch = (item: MenuItem) =>
     Boolean(selectedBranchId && item.branchId && item.branchId !== selectedBranchId);
 
-  const hasOtherBranchItems = menuItems.some(isItemFromOtherBranch);
+  const hasOtherBranchItems = menuItems.some(
+    item =>
+      isItemAvailable(item) &&
+      !isToppingCategoryName(getItemCategory(item)) &&
+      isItemFromOtherBranch(item)
+  );
 
   const filteredItems = menuItems.filter(item => {
     const itemCategory = getItemCategory(item);
+    const isToppingItem = isToppingCategoryName(itemCategory);
     const matchesCategory = selectedCategory === 'All'
       ? !isItemFromOtherBranch(item)
       : itemCategory === selectedCategory;
 
     return (
-      item.available !== false &&
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      isItemAvailable(item) &&
+      !isToppingItem &&
       matchesCategory
     );
   });
 
+  const handleLoadMoreMenuItems = () => {
+    if (isLoadingMenu || isLoadingMoreMenu || !menuHasNextPage) {
+      return;
+    }
+
+    void loadMenuItems(menuPage + 1, true);
+  };
+
   const getMenuItemImage = (item: MenuItemPreview) =>
-    resolveImageUrl(item.imageUrl ?? item.image) || '/api/placeholder/300/200';
+    resolveImageUrl(item.imageUrl ?? item.image);
 
   const handleOpenImagePreview = (item: MenuItemPreview) => {
+    const imageSrc = getMenuItemImage(item);
+    if (!imageSrc) {
+      return;
+    }
+
     setPreviewImage({
-      src: getMenuItemImage(item),
+      src: imageSrc,
       alt: item.name || 'Menu item',
     });
   };
@@ -515,13 +842,21 @@ export default function StaffOrdersPage() {
     setPreviewImage(null);
   };
 
+  const handleToggleSidebar = () => {
+    window.dispatchEvent(new Event('staff:toggle-sidebar'));
+  };
+
+  const unreadNotificationsLabel = unreadNotificationsCount > 99
+    ? '99+'
+    : String(unreadNotificationsCount);
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#f8fafc', fontFamily: 'Bricolage Grotesque, sans-serif' }}>
       <div className="w-full bg-white min-h-screen relative">
 
         {/* Sticky Header */}
-        <header className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-gray-100 transition-all duration-300">
-          <div className="flex items-center justify-between p-4">
+        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-100 transition-all duration-300">
+          <div className="flex items-center justify-between gap-3 p-4">
             {/* Navigation */}
             <div className="flex items-center space-x-4">
               {viewMode === 'menu' && !isCheckoutOpen && (
@@ -554,7 +889,7 @@ export default function StaffOrdersPage() {
             )}
 
             {/* Search Bar - Centered */}
-            <div className="flex-1 max-w-md mx-auto">
+            <div className="flex-1 min-w-0 max-w-md mx-auto">
               <div className="relative">
                 <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -570,10 +905,20 @@ export default function StaffOrdersPage() {
             </div>
 
             {/* Action Icons */}
-            <div className="flex items-center space-x-2 relative">
+            <div className="relative flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={handleToggleSidebar}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 lg:hidden"
+                aria-label="Toggle navigation menu"
+              >
+                <svg className="w-6 h-6 text-gray-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
               <button
                 onClick={handleToggleNotifications}
-                aria-label="Toggle notifications"
+                aria-label={unreadNotificationsCount > 0 ? `${unreadNotificationsCount} unread notifications` : 'Toggle notifications'}
                 title="Notifications"
                 className="p-2 rounded-lg hover:bg-gray-100 transition-all duration-200 group relative"
               >
@@ -581,7 +926,9 @@ export default function StaffOrdersPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
                 {unreadNotificationsCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-700 rounded-full"></span>
+                  <span className="absolute -right-1 -top-1 inline-flex min-w-[1.4rem] items-center justify-center rounded-full bg-red-700 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-sm">
+                    {unreadNotificationsLabel}
+                  </span>
                 )}
               </button>
 
@@ -665,11 +1012,19 @@ export default function StaffOrdersPage() {
                     className={`w-16 h-16 rounded-xl overflow-hidden ring-2 ring-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${branchQrCode ? 'bg-white cursor-pointer' : 'bg-gray-200 cursor-default'}`}
                     aria-label={branchQrCode ? 'Open branch QR code' : 'Branch QR code unavailable'}
                   >
-                    <img
-                      src={branchQrCode || '/api/placeholder/64/64'}
-                      alt={branchQrCode ? `${branchInfo?.name || 'Branch'} QR code` : 'Restaurant'}
-                      className={`w-full h-full ${branchQrCode ? 'object-contain p-1' : 'object-cover'}`}
-                    />
+                    {branchQrCode ? (
+                      <img
+                        src={branchQrCode}
+                        alt={`${branchInfo?.name || 'Branch'} QR code`}
+                        className="w-full h-full object-contain p-1"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-gray-400">
+                        <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 5h4v4H5V5zm10 0h4v4h-4V5zM5 15h4v4H5v-4zm7-7h2m-2 4h2m4 0h2m-6 2h2m-2 2h2m2 0h2" />
+                        </svg>
+                      </span>
+                    )}
                   </button>
                   <div className="flex-1">
                     <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: '30px', lineHeight: '125%', color: '#000000' }}>
@@ -756,6 +1111,18 @@ export default function StaffOrdersPage() {
                       Items from other branches are hidden in All. Pick a category to view them.
                     </p>
                   )}
+                  {menuTotalItems > 0 && (
+                    <div className="mb-6 flex flex-col gap-1 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
+                      <p>
+                        Showing {filteredItems.length} of {menuTotalItems} items
+                      </p>
+                      {debouncedSearchTerm && (
+                        <p>
+                          Search results for &quot;{debouncedSearchTerm}&quot;
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {isLoadingMenu ? (
                     <div className="text-center py-12">
@@ -774,138 +1141,227 @@ export default function StaffOrdersPage() {
                       <p className="text-gray-400 text-sm mt-2">Contact your manager to set up the menu</p>
                     </div>
                   ) : (
-                    <div className="space-y-0">
-                      {filteredItems.map((item) => {
-                        const imageKey = String(item.id);
-                        const imageSrc = failedMenuImageIds.has(imageKey) ? undefined : getMenuItemImage(item);
-                        const isFromOtherBranch = isItemFromOtherBranch(item);
-                        const sourceBranchName = item.branch?.name?.trim();
+                    <>
+                      <div className="grid grid-cols-1 justify-items-center gap-4 min-[380px]:grid-cols-2 sm:gap-5 lg:grid-cols-3 2xl:grid-cols-4">
+                        {filteredItems.map((item) => {
+                          const imageKey = String(item.id);
+                          const imageSrc = failedMenuImageIds.has(imageKey) ? undefined : getMenuItemImage(item);
+                          const isFromOtherBranch = isItemFromOtherBranch(item);
+                          const sourceBranchName = item.branch?.name?.trim();
+                          const itemQuantity = getItemQuantity(item.id);
+                          const itemToppings = getToppingsForItem(item);
+                          const hasAvailableToppings = itemToppings.length > 0;
+                          const isToppingMenuOpen = hasAvailableToppings && openToppingMenuId === item.id;
 
-                        return (
-                          <article key={item.id} className="border-b border-gray-900/10 py-3 sm:py-4 lg:py-6 last:border-0">
-                            <div className="flex items-start justify-between gap-3 sm:gap-4">
-                              {/* Left Column: Info */}
-                              <div className="min-w-0 flex-1 pr-1 sm:pr-2">
-                                <div className="mb-1 max-w-[276px]">
-                                  <h3
-                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, lineHeight: '125%', letterSpacing: '0%' }}
-                                    className="text-[17px] text-gray-900 sm:text-[19px] lg:text-[20px]"
-                                  >
-                                    {item.name}
-                                  </h3>
-                                </div>
-                                <div className="mb-1 max-w-[276px]">
-                                  <span
-                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '125%', letterSpacing: '0%' }}
-                                    className="text-sm text-gray-900 sm:text-[15px]"
-                                  >
-                                    Rs {item.price}
-                                  </span>
-                                </div>
+                          return (
+                            <article
+                              key={item.id}
+                              className={`group relative flex min-h-[320px] w-full max-w-[230px] flex-col overflow-visible rounded-none border-2 border-[#252b36] bg-white px-4 py-5 ${isToppingMenuOpen ? 'z-20' : ''}`}
+                            >
+                              <div className="min-h-[72px] text-center">
+                                <h3
+                                  style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 700, lineHeight: '125%' }}
+                                  className="line-clamp-2 text-[17px] text-[#3b3b3b] sm:text-[18px]"
+                                >
+                                  {item.name}
+                                </h3>
                                 {isFromOtherBranch && (
-                                  <div className="mb-2 max-w-[276px]">
-                                    <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800 ring-1 ring-amber-200 sm:text-[11px]">
-                                      From other branch
+                                  <div className="mt-2 flex flex-col items-center gap-1">
+                                    <span className="inline-flex items-center border border-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-700">
+                                      Shared item
                                     </span>
                                     {sourceBranchName && (
-                                      <p className="mt-1 text-[10px] font-medium text-amber-800 sm:text-[11px]">
+                                      <p className="text-[10px] font-medium text-amber-800">
                                         {sourceBranchName}
                                       </p>
                                     )}
                                   </div>
                                 )}
-                                <div className="max-w-[276px]">
-                                  <p
-                                    style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '125%', letterSpacing: '0%' }}
-                                    className="line-clamp-1 break-words text-[10px] leading-relaxed text-gray-900 sm:line-clamp-2 sm:text-[11px]"
-                                  >
-                                    {item.description || 'No description available'}
-                                  </p>
-                                </div>
                               </div>
 
-                              {/* Right Column: Image & Order Control */}
-                              <div className="flex shrink-0 flex-col items-center gap-2 sm:gap-3 lg:gap-4">
-                                <div className="relative h-14 w-14 sm:h-16 sm:w-16 lg:h-[72px] lg:w-[72px]">
+                            <div className="mt-4 flex justify-center">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  if (imageSrc) {
+                                    handleOpenImagePreview(item);
+                                  }
+                                }}
+                                disabled={!imageSrc}
+                                className={`relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-[2px] border-[#252b36] bg-white transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:h-28 sm:w-28 ${imageSrc ? 'cursor-pointer' : 'cursor-default'}`}
+                                aria-label={imageSrc ? `Preview ${item.name} image` : `${item.name} image unavailable`}
+                              >
+                                {imageSrc ? (
+                                  <img
+                                    src={imageSrc}
+                                    alt={item.name}
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                    onError={() => {
+                                      setFailedMenuImageIds((previous) => {
+                                        if (previous.has(imageKey)) {
+                                          return previous;
+                                        }
+
+                                        const next = new Set(previous);
+                                        next.add(imageKey);
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                ) : (
+                                  <span className="flex h-full w-full items-center justify-center text-gray-500">
+                                    <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14m-8-5h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  </span>
+                                )}
+                              </button>
+                            </div>
+
+                            <div className="mt-4 min-h-[44px] text-center">
+                              <p
+                                style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 600, lineHeight: '125%' }}
+                                className="text-[16px] text-[#3b3b3b]"
+                              >
+                                Rs {item.price}
+                              </p>
+                              <p
+                                style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 400, lineHeight: '140%' }}
+                                className="mt-1 hidden line-clamp-2 min-h-[2rem] text-[11px] text-slate-400 lg:block"
+                              >
+                                {item.description || ''}
+                              </p>
+                            </div>
+
+                            <div
+                              ref={isToppingMenuOpen ? toppingMenuRef : null}
+                              className="relative mt-5"
+                            >
+                              <div className="mx-auto flex w-full flex-col items-center gap-2">
+                                <button
+                                  onClick={() => addToCart(item)}
+                                  disabled={!isItemAvailable(item)}
+                                  className={`flex min-h-[44px] w-full max-w-[130px] items-center justify-center border-2 border-[#252b36] bg-white px-4 text-sm font-semibold text-[#252b36] transition-colors duration-200 hover:bg-[#252b36] hover:text-white ${!isItemAvailable(item) ? 'cursor-not-allowed opacity-50 hover:bg-white hover:text-[#252b36]' : ''}`}
+                                  style={{ fontFamily: "'Quicksand', sans-serif", lineHeight: '125%' }}
+                                  aria-label={`Add ${item.name}`}
+                                >
+                                  Add
+                                </button>
+                                {hasAvailableToppings && (
                                   <button
                                     type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      if (imageSrc) {
-                                        handleOpenImagePreview(item);
-                                      }
-                                    }}
-                                    disabled={!imageSrc}
-                                    className={`w-full h-full overflow-hidden rounded-full shadow-sm ring-1 ring-black/5 transition-shadow duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${imageSrc ? 'hover:shadow-md cursor-pointer' : 'cursor-default'}`}
-                                    style={{ backgroundColor: '#D9D9D9' }}
-                                    aria-label={imageSrc ? `Preview ${item.name} image` : `${item.name} image unavailable`}
+                                    onClick={() => handleToggleToppingMenu(item.id)}
+                                    className={`flex items-center justify-center gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors duration-200 ${isToppingMenuOpen ? 'text-amber-700' : 'text-slate-500 hover:text-amber-700'}`}
+                                    style={{ fontFamily: "'Quicksand', sans-serif", lineHeight: '125%' }}
+                                    aria-expanded={isToppingMenuOpen}
+                                    aria-haspopup="menu"
+                                    aria-label={`Show toppings for ${item.name}`}
+                                    title={`Show toppings for ${item.name}`}
                                   >
-                                    {imageSrc ? (
-                                      <img
-                                        src={imageSrc}
-                                        alt={item.name}
-                                        className="w-full h-full object-cover"
-                                        onError={() => {
-                                          setFailedMenuImageIds((previous) => {
-                                            if (previous.has(imageKey)) {
-                                              return previous;
-                                            }
-
-                                            const next = new Set(previous);
-                                            next.add(imageKey);
-                                            return next;
-                                          });
-                                        }}
-                                      />
-                                    ) : (
-                                      <span className="flex h-full w-full items-center justify-center text-gray-500">
-                                        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14m-8-5h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                      </span>
-                                    )}
+                                    Topping
+                                    <svg className={`h-4 w-4 transition-transform duration-200 ${isToppingMenuOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                      <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                                    </svg>
                                   </button>
-                                </div>
-
-                                {getItemQuantity(item.id) === 0 ? (
-                                  <button
-                                    onClick={() => addToCart(item)}
-                                    className="flex h-6 w-[68px] items-center justify-center rounded-full border-2 border-green-700/60 text-[11px] text-green-700 transition-all duration-200 hover:bg-green-700 hover:text-white sm:h-[26px] sm:w-[76px] sm:text-xs lg:w-[82px]"
-                                    style={{
-                                      fontFamily: "'Quicksand', sans-serif",
-                                      fontWeight: 600,
-                                      lineHeight: '125%'
-                                    }}
-                                  >
-                                    ADD
-                                  </button>
-                                ) : (
-                                  <div className="flex items-center gap-2 rounded-full bg-gray-100 px-2 py-0.5 sm:gap-3 sm:py-1">
-                                    <button
-                                      onClick={() => updateQuantity(item.id, getItemQuantity(item.id) - 1)}
-                                      className="flex h-5 w-5 items-center justify-center text-gray-600 transition-colors hover:text-gray-900 sm:h-6 sm:w-6"
-                                      aria-label={`Decrease ${item.name}`}
-                                    >
-                                      <span className="text-lg font-bold">-</span>
-                                    </button>
-                                    <span className="min-w-[1ch] text-center text-xs font-bold text-gray-900 sm:text-sm" style={{ fontFamily: "'Quicksand', sans-serif" }}>
-                                      {getItemQuantity(item.id)}
-                                    </span>
-                                    <button
-                                      onClick={() => updateQuantity(item.id, getItemQuantity(item.id) + 1)}
-                                      className="flex h-5 w-5 items-center justify-center text-gray-600 transition-colors hover:text-gray-900 sm:h-6 sm:w-6"
-                                      aria-label={`Increase ${item.name}`}
-                                    >
-                                      <span className="text-lg font-bold">+</span>
-                                    </button>
-                                  </div>
                                 )}
                               </div>
+
+                              {hasAvailableToppings && isToppingMenuOpen && (
+                                <div
+                                  className="absolute left-1/2 top-full z-20 mt-2 w-[min(220px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden border-2 border-[#252b36] bg-white shadow-[0_16px_30px_rgba(15,23,42,0.12)]"
+                                  role="menu"
+                                  aria-label={`${item.name} toppings`}
+                                >
+                                  <div className="border-b border-slate-200 px-3 py-3">
+                                    <p className="text-sm font-semibold text-[#252b36]" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                      Select a topping
+                                    </p>
+                                    <p className="text-[11px] text-slate-400" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                      Add toppings as separate order items.
+                                    </p>
+                                  </div>
+                                  <div className="max-h-60 overflow-y-auto py-1">
+                                    {itemToppings.map((topping) => {
+                                      const toppingQuantity = getItemQuantity(topping.id);
+                                      const toppingSourceBranch = topping.branch?.name?.trim();
+
+                                      return (
+                                        <button
+                                          key={topping.id}
+                                          type="button"
+                                          onClick={() => handleSelectTopping(item, topping)}
+                                          className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left transition-colors duration-200 hover:bg-slate-50"
+                                          role="menuitem"
+                                        >
+                                          <span className="min-w-0">
+                                            <span className="block truncate text-sm font-semibold text-slate-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                              {topping.name}
+                                            </span>
+                                            <span className="block text-xs text-slate-300" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                              {toppingSourceBranch && isItemFromOtherBranch(topping)
+                                                ? `Shared from ${toppingSourceBranch}`
+                                                : 'Available topping'}
+                                              {toppingQuantity > 0 ? ` | In cart: ${toppingQuantity}` : ''}
+                                            </span>
+                                          </span>
+                                          <span className="shrink-0 text-sm font-semibold text-slate-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                            Rs {topping.price}
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          </article>
-                        );
-                      })}
-                    </div>
+
+                            <div className="mt-auto flex items-center justify-center pt-5">
+                              <div className="flex w-full max-w-[120px] items-center justify-between">
+                                <button
+                                  onClick={() => updateMenuItemQuantity(item.id, itemQuantity - 1)}
+                                  disabled={itemQuantity === 0}
+                                  className="flex h-8 w-8 items-center justify-center text-[#252b36] transition-colors duration-200 hover:text-black disabled:cursor-not-allowed disabled:text-slate-300"
+                                  aria-label={`Decrease ${item.name}`}
+                                >
+                                  <span className="text-[28px] leading-none">-</span>
+                                </button>
+
+                                <span
+                                  className={`min-w-[20px] text-center text-sm font-semibold ${itemQuantity > 0 ? 'text-[#252b36]' : 'text-slate-300'}`}
+                                  style={{ fontFamily: "'Quicksand', sans-serif" }}
+                                >
+                                  {itemQuantity}
+                                </span>
+
+                                <button
+                                  onClick={() => addToCart(item)}
+                                  disabled={!isItemAvailable(item)}
+                                  className={`flex h-8 w-8 items-center justify-center transition-colors duration-200 ${isItemAvailable(item) ? 'text-[#252b36] hover:text-black' : 'cursor-not-allowed text-slate-300'}`}
+                                  aria-label={`Increase ${item.name}`}
+                                >
+                                  <span className="text-[28px] leading-none">+</span>
+                                </button>
+                              </div>
+                            </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                      {(menuHasNextPage || isLoadingMoreMenu) && (
+                        <div className="mt-8 flex justify-center">
+                          <button
+                            type="button"
+                            onClick={handleLoadMoreMenuItems}
+                            disabled={isLoadingMoreMenu}
+                            className="inline-flex min-w-[180px] items-center justify-center rounded-full border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-900 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isLoadingMoreMenu ? 'Loading more...' : 'Load more items'}
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </section>
@@ -966,7 +1422,14 @@ export default function StaffOrdersPage() {
                             </div>
                             <div className="w-full sm:w-auto sm:text-right">
                               <div className="flex flex-col items-start sm:items-end space-y-2">
-                                <span className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>Rs {order.totalAmount}</span>
+                                <div className="flex flex-col items-start sm:items-end">
+                                  <span className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>Rs {order.totalAmount}</span>
+                                  {order.discountAmount > 0 && (
+                                    <span className="text-xs font-medium text-emerald-600" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                      {formatDiscountPercentage(order.discountPercentage)} off
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${order.status === 'READY' ? 'bg-green-100 text-green-700 border border-green-200' :
                                     order.status === 'PREPARING' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
@@ -1004,9 +1467,10 @@ export default function StaffOrdersPage() {
                                     </button>
                                     {order.status !== 'CANCELLED' && (
                                       <button
-                                        onClick={() => handleRemoveOrder(order.id)}
-                                        className="p-1.5 text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-200"
-                                        title="Remove order"
+                                        onClick={() => handleCancelOrder(order.id)}
+                                        disabled={updatingOrderId === order.id}
+                                        className="p-1.5 text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+                                        title="Cancel order"
                                       >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1026,10 +1490,17 @@ export default function StaffOrdersPage() {
                                   {order.items.map((item, index) => (
                                     <div key={index} className="flex items-center justify-between text-sm" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                                       <div className="flex items-center space-x-2">
-                                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                                        <span className="text-gray-700 font-medium">
-                                          {item.menuItem?.name || 'Item'}
-                                        </span>
+                                        <div className={`w-2 h-2 rounded-full ${isToppingOrderItem(item) ? 'bg-amber-400' : 'bg-blue-400'}`}></div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-gray-700 font-medium">
+                                            {formatOrderItemName(item, { prefixTopping: true })}
+                                          </span>
+                                          {isToppingOrderItem(item) && (
+                                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-800">
+                                              Topping
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
                                       <div className="flex items-center space-x-3">
                                         <span className="text-gray-700">x{item.quantity}</span>
@@ -1182,7 +1653,14 @@ export default function StaffOrdersPage() {
                             </div>
                             <div className="w-full sm:w-auto sm:text-right">
                               <div className="flex flex-col items-start sm:items-end space-y-2">
-                                <span className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>Rs {order.totalAmount}</span>
+                                <div className="flex flex-col items-start sm:items-end">
+                                  <span className="text-xl font-bold text-gray-900" style={{ fontFamily: "'Quicksand', sans-serif" }}>Rs {order.totalAmount}</span>
+                                  {order.discountAmount > 0 && (
+                                    <span className="text-xs font-medium text-emerald-600" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+                                      {formatDiscountPercentage(order.discountPercentage)} off
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${order.status === OrderStatus.COMPLETED
                                     ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
@@ -1214,10 +1692,17 @@ export default function StaffOrdersPage() {
                                   {order.items.map((item, index) => (
                                     <div key={index} className="flex items-center justify-between text-sm" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                                       <div className="flex items-center space-x-2">
-                                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                                        <span className="text-gray-700 font-medium">
-                                          {item.menuItem?.name || 'Item'}
-                                        </span>
+                                        <div className={`w-2 h-2 rounded-full ${isToppingOrderItem(item) ? 'bg-amber-400' : 'bg-blue-400'}`}></div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-gray-700 font-medium">
+                                            {formatOrderItemName(item, { prefixTopping: true })}
+                                          </span>
+                                          {isToppingOrderItem(item) && (
+                                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-800">
+                                              Topping
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
                                       <div className="flex items-center space-x-3">
                                         <span className="text-gray-700">x{item.quantity}</span>
@@ -1247,22 +1732,34 @@ export default function StaffOrdersPage() {
                 {cartItems.length > 0 ? (
                   <>
                     <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
-                      {cartItems.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between py-2 border-b border-gray-50">
+                      {cartItems.map((item) => (
+                        <div key={item.cartKey} className="flex items-center justify-between py-2 border-b border-gray-50">
                           <div className="flex-1">
-                            <p className="font-medium text-gray-900" style={{ fontFamily: 'Quicksand, sans-serif' }}>{item.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-900" style={{ fontFamily: 'Quicksand, sans-serif' }}>{item.name}</p>
+                              {isToppingCategoryName(item.category) && (
+                                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-800">
+                                  Topping
+                                </span>
+                              )}
+                            </div>
+                            {item.toppingForItemName && (
+                              <p className="mt-1 text-xs font-medium text-amber-700" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                                For {item.toppingForItemName}
+                              </p>
+                            )}
                             <p className="text-sm text-gray-700" style={{ fontFamily: 'Quicksand, sans-serif' }}>Rs {item.price} x {item.quantity}</p>
                           </div>
                           <div className="flex items-center space-x-2">
                             <button
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              onClick={() => updateQuantity(item.cartKey, item.quantity - 1)}
                               className="w-6 h-6 rounded-full border border-gray-700 text-gray-700 hover:bg-gray-100 flex items-center justify-center text-sm"
                             >
                               -
                             </button>
                             <span className="text-sm font-medium text-gray-700 w-4 text-center">{item.quantity}</span>
                             <button
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              onClick={() => updateQuantity(item.cartKey, item.quantity + 1)}
                               className="w-6 h-6 rounded-full border border-gray-700 text-gray-700 hover:bg-gray-100 flex items-center justify-center text-sm"
                             >
                               +
@@ -1277,9 +1774,21 @@ export default function StaffOrdersPage() {
                         <span className="text-gray-700">Items ({getTotalItems()}):</span>
                         <span className="font-semibold">{getTotalItems()}</span>
                       </div>
+                      {hasDiscount && (
+                        <>
+                          <div className="flex items-center justify-between text-sm text-gray-700" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                            <span>Subtotal</span>
+                            <span>Rs {cartSubtotal.toFixed(2)}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm text-emerald-600" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                            <span>Discount ({formatDiscountPercentage(appliedDiscountPercentage)})</span>
+                            <span>- Rs {discountAmount.toFixed(2)}</span>
+                          </div>
+                        </>
+                      )}
                       <div className="flex items-center justify-between text-lg" style={{ fontFamily: 'Quicksand, sans-serif' }}>
                         <span className="font-semibold text-gray-900">Total:</span>
-                        <span className="font-bold text-gray-900">Rs {getTotalPrice()}</span>
+                        <span className="font-bold text-gray-900">Rs {getTotalPrice().toFixed(2)}</span>
                       </div>
                     </div>
 
@@ -1375,18 +1884,79 @@ export default function StaffOrdersPage() {
               <div className="mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3">Order Summary</h3>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {cartItems.map((item, index) => (
-                    <div key={index} className="flex justify-between text-sm" style={{ fontFamily: 'Quicksand, sans-serif' }}>
-                      <span className="text-gray-700">{item.name} x {item.quantity}</span>
+                  {cartItems.map((item) => (
+                    <div key={item.cartKey} className="flex justify-between gap-3 text-sm" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                      <span className="text-gray-700">
+                        <span>
+                          {item.name}
+                          {isToppingCategoryName(item.category) ? ' (Topping)' : ''}
+                          {' '}x {item.quantity}
+                        </span>
+                        {item.toppingForItemName && (
+                          <span className="block text-xs font-medium text-amber-700">
+                            For {item.toppingForItemName}
+                          </span>
+                        )}
+                      </span>
                       <span className="font-medium">Rs {item.price * item.quantity}</span>
                     </div>
                   ))}
                 </div>
                 <div className="border-t pt-2 mt-3">
-                  <div className="flex justify-between font-semibold" style={{ fontFamily: 'Quicksand, sans-serif' }}>
-                    <span>Total</span>
-                    <span>Rs {getTotalPrice()}</span>
+                  <div className="space-y-2" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                    <div className="flex justify-between text-sm text-gray-700">
+                      <span>Subtotal</span>
+                      <span>Rs {cartSubtotal.toFixed(2)}</span>
+                    </div>
+                    {hasDiscount && (
+                      <div className="flex justify-between text-sm text-emerald-600">
+                        <span>Discount ({formatDiscountPercentage(appliedDiscountPercentage)})</span>
+                        <span>- Rs {discountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-semibold">
+                      <span>Total</span>
+                      <span>Rs {getTotalPrice().toFixed(2)}</span>
+                    </div>
                   </div>
+                </div>
+              </div>
+
+              <div className="mb-6" style={{ fontFamily: 'Quicksand, sans-serif' }}>
+                <h3 className="font-semibold text-gray-900 mb-3">Discount</h3>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  {DISCOUNT_PRESETS.map((preset) => {
+                    const isActive = appliedDiscountPercentage === preset && discountInput !== '';
+
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setDiscountInput(formatEditableDiscountValue(preset))}
+                        className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${isActive
+                          ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-emerald-400 hover:text-emerald-700'
+                          }`}
+                      >
+                        {preset === 0 ? 'No discount' : formatDiscountPercentage(preset)}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Manual Discount (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.value)}
+                    onBlur={() => setDiscountInput(formatEditableDiscountValue(appliedDiscountPercentage))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    placeholder="Enter discount percentage"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Use a preset or enter any percentage manually.</p>
                 </div>
               </div>
 
@@ -1448,11 +2018,16 @@ export default function StaffOrdersPage() {
               {/* Payment Method */}
               <div className="mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3">Payment Method</h3>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700">
-                  <option>Cash Payment</option>
-                  <option>Credit Card</option>
-                  <option>Debit Card</option>
-                  <option>UPI</option>
+                <select
+                  value={customerInfo.paymentMethod}
+                  onChange={(e) => setCustomerInfo({ ...customerInfo, paymentMethod: e.target.value as PaymentMethod })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700"
+                >
+                  <option value={PaymentMethod.CASH_PAYMENT}>Cash Payment</option>
+                  <option value={PaymentMethod.FONEPAY}>Fonepay</option>
+                  <option value={PaymentMethod.CREDIT_CARD}>Credit Card</option>
+                  <option value={PaymentMethod.DEBIT_CARD}>Debit Card</option>
+                  <option value={PaymentMethod.UPI}>UPI</option>
                 </select>
               </div>
 

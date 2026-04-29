@@ -2,12 +2,16 @@ import { Router } from 'express';
 import { StaffController } from './staff.controller';
 import { authenticate } from '../../middleware/auth';
 import { requireRole } from '../../middleware/rbac';
+import { OrderController } from '../order/order.controller';
 
 const router: Router = Router();
 
 // All staff routes require authentication and MANAGER/EMPLOYEE/ADMIN role
 router.use(authenticate);
-router.use(requireRole('ADMIN', 'MANAGER', 'EMPLOYEE'));
+router.use(requireRole('ADMIN', 'MANAGER', 'EMPLOYEE', 'SUPER_ADMIN'));
+
+// Get active orders for staff's branch
+router.post('/orders', OrderController.createOrderValidation, OrderController.createOrder);
 
 // Get active orders for staff's branch
 router.get('/orders/active', StaffController.getActiveOrders);

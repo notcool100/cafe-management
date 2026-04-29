@@ -17,6 +17,36 @@ const withConnectionLimit = (url?: string) => {
 
 const databaseUrl = withConnectionLimit(process.env.DATABASE_URL);
 
+const assertSafeDatabaseTarget = (url?: string) => {
+    if (!url || process.env.NODE_ENV === 'production') {
+        return;
+    }
+
+    if (process.env.ALLOW_LIVE_DATABASE_IN_DEV === 'true') {
+        return;
+    }
+
+    try {
+        const parsed = new URL(url);
+        const databaseName = parsed.pathname.replace(/^\/+/, '').toLowerCase();
+        const looksLikeLiveDatabase =
+            databaseName.includes('live') || databaseName.includes('prod') || databaseName.includes('production');
+
+        if (looksLikeLiveDatabase) {
+            throw new Error(
+                `Refusing to connect to database "${databaseName}" while NODE_ENV=${process.env.NODE_ENV}. ` +
+                'Use a dev/staging database instead, or set ALLOW_LIVE_DATABASE_IN_DEV=true to override.'
+            );
+        }
+    } catch (error) {
+        if (error instanceof Error) {
+            throw error;
+        }
+    }
+};
+
+assertSafeDatabaseTarget(databaseUrl);
+
 // Prevent multiple instances of Prisma Client in development
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;

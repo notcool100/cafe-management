@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { menuService } from '@/lib/api/menu-service';
 import { branchService } from '@/lib/api/branch-service';
-import { MenuItem, Branch, UserRole } from '@/lib/types';
+import { MenuItem, Branch } from '@/lib/types';
 import Spinner from '@/components/ui/Spinner';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
@@ -13,15 +13,24 @@ import Toast from '@/components/ui/Toast';
 import { resolveImageUrl } from '@/lib/utils/image';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { formatBranchLabel } from '@/lib/utils/format';
+import { getMenuItemVisibleBranchIds, isMenuItemDisabledForBranch } from '@/lib/utils/menu';
+
+const MENU_PAGE_SIZE = 16;
 
 export default function MenuPage() {
-    const { user, selectedBranchId } = useAuthStore();
-    const isManager = user?.role === UserRole.MANAGER;
+    const { selectedBranchId } = useAuthStore();
     const currentBranchId = selectedBranchId || '';
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingBranches, setIsLoadingBranches] = useState(true);
+    const [isLoadingItems, setIsLoadingItems] = useState(true);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+    const [availabilityTargetId, setAvailabilityTargetId] = useState<string | null>(null);
+    const [pendingDisabledBranchIds, setPendingDisabledBranchIds] = useState<string[]>([]);
+    const [isSavingDisabledBranches, setIsSavingDisabledBranches] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [menuTotalItems, setMenuTotalItems] = useState(0);
+    const [menuTotalPages, setMenuTotalPages] = useState(1);
     const [filters, setFilters] = useState({
         search: '',
         category: '',
@@ -32,16 +41,13 @@ export default function MenuPage() {
         type: 'success',
         isVisible: false,
     });
+    const isLoading = isLoadingBranches || isLoadingItems;
 
-    const loadData = useCallback(async () => {
+    const loadBranches = useCallback(async () => {
         try {
-            setIsLoading(true);
-            const [branchesData, itemsData] = await Promise.all([
-                branchService.getBranches(),
-                menuService.getMenuItems({})
-            ]);
+            setIsLoadingBranches(true);
+            const branchesData = await branchService.getBranches();
             setBranches(branchesData);
-            setMenuItems(itemsData);
 
             // Auto-apply branch filter for managers or single-branch tenants
             if (currentBranchId) {
@@ -57,27 +63,42 @@ export default function MenuPage() {
                 isVisible: true,
             });
         } finally {
-            setIsLoading(false);
+            setIsLoadingBranches(false);
         }
     }, [filters.branchId, currentBranchId]);
 
-    // Reload menu items when filters change (except search which is client-side filtered for responsiveness)
     const loadMenuItems = useCallback(async () => {
         try {
-            // Only toggle loading if it takes a bit, but for now just simple state
-            const items = await menuService.getMenuItems({
+            setIsLoadingItems(true);
+            const response = await menuService.getMenuItemsPage({
+                search: filters.search || undefined,
                 category: filters.category || undefined,
                 branchId: filters.branchId || undefined,
+                page: currentPage,
+                limit: MENU_PAGE_SIZE,
             });
-            setMenuItems(items);
+            setMenuItems(response.items);
+            setMenuTotalItems(response.total);
+            setMenuTotalPages(response.totalPages);
+            if (response.page !== currentPage) {
+                setCurrentPage(response.page);
+            }
         } catch (error) {
             console.log('Failed to load items:', error);
+        } finally {
+            setIsLoadingItems(false);
         }
-    }, [filters.branchId, filters.category]);
+    }, [currentPage, filters.branchId, filters.category, filters.search]);
 
     useEffect(() => {
-        loadData();
-    }, [loadData]);
+        loadBranches();
+    }, [loadBranches]);
+
+    useEffect(() => {
+        if (currentPage !== 1) {
+            setCurrentPage(1);
+        }
+    }, [currentPage, filters.branchId, filters.category, filters.search]);
 
     useEffect(() => {
         loadMenuItems();
@@ -86,8 +107,12 @@ export default function MenuPage() {
     const handleDelete = async (id: string) => {
         try {
             await menuService.deleteMenuItem(id);
-            setMenuItems(menuItems.filter(item => item.id !== id));
             setDeleteConfirm(null);
+            if (menuItems.length === 1 && currentPage > 1) {
+                setCurrentPage((previousPage) => previousPage - 1);
+            } else {
+                await loadMenuItems();
+            }
             setToast({
                 message: 'Menu item deleted successfully',
                 type: 'success',
@@ -103,18 +128,94 @@ export default function MenuPage() {
         }
     };
 
-    const handleToggleAvailability = async (item: MenuItem) => {
+    const handleEnableItem = async (item: MenuItem) => {
         try {
             const updatedItem = await menuService.updateMenuItem(item.id, {
-                available: !item.available
+                available: true
             });
-            setMenuItems(menuItems.map(i => i.id === item.id ? updatedItem : i));
+            setMenuItems((previous) => previous.map((currentItem) => currentItem.id === item.id ? updatedItem : currentItem));
+            setToast({
+                message: 'Menu item enabled successfully',
+                type: 'success',
+                isVisible: true,
+            });
         } catch {
             setToast({
                 message: 'Failed to update availability',
                 type: 'error',
                 isVisible: true,
             });
+        }
+    };
+
+    const activeBranchId = filters.branchId || currentBranchId || (branches.length === 1 ? branches[0].id : '');
+
+    const getVisibleBranchesForItem = useCallback((item: MenuItem) => {
+        const visibleBranchIds = getMenuItemVisibleBranchIds(item);
+        return visibleBranchIds
+            .map((branchId) => branches.find((branch) => branch.id === branchId))
+            .filter((branch): branch is Branch => Boolean(branch));
+    }, [branches]);
+
+    const getDisabledBranchesForItem = useCallback((item: MenuItem) => {
+        const disabledBranchIdSet = new Set(item.disabledBranchIds || []);
+        return getVisibleBranchesForItem(item).filter((branch) => disabledBranchIdSet.has(branch.id));
+    }, [getVisibleBranchesForItem]);
+
+    const availabilityTarget = useMemo(
+        () => menuItems.find((item) => item.id === availabilityTargetId) || null,
+        [availabilityTargetId, menuItems]
+    );
+    const availabilityTargetBranches = availabilityTarget ? getVisibleBranchesForItem(availabilityTarget) : [];
+
+    const openAvailabilityModal = (item: MenuItem) => {
+        setAvailabilityTargetId(item.id);
+        setPendingDisabledBranchIds(item.disabledBranchIds || []);
+    };
+
+    const closeAvailabilityModal = () => {
+        if (isSavingDisabledBranches) return;
+        setAvailabilityTargetId(null);
+        setPendingDisabledBranchIds([]);
+    };
+
+    const handleToggleBranchDisabled = (branchId: string) => {
+        setPendingDisabledBranchIds((previous) =>
+            previous.includes(branchId)
+                ? previous.filter((id) => id !== branchId)
+                : [...previous, branchId]
+        );
+    };
+
+    const handleSaveDisabledBranches = async () => {
+        if (!availabilityTarget) {
+            return;
+        }
+
+        try {
+            setIsSavingDisabledBranches(true);
+            const updatedItem = await menuService.updateMenuItem(availabilityTarget.id, {
+                disabledBranchIds: pendingDisabledBranchIds,
+            });
+            setMenuItems((previous) =>
+                previous.map((item) => item.id === updatedItem.id ? updatedItem : item)
+            );
+            closeAvailabilityModal();
+            setToast({
+                message: pendingDisabledBranchIds.length > 0
+                    ? 'Branch availability updated'
+                    : 'Item is now available in all assigned branches',
+                type: 'success',
+                isVisible: true,
+            });
+        } catch {
+            setToast({
+                message: 'Failed to update branch availability',
+                type: 'error',
+                isVisible: true,
+            });
+        } finally {
+            setIsSavingDisabledBranches(false);
         }
     };
 
@@ -183,9 +284,35 @@ export default function MenuPage() {
                 </div>
             </div>
 
+            {menuTotalItems > 0 && (
+                <div className="mb-4 flex flex-col gap-2 text-sm text-[#6e4b3d] sm:flex-row sm:items-center sm:justify-between">
+                    <p>
+                        Showing page {currentPage} of {menuTotalPages} ({menuTotalItems} items)
+                    </p>
+                    <p>
+                        {filteredItems.length} item{filteredItems.length === 1 ? '' : 's'} on this page
+                    </p>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 gap-4 min-[460px]:grid-cols-2 sm:gap-6 md:grid-cols-3 xl:grid-cols-4">
                 {filteredItems.map((item) => {
                     const imageSrc = resolveImageUrl(item.imageUrl);
+                    const sourceBranch = item.branch || branches.find((branch) => branch.id === item.branchId);
+                    const isFromOtherBranch = Boolean(activeBranchId && item.branchId && item.branchId !== activeBranchId);
+                    const sourceBranchLabel = sourceBranch ? formatBranchLabel(sourceBranch) : 'Another branch';
+                    const disabledBranches = getDisabledBranchesForItem(item);
+                    const disabledBranchLabels = disabledBranches.map((branch) => formatBranchLabel(branch));
+                    const isDisabledInActiveBranch = isMenuItemDisabledForBranch(item, activeBranchId);
+                    const badge = !item.available
+                        ? { variant: 'danger' as const, label: 'Unavailable' }
+                        : disabledBranches.length === 0
+                            ? { variant: 'success' as const, label: 'Available' }
+                            : disabledBranches.length === getVisibleBranchesForItem(item).length
+                                ? { variant: 'warning' as const, label: 'Disabled in all' }
+                                : isDisabledInActiveBranch
+                                    ? { variant: 'warning' as const, label: 'Disabled here' }
+                                    : { variant: 'warning' as const, label: `Disabled in ${disabledBranches.length}` };
 
                     return (
                         <div key={item.id} className="rounded-xl bg-[#5b3629] p-3 shadow-[0_4px_10px_rgba(0,0,0,0.2)] sm:p-4">
@@ -205,8 +332,8 @@ export default function MenuPage() {
                                     </div>
                                 )}
                                 <div className="absolute top-2 right-2">
-                                    <Badge variant={item.available ? 'success' : 'danger'}>
-                                        {item.available ? 'Available' : 'Unavailable'}
+                                    <Badge variant={badge.variant}>
+                                        {badge.label}
                                     </Badge>
                                 </div>
                             </div>
@@ -215,17 +342,32 @@ export default function MenuPage() {
                                 <h3 className="break-words text-xl font-medium leading-tight text-[#f9f0e2] sm:text-2xl xl:text-3xl" title={item.name}>
                                     {item.name}
                                 </h3>
+                                {isFromOtherBranch && (
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                        <span className="inline-flex items-center rounded-full bg-[#f3ddad] px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5b3629]">
+                                            From other branch
+                                        </span>
+                                        <span className="text-xs font-medium text-[#f3ddad]">
+                                            {sourceBranchLabel}
+                                        </span>
+                                    </div>
+                                )}
                                 <p className="mt-1 text-base text-[#e9d8c5]">Rs. {Number(item.price).toFixed(2)}</p>
+                                {item.available && disabledBranchLabels.length > 0 && (
+                                    <p className="mt-2 text-xs leading-relaxed text-[#f3ddad]">
+                                        Disabled in: {disabledBranchLabels.join(', ')}
+                                    </p>
+                                )}
                                 <div className="mt-3 flex flex-wrap gap-2">
                                     <Link href={`/admin/menu/${item.id}`} className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]">
                                         Edit
                                     </Link>
                                     <button
                                         type="button"
-                                        onClick={() => handleToggleAvailability(item)}
+                                        onClick={() => item.available ? openAvailabilityModal(item) : handleEnableItem(item)}
                                         className="rounded-md border border-[#d8c4aa] px-3 py-1 text-sm text-[#f9f0e2] hover:bg-[#744637]"
                                     >
-                                        {item.available ? 'Disable' : 'Enable'}
+                                        {item.available ? 'Disable Branches' : 'Enable'}
                                     </button>
                                     <button
                                         type="button"
@@ -252,6 +394,113 @@ export default function MenuPage() {
                     </Link>
                 </div>
             )}
+
+            {menuTotalItems > 0 && (
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-[#6e4b3d]">
+                        Page {currentPage} of {menuTotalPages}
+                    </p>
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage((previousPage) => Math.max(previousPage - 1, 1))}
+                            disabled={currentPage === 1 || isLoadingItems}
+                            className="rounded-lg border border-[#d8c4aa] px-4 py-2 text-sm text-[#5b3629] transition hover:bg-[#f7efdf] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Previous
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setCurrentPage((previousPage) => Math.min(previousPage + 1, menuTotalPages))}
+                            disabled={currentPage >= menuTotalPages || isLoadingItems}
+                            className="rounded-lg bg-[#5b3629] px-4 py-2 text-sm text-[#f8efe1] transition hover:bg-[#4c2c20] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <Modal
+                isOpen={availabilityTarget !== null}
+                onClose={closeAvailabilityModal}
+                title="Disable Branches"
+                theme="light"
+            >
+                {availabilityTarget && (
+                    <div className="space-y-5 text-gray-900">
+                        <div>
+                            <p className="text-sm font-medium">
+                                Choose which branches should hide <span className="font-semibold">{availabilityTarget.name}</span>.
+                            </p>
+                            <p className="mt-1 text-sm text-gray-600">
+                                The home branch and any shared branches can be disabled independently.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setPendingDisabledBranchIds(availabilityTargetBranches.map((branch) => branch.id))}
+                                className="rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-100"
+                            >
+                                Select all
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPendingDisabledBranchIds([])}
+                                className="rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-100"
+                            >
+                                Clear all
+                            </button>
+                        </div>
+
+                        <div className="grid gap-2">
+                            {availabilityTargetBranches.map((branch) => {
+                                const checked = pendingDisabledBranchIds.includes(branch.id);
+
+                                return (
+                                    <label
+                                        key={branch.id}
+                                        className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800 transition hover:border-gray-300 hover:bg-gray-50"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={() => handleToggleBranchDisabled(branch.id)}
+                                            className="h-4 w-4 rounded border-gray-300 text-[#5b3629] focus:ring-[#5b3629]"
+                                        />
+                                        <span>{formatBranchLabel(branch)}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+
+                        <p className="text-xs text-gray-500">
+                            No branches selected means the item stays available everywhere it is assigned.
+                        </p>
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={closeAvailabilityModal}
+                                disabled={isSavingDisabledBranches}
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSaveDisabledBranches}
+                                disabled={isSavingDisabledBranches}
+                                className="rounded-lg bg-[#5b3629] px-4 py-2 text-[#f8efe1] transition hover:bg-[#4c2c20] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isSavingDisabledBranches ? 'Saving...' : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
 
             <Modal
                 isOpen={deleteConfirm !== null}

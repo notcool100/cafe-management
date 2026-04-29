@@ -44,7 +44,7 @@ export default function AdminDashboardPage() {
             const [employees, branches, menuItems, salesOverview] = await Promise.all([
                 employeeService.getEmployees(),
                 branchService.getBranches(),
-                menuService.getMenuItems({}),
+                menuService.getMenuItemsPage({ limit: 1 }),
                 reportService.getOverview({
                     startDate: toInputDate(startDate),
                     endDate: toInputDate(endDate),
@@ -54,7 +54,7 @@ export default function AdminDashboardPage() {
             setStats({
                 employees: employees.length,
                 branches: branches.length,
-                menuItems: menuItems.length,
+                menuItems: menuItems.total,
             });
             setBranches(branches);
 
@@ -67,7 +67,7 @@ export default function AdminDashboardPage() {
             setEarningsTrend(normalizedTrend);
             setTodayEarnings(today);
             setEarningsChange(change);
-        } catch (error) {
+        } catch {
             // console.error('Failed to load stats:', error);
         } finally {
             setIsLoading(false);
@@ -126,7 +126,7 @@ export default function AdminDashboardPage() {
                 <div>
                     <p className="text-xs uppercase tracking-[0.35em] text-[#9b7d6b]">Dashboard</p>
                     <h1 className="text-3xl md:text-4xl font-semibold text-[#5a3a2e] mt-2">Welcome back</h1>
-                    <p className="text-sm text-[#9b7d6b] mt-2">Here's what's happening across your cafe today.</p>
+                    <p className="text-sm text-[#9b7d6b] mt-2">Here&apos;s what&apos;s happening across your cafe today.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                     <button className="rounded-full border border-[#e2d6c1] bg-[#fff6e6] px-4 py-2 text-sm font-medium text-[#6a4a3a] shadow-[0_6px_18px_rgba(90,58,46,0.08)]">

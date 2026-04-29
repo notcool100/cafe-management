@@ -1,5 +1,5 @@
 import apiClient from './api-client';
-import { Branch, MenuItem, CreateMenuItemData, MenuFilters } from '../types';
+import { Branch, MenuItem, CreateMenuItemData, MenuFilters, PaginatedMenuItemsResponse } from '../types';
 
 const buildMenuItemFormData = (data: Partial<CreateMenuItemData>) => {
     const formData = new FormData();
@@ -14,6 +14,18 @@ const buildMenuItemFormData = (data: Partial<CreateMenuItemData>) => {
     if (data.sharedBranchIds !== undefined) {
         formData.append('sharedBranchIds', JSON.stringify(data.sharedBranchIds));
     }
+    if (data.disabledBranchIds !== undefined) {
+        formData.append('disabledBranchIds', JSON.stringify(data.disabledBranchIds));
+    }
+    if (data.toppingIds !== undefined) {
+        formData.append('toppingIds', JSON.stringify(data.toppingIds));
+    }
+    if (data.newToppings !== undefined) {
+        formData.append('newToppings', JSON.stringify(data.newToppings));
+    }
+    if (data.updatedToppings !== undefined) {
+        formData.append('updatedToppings', JSON.stringify(data.updatedToppings));
+    }
 
     return formData;
 };
@@ -24,7 +36,10 @@ const normalizeMenuItem = (
     const normalizedPrice = typeof item.price === 'number' ? item.price : Number(item.price ?? 0);
     const availableFlag = item.available ?? item.isAvailable ?? false;
     const sharedBranchIds = Array.isArray(item.sharedBranchIds) ? item.sharedBranchIds : [];
+    const disabledBranchIds = Array.isArray(item.disabledBranchIds) ? item.disabledBranchIds : [];
+    const toppingIds = Array.isArray(item.toppingIds) ? item.toppingIds : [];
     const branchId = item.branchId ?? item.branch?.id ?? '';
+    const toppings = Array.isArray(item.toppings) ? item.toppings.map((topping) => normalizeMenuItem(topping)) : [];
 
     return {
         ...item,
@@ -32,20 +47,43 @@ const normalizeMenuItem = (
         price: normalizedPrice,
         available: availableFlag,
         sharedBranchIds,
+        disabledBranchIds,
+        toppingIds,
+        toppings,
     } as MenuItem;
 };
 
+const buildMenuItemQuery = (filters?: MenuFilters) => {
+    const params = new URLSearchParams();
+
+    if (filters?.branchId) params.append('branchId', filters.branchId);
+    if (filters?.category) params.append('category', filters.category);
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.available !== undefined) params.append('available', String(filters.available));
+    if (filters?.page !== undefined) params.append('page', String(filters.page));
+    if (filters?.limit !== undefined) params.append('limit', String(filters.limit));
+    if (filters?.excludeToppings !== undefined) params.append('excludeToppings', String(filters.excludeToppings));
+    if (filters?.includeRelatedToppings !== undefined) params.append('includeRelatedToppings', String(filters.includeRelatedToppings));
+    if (filters?.includeShared !== undefined) params.append('includeShared', String(filters.includeShared));
+
+    const query = params.toString();
+    return query ? `/menu/items?${query}` : '/menu/items';
+};
+
 export const menuService = {
+    async getMenuItemsPage(filters?: MenuFilters): Promise<PaginatedMenuItemsResponse> {
+        const response = await apiClient.get<PaginatedMenuItemsResponse>(buildMenuItemQuery(filters));
+
+        return {
+            ...response.data,
+            items: (response.data.items || []).map(normalizeMenuItem),
+            relatedItems: (response.data.relatedItems || []).map(normalizeMenuItem),
+        };
+    },
+
     async getMenuItems(filters?: MenuFilters): Promise<MenuItem[]> {
-        const params = new URLSearchParams();
-
-        if (filters?.branchId) params.append('branchId', filters.branchId);
-        if (filters?.category) params.append('category', filters.category);
-        if (filters?.search) params.append('search', filters.search);
-        if (filters?.available !== undefined) params.append('available', String(filters.available));
-
-        const response = await apiClient.get<MenuItem[]>(`/menu/items?${params.toString()}`);
-        return response.data.map(normalizeMenuItem);
+        const response = await this.getMenuItemsPage(filters);
+        return response.items;
     },
 
     async getMenuItem(id: string): Promise<MenuItem> {

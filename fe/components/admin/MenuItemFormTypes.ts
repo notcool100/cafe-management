@@ -6,4 +6,8 @@ export interface MenuItemFormData {
     branchId: string;
     imageFile: File | null;
     available: boolean;
+    newToppings?: {
+        name: string;
+        price: number;
+    }[];
 }

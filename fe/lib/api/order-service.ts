@@ -1,8 +1,10 @@
 import axios from 'axios';
 import apiClient from './api-client';
+import { API_BASE_URL } from './base-url';
 import {
     Order,
     CreateOrderData,
+    PaymentMethod,
     OrderStatus,
     OrderFilters,
     OrderItem,
@@ -22,26 +24,53 @@ const normalizeOrder = (order: Order): Order => {
     const totalAmount = typeof order.totalAmount === 'number'
         ? order.totalAmount
         : Number(order.totalAmount ?? 0);
+    const subtotalAmount = typeof order.subtotalAmount === 'number'
+        ? order.subtotalAmount
+        : Number(order.subtotalAmount ?? totalAmount);
+    const discountPercentage = typeof order.discountPercentage === 'number'
+        ? order.discountPercentage
+        : Number(order.discountPercentage ?? 0);
+    const discountAmount = typeof order.discountAmount === 'number'
+        ? order.discountAmount
+        : Number(order.discountAmount ?? 0);
+    const paymentMethod = normalizePaymentMethod(
+        (order as unknown as { paymentMethod?: PaymentMethod | string }).paymentMethod
+    );
 
     return {
         ...order,
         items,
+        subtotalAmount,
         totalAmount,
+        discountPercentage,
+        discountAmount,
+        paymentMethod,
     };
 };
 
 const normalizeOrders = (orders: Order[]): Order[] => orders.map(normalizeOrder);
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4100';
-
-const getApiBaseUrl = (url: string) => {
-    const clean = url.endsWith('/') ? url.slice(0, -1) : url;
-    return clean.endsWith('/api') ? clean : `${clean}/api`;
+const normalizePaymentMethod = (paymentMethod?: PaymentMethod | string): PaymentMethod | undefined => {
+    switch (paymentMethod) {
+        case 'CASH':
+        case PaymentMethod.CASH_PAYMENT:
+            return PaymentMethod.CASH_PAYMENT;
+        case PaymentMethod.CREDIT_CARD:
+            return PaymentMethod.CREDIT_CARD;
+        case PaymentMethod.DEBIT_CARD:
+            return PaymentMethod.DEBIT_CARD;
+        case PaymentMethod.FONEPAY:
+            return PaymentMethod.FONEPAY;
+        case PaymentMethod.UPI:
+            return PaymentMethod.UPI;
+        default:
+            return undefined;
+    }
 };
 
 // Public client avoids auth headers/redirects for customer flows (menu/checkout/token)
 const publicClient = axios.create({
-    baseURL: getApiBaseUrl(API_BASE_URL),
+    baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -50,6 +79,11 @@ const publicClient = axios.create({
 export const orderService = {
     async createOrder(data: CreateOrderData): Promise<Order> {
         const response = await publicClient.post<Order>('/orders', data);
+        return normalizeOrder(response.data);
+    },
+
+    async createStaffOrder(data: CreateOrderData): Promise<Order> {
+        const response = await apiClient.post<Order>('/staff/orders', data);
         return normalizeOrder(response.data);
     },
 
@@ -74,6 +108,10 @@ export const orderService = {
     async updateOrderStatus(id: string, status: OrderStatus): Promise<Order> {
         const response = await apiClient.put<Order>(`/orders/${id}/status`, { status });
         return normalizeOrder(response.data);
+    },
+
+    async cancelOrder(id: string): Promise<Order> {
+        return this.updateOrderStatus(id, OrderStatus.CANCELLED);
     },
 
     async getOrdersByDevice(deviceId: string): Promise<Order[]> {
@@ -105,15 +143,23 @@ export const orderService = {
     },
 
     async generateKOT(id: string): Promise<Blob> {
-        const response = await apiClient.get(`/staff/orders/${id}/kot`, {
+        const response = await apiClient.get(`/staff/orders/${id}/kot?t=${Date.now()}`, {
             responseType: 'blob',
+            headers: {
+                'Cache-Control': 'no-cache',
+                Pragma: 'no-cache',
+            },
         });
         return response.data;
     },
 
     async generateBill(id: string): Promise<Blob> {
-        const response = await apiClient.get(`/staff/orders/${id}/bill`, {
+        const response = await apiClient.get(`/staff/orders/${id}/bill?t=${Date.now()}`, {
             responseType: 'blob',
+            headers: {
+                'Cache-Control': 'no-cache',
+                Pragma: 'no-cache',
+            },
         });
         return response.data;
     },

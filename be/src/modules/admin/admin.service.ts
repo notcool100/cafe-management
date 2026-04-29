@@ -3,6 +3,43 @@ import bcrypt from 'bcryptjs';
 import { generateBranchQR } from '../../utils/qrcode';
 import { assertBranchEntitlement, assertSeatEntitlement } from '../../utils/entitlements';
 
+const employeeSelect = {
+    id: true,
+    email: true,
+    name: true,
+    imageUrl: true,
+    role: true,
+    createdAt: true,
+    updatedAt: true,
+    tenantId: true,
+    branches: true,
+    tenant: true,
+};
+
+const serializeEmployee = (user: {
+    id: string;
+    email: string;
+    name: string;
+    imageUrl: string | null;
+    role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | 'SUPER_ADMIN';
+    createdAt: Date;
+    updatedAt: Date;
+    tenantId: string;
+    branches: Array<{ id: string }>;
+    tenant?: unknown;
+}) => ({
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    imageUrl: user.imageUrl,
+    role: user.role,
+    branchIds: user.branches.map((branch) => branch.id),
+    branches: user.branches,
+    tenantId: user.tenantId,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+});
+
 export class AdminService {
     static async createEmployee(data: {
         email: string;
@@ -37,6 +74,7 @@ export class AdminService {
 
         const existingUser = await prisma.user.findUnique({
             where: { email: normalizedEmail },
+            select: { id: true },
         });
 
         if (existingUser) {
@@ -45,42 +83,22 @@ export class AdminService {
 
         const hashedPassword = await bcrypt.hash(data.password, 10);
 
-        const { branchIds, imageUrl: _imageUrl, ...userData } = data;
+        const { branchIds, imageUrl, ...userData } = data;
 
         const user = await prisma.user.create({
             data: {
                 ...userData,
                 email: normalizedEmail,
                 password: hashedPassword,
+                imageUrl,
                 branches: branchIds ? {
                     connect: branchIds.map(id => ({ id }))
                 } : undefined,
             },
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                role: true,
-                createdAt: true,
-                updatedAt: true,
-                tenantId: true,
-                branches: true,
-                tenant: true,
-            },
+            select: employeeSelect,
         });
 
-        return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            imageUrl: null,
-            role: user.role,
-            branchIds: user.branches.map(b => b.id),
-            branches: user.branches,
-            tenantId: user.tenantId,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt,
-        };
+        return serializeEmployee(user);
     }
 
     static async listEmployees(tenantId: string, branchId?: string) {
@@ -90,32 +108,11 @@ export class AdminService {
                 isActive: true,
                 ...(branchId ? { branches: { some: { id: branchId } } } : {}),
             },
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                role: true,
-                createdAt: true,
-                updatedAt: true,
-                tenantId: true,
-                branches: true,
-                tenant: true,
-            },
+            select: employeeSelect,
             orderBy: { createdAt: 'desc' },
         });
 
-        return users.map((user: any) => ({
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            imageUrl: null,
-            role: user.role,
-            branchIds: user.branches.map((b: any) => b.id),
-            branches: user.branches,
-            tenantId: user.tenantId,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt,
-        }));
+        return users.map(serializeEmployee);
     }
 
     static async getEmployee(id: string, tenantId: string) {
@@ -125,35 +122,14 @@ export class AdminService {
                 isActive: true,
                 tenantId,
             },
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                role: true,
-                createdAt: true,
-                updatedAt: true,
-                tenantId: true,
-                branches: true,
-                tenant: true,
-            },
+            select: employeeSelect,
         });
 
         if (!user) {
             throw new Error('Employee not found');
         }
 
-        return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            imageUrl: null,
-            role: user.role,
-            branchIds: user.branches.map(b => b.id),
-            branches: user.branches,
-            tenantId: user.tenantId,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt,
-        };
+        return serializeEmployee(user);
     }
 
     static async updateEmployee(
@@ -175,40 +151,21 @@ export class AdminService {
             throw new Error('Employee not found');
         }
 
-        const { branchIds, imageUrl: _imageUrl, ...updateData } = data;
+        const { branchIds, imageUrl, ...updateData } = data;
 
         const user = await prisma.user.update({
             where: { id },
             data: {
                 ...updateData,
+                ...(imageUrl !== undefined ? { imageUrl } : {}),
                 branches: branchIds ? {
                     set: branchIds.map(id => ({ id }))
                 } : undefined,
             },
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                role: true,
-                createdAt: true,
-                updatedAt: true,
-                tenantId: true,
-                branches: true,
-            },
+            select: employeeSelect,
         });
 
-        return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            imageUrl: null,
-            role: user.role,
-            branchIds: user.branches.map(b => b.id),
-            branches: user.branches,
-            tenantId: user.tenantId,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt,
-        };
+        return serializeEmployee(user);
     }
 
     static async deleteEmployee(id: string, tenantId: string) {

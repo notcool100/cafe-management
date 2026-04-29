@@ -1,6 +1,26 @@
 import prisma from '../../config/database';
 import { TokenManager } from '../../utils/token';
 
+const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+const normalizeDiscountPercentage = (value?: number) => {
+    if (value === undefined || value === null) {
+        return 0;
+    }
+
+    const numericValue = Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+        throw new Error('Discount percentage must be a valid number');
+    }
+
+    if (numericValue < 0 || numericValue > 100) {
+        throw new Error('Discount percentage must be between 0 and 100');
+    }
+
+    return roundCurrency(numericValue);
+};
+
 export class OrderService {
     static async finalizeExpiredCancellations() {
         const now = new Date();
@@ -24,6 +44,8 @@ export class OrderService {
             customerPhone?: string;
             deviceId?: string;
             orderType?: 'DINE_IN' | 'TAKEAWAY';
+            paymentMethod?: 'CASH_PAYMENT' | 'FONEPAY' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'UPI';
+            discountPercentage?: number;
         },
         tenantId?: string
     ) {
@@ -46,6 +68,9 @@ export class OrderService {
                 id: { in: data.items.map((item) => item.menuItemId) },
                 tenantId: branch.tenantId,
                 isAvailable: true,
+                NOT: {
+                    disabledBranchIds: { has: data.branchId },
+                },
                 OR: [
                     { branchId: data.branchId },
                     { sharedBranchIds: { has: data.branchId } },
@@ -58,7 +83,7 @@ export class OrderService {
         }
 
         // Calculate total amount
-        let totalAmount = 0;
+        let subtotalAmount = 0;
         const orderItemsData = data.items.map((item) => {
             const menuItem = menuItems.find((mi) => mi.id === item.menuItemId);
             if (!menuItem) {
@@ -66,7 +91,7 @@ export class OrderService {
             }
 
             const itemTotal = Number(menuItem.price) * item.quantity;
-            totalAmount += itemTotal;
+            subtotalAmount += itemTotal;
 
             return {
                 menuItemId: item.menuItemId,
@@ -74,6 +99,11 @@ export class OrderService {
                 price: menuItem.price,
             };
         });
+
+        subtotalAmount = roundCurrency(subtotalAmount);
+        const discountPercentage = normalizeDiscountPercentage(data.discountPercentage);
+        const discountAmount = roundCurrency(subtotalAmount * (discountPercentage / 100));
+        const totalAmount = roundCurrency(Math.max(subtotalAmount - discountAmount, 0));
 
         // Generate token only for dine-in orders
         const isTakeaway = data.orderType === 'TAKEAWAY';
@@ -86,11 +116,15 @@ export class OrderService {
                 tenantId: branch.tenantId,
                 tokenNumber,
                 orderType: isTakeaway ? 'TAKEAWAY' : 'DINE_IN',
+                subtotalAmount,
                 totalAmount,
+                discountPercentage,
+                discountAmount,
                 customerName: data.customerName,
                 customerPhone: data.customerPhone,
                 deviceId: data.deviceId,
                 status: 'PENDING',
+                paymentMethod: data.paymentMethod ?? 'CASH_PAYMENT',
                 orderItems: {
                     create: orderItemsData,
                 },

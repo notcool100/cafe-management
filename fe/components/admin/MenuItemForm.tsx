@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { MenuItem, Branch, UserRole, Category } from '@/lib/types';
+import { MenuItem, Branch, UserRole, Category, MenuItemToppingDraft, MenuItemToppingUpdateDraft } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -27,9 +27,17 @@ const menuItemSchema = z.object({
 export interface MenuItemFormData extends z.infer<typeof menuItemSchema> {
     imageFile?: File | null;
     sharedBranchIds?: string[];
+    toppingIds?: string[];
+    newToppings?: MenuItemToppingDraft[];
+    updatedToppings?: MenuItemToppingUpdateDraft[];
 }
 
-
+interface ToppingDraftRow {
+    id: string;
+    toppingId?: string;
+    name: string;
+    price: string;
+}
 
 interface MenuItemFormProps {
     initialData?: MenuItem;
@@ -38,6 +46,26 @@ interface MenuItemFormProps {
     isEdit?: boolean;
     onImagePreview?: (file: File | null) => void;
     theme?: 'dark' | 'light';
+    showToppingsSection?: boolean;
+}
+
+const createToppingRow = (): ToppingDraftRow => ({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: '',
+    price: '',
+});
+
+const createToppingRowFromItem = (topping: MenuItem): ToppingDraftRow => ({
+    id: `existing-${topping.id}`,
+    toppingId: topping.id,
+    name: topping.name || '',
+    price: topping.price ? String(topping.price) : '',
+});
+
+interface SanitizedToppingsPayload {
+    toppingIds: string[];
+    newToppings?: MenuItemToppingDraft[];
+    updatedToppings?: MenuItemToppingUpdateDraft[];
 }
 
 export default function MenuItemForm({
@@ -47,6 +75,7 @@ export default function MenuItemForm({
     isEdit = false,
     onImagePreview,
     theme = 'dark',
+    showToppingsSection = false,
 }: MenuItemFormProps) {
     const [branches, setBranches] = useState<Branch[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -56,11 +85,21 @@ export default function MenuItemForm({
     const [isTransferable, setIsTransferable] = useState<boolean>(
         (initialData?.sharedBranchIds?.length || 0) > 0
     );
-    const { user, selectedBranchId: storeSelectedBranchId } = useAuthStore();
+    const [toppingRows, setToppingRows] = useState<ToppingDraftRow[]>([]);
+    const [toppingError, setToppingError] = useState<string | null>(null);
+    const {
+        user,
+        selectedBranchId: storeSelectedBranchId,
+        accessToken,
+        refreshToken,
+        hasHydrated,
+        isAuthenticated,
+    } = useAuthStore();
     const isManager = user?.role === UserRole.MANAGER;
     const lockedBranchId = isManager ? storeSelectedBranchId : undefined;
     const initialBranchName = initialData?.branch?.name?.trim() || '';
     const initialBranchId = initialData?.branchId || initialData?.branch?.id || lockedBranchId || '';
+    const canUseProtectedApis = hasHydrated && isAuthenticated;
     const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0] || null;
         setImageFile(file);
@@ -74,6 +113,7 @@ export default function MenuItemForm({
         handleSubmit,
         formState: { errors },
         clearErrors,
+        reset,
         setValue,
         watch,
     } = useForm<MenuItemFormData>({
@@ -96,6 +136,50 @@ export default function MenuItemForm({
         : [];
 
     useEffect(() => {
+        if (!isEdit || !initialData) {
+            return;
+        }
+
+        reset({
+            name: initialData.name || '',
+            description: initialData.description || '',
+            price: initialData.price || 0,
+            category: initialData.category || '',
+            branchId: initialData.branchId || initialData.branch?.id || lockedBranchId || '',
+            available: initialData.available ?? true,
+        });
+        setImageFile(null);
+        setToppingRows(
+            showToppingsSection
+                ? (initialData.toppings || []).map(createToppingRowFromItem)
+                : []
+        );
+        setToppingError(null);
+    }, [initialData, isEdit, lockedBranchId, reset, showToppingsSection]);
+
+    useEffect(() => {
+        if (!canUseProtectedApis) {
+            return;
+        }
+
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        if (accessToken && !localStorage.getItem('access_token')) {
+            localStorage.setItem('access_token', accessToken);
+        }
+
+        if (refreshToken && !localStorage.getItem('refresh_token')) {
+            localStorage.setItem('refresh_token', refreshToken);
+        }
+    }, [accessToken, canUseProtectedApis, refreshToken]);
+
+    useEffect(() => {
+        if (!canUseProtectedApis) {
+            return;
+        }
+
         const loadBranches = async () => {
             try {
                 const data = await branchService.getBranches();
@@ -118,14 +202,20 @@ export default function MenuItemForm({
             }
         };
         loadBranches();
-    }, [initialBranchId, initialBranchName, setValue]);
+    }, [canUseProtectedApis, initialBranchId, initialBranchName, setValue]);
 
     useEffect(() => {
         if (initialData?.sharedBranchIds) {
             setSharedBranchIds(initialData.sharedBranchIds);
             setIsTransferable(initialData.sharedBranchIds.length > 0);
+            return;
         }
-    }, [initialData?.id, initialData?.sharedBranchIds]);
+
+        if (isEdit) {
+            setSharedBranchIds([]);
+            setIsTransferable(false);
+        }
+    }, [initialData?.id, initialData?.sharedBranchIds, isEdit]);
 
     useEffect(() => {
         if (!selectedBranchId) return;
@@ -158,6 +248,12 @@ export default function MenuItemForm({
     }, [clearErrors, selectedCategory]);
 
     useEffect(() => {
+        if (!canUseProtectedApis) {
+            setCategories([]);
+            setCategoryLoading(false);
+            return;
+        }
+
         if (!selectedBranchId) {
             setCategories([]);
             setCategoryLoading(false);
@@ -187,7 +283,7 @@ export default function MenuItemForm({
         return () => {
             active = false;
         };
-    }, [selectedBranchId]);
+    }, [canUseProtectedApis, selectedBranchId]);
 
     const categoryOptions = useMemo(() => {
         const seen = new Set<string>();
@@ -209,35 +305,94 @@ export default function MenuItemForm({
         return options;
     }, [categories, selectedCategory]);
 
-    const categorySelectOptions = useMemo(() => {
-        const placeholderLabel = !selectedBranchId
-            ? 'Select branch first'
-            : categoryLoading
-                ? 'Loading categories...'
-                : categoryOptions.length > 0
-                    ? 'Select Category'
-                    : 'No categories found';
-
-        return [{ value: '', label: placeholderLabel }, ...categoryOptions];
-    }, [categoryLoading, categoryOptions, selectedBranchId]);
     const isLightTheme = theme === 'light';
     const inputClassName = isLightTheme
         ? 'border-gray-300 bg-white text-black placeholder:text-black/70 focus:border-blue-500 focus:ring-blue-500/20'
         : undefined;
     const labelClassName = isLightTheme ? 'text-black' : undefined;
-    const descriptionClassName = isLightTheme ? 'text-black' : undefined;
+    const blackLabelClassName = 'menu-item-black-label text-center';
+    const updateToppingRow = (id: string, field: 'name' | 'price', value: string) => {
+        setToppingRows((previous) =>
+            previous.map((row) => row.id === id ? { ...row, [field]: value } : row)
+        );
+        setToppingError(null);
+    };
+
+    const addToppingRow = () => {
+        setToppingRows((previous) => [...previous, createToppingRow()]);
+        setToppingError(null);
+    };
+
+    const removeToppingRow = (id: string) => {
+        setToppingRows((previous) => previous.filter((row) => row.id !== id));
+        setToppingError(null);
+    };
+
+    const sanitizeToppings = (): SanitizedToppingsPayload | null => {
+        const normalizedRows = toppingRows.map((row) => ({
+            toppingId: row.toppingId,
+            name: row.name.trim(),
+            price: row.price.trim(),
+        }));
+        const hasPartiallyFilledRow = normalizedRows.some(
+            (row) => (row.name && !row.price) || (!row.name && row.price)
+        );
+
+        if (hasPartiallyFilledRow) {
+            setToppingError('Each topping row needs both a name and a price.');
+            return null;
+        }
+
+        const parsedRows = normalizedRows
+            .filter((row) => row.name && row.price)
+            .map((row) => ({
+                toppingId: row.toppingId,
+                name: row.name,
+                price: Number(row.price),
+            }));
+
+        if (parsedRows.some((row) => !Number.isFinite(row.price) || row.price <= 0)) {
+            setToppingError('Each topping price must be greater than 0.');
+            return null;
+        }
+
+        setToppingError(null);
+        const toppingIds = parsedRows.flatMap((row) => (row.toppingId ? [row.toppingId] : []));
+        const newToppings = parsedRows.flatMap((row) =>
+            row.toppingId ? [] : [{ name: row.name, price: row.price }]
+        );
+        const updatedToppings = parsedRows.flatMap((row) =>
+            row.toppingId ? [{ id: row.toppingId, name: row.name, price: row.price }] : []
+        );
+
+        return {
+            toppingIds,
+            ...(newToppings.length > 0 ? { newToppings } : {}),
+            ...(updatedToppings.length > 0 ? { updatedToppings } : {}),
+        };
+    };
 
     return (
         <form
-            onSubmit={handleSubmit((data) =>
-                onSubmit({
+            onSubmit={handleSubmit((data) => {
+                const toppingPayload = showToppingsSection ? sanitizeToppings() : undefined;
+
+                if (showToppingsSection && toppingPayload === null) {
+                    return;
+                }
+
+                const payload: MenuItemFormData = {
                     ...data,
                     imageFile,
                     sharedBranchIds: isTransferable ? sharedBranchIds : [],
-                })
-            )}
+                    ...(showToppingsSection ? toppingPayload : {}),
+                };
+
+                return onSubmit(payload);
+            })}
             className={cn(
                 'space-y-4 sm:space-y-6',
+                '[&_label.menu-item-black-label]:!text-black',
                 isLightTheme
                     ? 'text-black'
                     : 'text-white [&_label]:!text-white [&_p]:!text-white [&_span]:!text-white'
@@ -304,8 +459,8 @@ export default function MenuItemForm({
                     <Input
                         label="Price"
                         floatingLabel={!isLightTheme}
-                        labelClassName={labelClassName}
-                        className={inputClassName}
+                        labelClassName={cn(labelClassName, 'text-center')}
+                        className={cn(inputClassName, 'no-number-spinner')}
                         type="number"
                         step="0.01"
                         {...register('price', { valueAsNumber: true })}
@@ -317,25 +472,114 @@ export default function MenuItemForm({
                         <Select
                             label="Category"
                             labelClassName={labelClassName}
-                            descriptionClassName={descriptionClassName}
                             optionClassName={isLightTheme ? 'bg-white text-black' : undefined}
                             className={inputClassName}
                             {...register('category')}
+                            value={selectedCategory || ''}
                             error={errors.category?.message}
-                            options={categorySelectOptions}
                             disabled={!selectedBranchId || categoryLoading || categoryOptions.length === 0}
                             description={
                                 !selectedBranchId
-                                    ? 'Select a branch first to load its categories.'
+                                    ? 'Select a branch first to set the category.'
                                     : categoryLoading
-                                        ? 'Loading categories...'
+                                        ? 'Loading existing categories for this branch.'
                                         : categoryOptions.length > 0
-                                            ? 'Showing categories for the selected branch.'
+                                            ? 'Choose an existing category for this branch.'
                                             : 'No categories found for this branch.'
+                            }
+                            descriptionClassName={isLightTheme ? 'text-black' : undefined}
+                            options={
+                                !selectedBranchId
+                                    ? [{ value: '', label: 'Select branch first' }]
+                                    : categoryLoading
+                                        ? [{ value: '', label: 'Loading categories...' }]
+                                        : categoryOptions.length > 0
+                                            ? [
+                                                { value: '', label: 'Select Category' },
+                                                ...categoryOptions,
+                                            ]
+                                            : [{ value: '', label: 'No categories available' }]
                             }
                         />
                     </div>
                 </div>
+
+                {showToppingsSection && (
+                    <div className={cn('rounded-2xl border p-4 sm:p-5', isLightTheme ? 'border-gray-200 bg-gray-50' : 'border-gray-700 bg-gray-900/30')}>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <h3 className={cn('text-sm font-semibold sm:text-base', isLightTheme ? 'text-black' : 'text-white')}>
+                                    Toppings
+                                </h3>
+                                <p className={cn('mt-1 text-xs sm:text-sm', isLightTheme ? 'text-gray-600' : 'text-white opacity-80')}>
+                                    Add topping options here. They will appear in the staff menu dropdown for this item.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={addToppingRow}
+                                className={cn(
+                                    'inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] transition-colors sm:text-sm',
+                                    isLightTheme
+                                        ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                                        : 'bg-amber-500/20 text-amber-200 hover:bg-amber-500/30'
+                                )}
+                            >
+                                Add topping
+                            </button>
+                        </div>
+
+                        {toppingRows.length === 0 ? (
+                            <p className={cn('mt-4 text-xs sm:text-sm', isLightTheme ? 'text-gray-500' : 'text-white opacity-70')}>
+                                No toppings added yet.
+                            </p>
+                        ) : (
+                            <div className="mt-4 space-y-3">
+                                {toppingRows.map((row, index) => (
+                                    <div key={row.id} className="grid gap-3 rounded-xl border border-black/5 bg-white/70 p-3 md:grid-cols-[1fr_140px_auto]">
+                                        <div>
+                                            <label className={cn(blackLabelClassName, 'mb-1 block text-xs font-medium', isLightTheme ? 'text-black' : 'text-gray-900')}>
+                                                Topping Name {index + 1}
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={row.name}
+                                                onChange={(event) => updateToppingRow(row.id, 'name', event.target.value)}
+                                                className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className={cn(blackLabelClassName, 'mb-1 block text-xs font-medium text-black')}>
+                                                Price
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={row.price}
+                                                onChange={(event) => updateToppingRow(row.id, 'price', event.target.value)}
+                                                className="no-number-spinner block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-black shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                            />
+                                        </div>
+                                        <div className="flex items-end">
+                                            <button
+                                                type="button"
+                                                onClick={() => removeToppingRow(row.id)}
+                                                className="inline-flex w-full items-center justify-center rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-red-700 transition-colors hover:bg-red-50 md:w-auto"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {toppingError && (
+                            <p className="mt-3 text-xs font-medium text-red-500">{toppingError}</p>
+                        )}
+                    </div>
+                )}
 
                 <div className="pt-2">
                     <Checkbox

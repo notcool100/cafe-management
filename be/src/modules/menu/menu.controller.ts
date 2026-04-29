@@ -8,7 +8,7 @@ const isManager = (req: AuthRequest) =>
     req.user?.role === 'MANAGER' || req.user?.role === 'EMPLOYEE';
 const managerBranchIds = (req: AuthRequest) => req.user?.branchIds || [];
 
-const parseSharedBranchIds = (value: unknown) => {
+const parseBranchIds = (value: unknown) => {
     if (!value) return [];
     if (Array.isArray(value)) return value.map(String);
     if (typeof value === 'string') {
@@ -23,6 +23,115 @@ const parseSharedBranchIds = (value: unknown) => {
         }
     }
     return [];
+};
+
+const parseNewToppings = (value: unknown) => {
+    if (!value) return [];
+
+    const parseArray = (input: unknown) => {
+        if (Array.isArray(input)) {
+            return input;
+        }
+
+        if (typeof input === 'string') {
+            try {
+                const parsed = JSON.parse(input);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch {
+                return [];
+            }
+        }
+
+        return [];
+    };
+
+    return parseArray(value)
+        .map((entry) => {
+            if (!entry || typeof entry !== 'object') {
+                return null;
+            }
+
+            const candidate = entry as { name?: unknown; price?: unknown };
+            const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
+            const price = Number(candidate.price);
+
+            if (!name || !Number.isFinite(price) || price <= 0) {
+                return null;
+            }
+
+            return { name, price };
+        })
+        .filter((entry): entry is { name: string; price: number } => Boolean(entry));
+};
+
+const parseUpdatedToppings = (value: unknown) => {
+    if (!value) return [];
+
+    const parseArray = (input: unknown) => {
+        if (Array.isArray(input)) {
+            return input;
+        }
+
+        if (typeof input === 'string') {
+            try {
+                const parsed = JSON.parse(input);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch {
+                return [];
+            }
+        }
+
+        return [];
+    };
+
+    return parseArray(value)
+        .map((entry) => {
+            if (!entry || typeof entry !== 'object') {
+                return null;
+            }
+
+            const candidate = entry as { id?: unknown; name?: unknown; price?: unknown };
+            const id = typeof candidate.id === 'string' ? candidate.id.trim() : '';
+            const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
+            const price = Number(candidate.price);
+
+            if (!id || !name || !Number.isFinite(price) || price <= 0) {
+                return null;
+            }
+
+            return { id, name, price };
+        })
+        .filter((entry): entry is { id: string; name: string; price: number } => Boolean(entry));
+};
+
+const parseBooleanQuery = (value: unknown) => {
+    if (typeof value === 'boolean') {
+        return value;
+    }
+
+    if (typeof value !== 'string') {
+        return undefined;
+    }
+
+    if (value === 'true') {
+        return true;
+    }
+
+    if (value === 'false') {
+        return false;
+    }
+
+    return undefined;
+};
+
+const parsePositiveIntegerQuery = (value: unknown, fallback: number) => {
+    const parsed = Number(value);
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+        return fallback;
+    }
+
+    return parsed;
 };
 
 export class MenuController {
@@ -55,7 +164,10 @@ export class MenuController {
             }
 
             const { name, description, price, category, branchId } = req.body;
-            const sharedBranchIds = parseSharedBranchIds(req.body.sharedBranchIds);
+            const sharedBranchIds = parseBranchIds(req.body.sharedBranchIds);
+            const disabledBranchIds = parseBranchIds(req.body.disabledBranchIds);
+            const toppingIds = parseBranchIds(req.body.toppingIds);
+            const newToppings = parseNewToppings(req.body.newToppings);
             if (isManager(req)) {
                 const allowedBranchIds = managerBranchIds(req);
                 if (allowedBranchIds.length === 0) {
@@ -79,6 +191,9 @@ export class MenuController {
                 imageUrl,
                 branchId,
                 sharedBranchIds,
+                disabledBranchIds,
+                toppingIds,
+                newToppings,
             }, req.user.tenantId);
 
             res.status(201).json(menuItem);
@@ -91,7 +206,7 @@ export class MenuController {
 
     static async listMenuItems(req: AuthRequest, res: Response) {
         try {
-            const { branchId, category } = req.query;
+            const { branchId, category, search } = req.query;
             const tenantId = req.user?.tenantId;
             if (!tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
@@ -106,8 +221,15 @@ export class MenuController {
                 }
 
                 if (effectiveBranchId) {
+                    // Normalize for robust comparison
+                    const requestedId = String(effectiveBranchId).toLowerCase().trim();
+                    const authorizedIds = allowedBranchIds.map(id => String(id).toLowerCase().trim());
+                    
+                    console.log(`[Auth Debug] Requested Branch: ${requestedId}`);
+                    console.log(`[Auth Debug] Authorized Branches: ${authorizedIds.join(', ')}`);
+
                     // If a specific branch is requested, verify access
-                    if (!allowedBranchIds.includes(effectiveBranchId)) {
+                    if (!authorizedIds.includes(requestedId)) {
                         return res.status(403).json({ error: 'Forbidden: Not your branch' });
                     }
                 } else {
@@ -116,10 +238,26 @@ export class MenuController {
                 }
             }
 
+            const available = parseBooleanQuery(req.query.available);
+            const page = parsePositiveIntegerQuery(req.query.page, 1);
+            const limit = parsePositiveIntegerQuery(req.query.limit, 24);
+            const excludeToppings = parseBooleanQuery(req.query.excludeToppings) ?? false;
+            const includeRelatedToppings = parseBooleanQuery(req.query.includeRelatedToppings) ?? false;
+            const includeShared = parseBooleanQuery(req.query.includeShared);
+
             const menuItems = await MenuService.listMenuItems(
-                effectiveBranchId,
-                category as string,
-                tenantId
+                {
+                    branchId: effectiveBranchId,
+                    category: category as string | undefined,
+                    search: search as string | undefined,
+                    available,
+                    tenantId,
+                    page,
+                    limit,
+                    excludeToppings,
+                    includeRelatedToppings,
+                    includeShared,
+                }
             );
 
             res.json(menuItems);
@@ -154,7 +292,15 @@ export class MenuController {
             const { name, description, price, category, branchId } = req.body;
             const file = (req as AuthRequest & { file?: Express.Multer.File }).file;
             const hasSharedBranchIds = Object.prototype.hasOwnProperty.call(req.body, 'sharedBranchIds');
-            const sharedBranchIds = hasSharedBranchIds ? parseSharedBranchIds(req.body.sharedBranchIds) : undefined;
+            const hasDisabledBranchIds = Object.prototype.hasOwnProperty.call(req.body, 'disabledBranchIds');
+            const hasToppingIds = Object.prototype.hasOwnProperty.call(req.body, 'toppingIds');
+            const hasNewToppings = Object.prototype.hasOwnProperty.call(req.body, 'newToppings');
+            const hasUpdatedToppings = Object.prototype.hasOwnProperty.call(req.body, 'updatedToppings');
+            const sharedBranchIds = hasSharedBranchIds ? parseBranchIds(req.body.sharedBranchIds) : undefined;
+            const disabledBranchIds = hasDisabledBranchIds ? parseBranchIds(req.body.disabledBranchIds) : undefined;
+            const toppingIds = hasToppingIds ? parseBranchIds(req.body.toppingIds) : undefined;
+            const newToppings = hasNewToppings ? parseNewToppings(req.body.newToppings) : undefined;
+            const updatedToppings = hasUpdatedToppings ? parseUpdatedToppings(req.body.updatedToppings) : undefined;
             if (!req.user?.tenantId) {
                 return res.status(400).json({ error: 'Tenant context missing' });
             }
@@ -169,7 +315,7 @@ export class MenuController {
                 if (branchId && !allowedBranchIds.includes(branchId)) {
                     return res.status(403).json({ error: 'Forbidden: Cannot move item to unassigned branch' });
                 }
-                const existing = await MenuService.getMenuItem(id as string, req.user.tenantId);
+                const existing = await MenuService.getMenuItem(id as string, req.user.tenantId) as { branchId: string };
                 if (!allowedBranchIds.includes(existing.branchId)) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }
@@ -188,6 +334,10 @@ export class MenuController {
                 imageUrl,
                 isAvailable,
                 ...(sharedBranchIds !== undefined ? { sharedBranchIds } : {}),
+                ...(disabledBranchIds !== undefined ? { disabledBranchIds } : {}),
+                ...(toppingIds !== undefined ? { toppingIds } : {}),
+                ...(newToppings !== undefined ? { newToppings } : {}),
+                ...(updatedToppings !== undefined ? { updatedToppings } : {}),
             }, req.user.tenantId);
 
             res.json(menuItem);
@@ -212,7 +362,7 @@ export class MenuController {
                 if (allowedBranchIds.length === 0) {
                     return res.status(400).json({ error: 'Manager is not assigned to any branch' });
                 }
-                const existing = await MenuService.getMenuItem(id as string, req.user.tenantId);
+                const existing = await MenuService.getMenuItem(id as string, req.user.tenantId) as { branchId: string };
                 if (!allowedBranchIds.includes(existing.branchId)) {
                     return res.status(403).json({ error: 'Forbidden: Not your branch' });
                 }

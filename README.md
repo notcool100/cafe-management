@@ -142,6 +142,7 @@ The backend properly uses a singleton Prisma instance, so this shouldn't occur. 
 - Ensure PostgreSQL is running
 - Verify `DATABASE_URL` in `be/.env`
 - Check credentials and database name
+- For local development, avoid pointing `DATABASE_URL` at a `live` or `prod` database. The backend now blocks that by default unless `ALLOW_LIVE_DATABASE_IN_DEV=true` is set intentionally.
 
 ---
 

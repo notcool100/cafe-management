@@ -130,6 +130,9 @@ export class StaffController {
             const pdfBuffer = await generateKOT(order);
 
             res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
             res.setHeader(
                 'Content-Disposition',
                 `attachment; filename=KOT-${order.tokenNumber || order.id}.pdf`
@@ -150,6 +153,9 @@ export class StaffController {
             const pdfBuffer = await generateBill(order);
 
             res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
             res.setHeader(
                 'Content-Disposition',
                 `attachment; filename=Bill-${order.tokenNumber || order.id}.pdf`

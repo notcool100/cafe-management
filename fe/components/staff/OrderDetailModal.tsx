@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Select from '@/components/ui/Select';
 import Toast from '@/components/ui/Toast';
+import { formatOrderItemName, isToppingOrderItem } from '@/lib/utils/order-items';
 
 interface OrderDetailModalProps {
     orderId: string | null;
@@ -233,7 +234,14 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
                                 {order.items.map((item) => (
                                     <tr key={item.id} className="border-b border-gray-200 last:border-0">
                                         <td className="px-3 py-3 font-medium text-gray-900">
-                                            {item.menuItem?.name || 'Unknown Item'}
+                                            <div className="flex items-center gap-2">
+                                                <span>{formatOrderItemName(item, { prefixTopping: true })}</span>
+                                                {isToppingOrderItem(item) && (
+                                                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-800">
+                                                        Topping
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-3 py-3 text-center">{item.quantity}</td>
                                         <td className="px-3 py-3 text-right">Rs. {Number(item.price ?? 0).toFixed(2)}</td>
@@ -248,11 +256,23 @@ export default function OrderDetailModal({ orderId, onClose, onUpdate }: OrderDe
 
                     {/* Footer Actions */}
                     <div className="border-t border-gray-200 bg-white p-4">
-                        <div className="flex justify-between items-center mb-6">
-                            <span className="text-gray-600">Total Amount</span>
-                            <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
-                                Rs. {order.totalAmount.toFixed(2)}
-                            </span>
+                        <div className="mb-6 space-y-2">
+                            <div className="flex justify-between items-center text-sm text-gray-600">
+                                <span>Subtotal</span>
+                                <span>Rs. {order.subtotalAmount.toFixed(2)}</span>
+                            </div>
+                            {order.discountAmount > 0 && (
+                                <div className="flex justify-between items-center text-sm text-emerald-600">
+                                    <span>Discount ({formatDiscountPercentage(order.discountPercentage)})</span>
+                                    <span>- Rs. {order.discountAmount.toFixed(2)}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                                <span className="text-gray-600">Total Amount</span>
+                                <span className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+                                    Rs. {order.totalAmount.toFixed(2)}
+                                </span>
+                            </div>
                         </div>
 
                         <div className="space-y-4">
@@ -340,4 +360,12 @@ function ReceiptIcon({ className }: { className?: string }) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
         </svg>
     );
+}
+
+function formatDiscountPercentage(value: number) {
+    if (Number.isInteger(value)) {
+        return `${value.toFixed(0)}%`;
+    }
+
+    return `${value.toFixed(2).replace(/\.?0+$/, '')}%`;
 }
