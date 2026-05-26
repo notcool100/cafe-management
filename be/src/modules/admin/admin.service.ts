@@ -290,6 +290,27 @@ export class AdminService {
         return branch;
     }
 
+    static async regenerateBranchQR(id: string, tenantId: string) {
+        const existing = await prisma.branch.findFirst({
+            where: { id, tenantId, isActive: true },
+            select: { id: true },
+        });
+
+        if (!existing) {
+            throw new Error('Branch not found');
+        }
+
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4000';
+        const qrCode = await generateBranchQR(id, frontendUrl);
+
+        const branch = await prisma.branch.update({
+            where: { id },
+            data: { qrCode },
+        });
+
+        return branch;
+    }
+
     static async deleteBranch(id: string, tenantId: string) {
         const existing = await prisma.branch.findFirst({
             where: { id, tenantId, isActive: true },

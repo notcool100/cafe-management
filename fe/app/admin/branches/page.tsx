@@ -74,6 +74,25 @@ export default function BranchesPage() {
         });
     };
 
+    const handleRegenerateQR = async (id: string) => {
+        try {
+            const updatedBranch = await branchService.regenerateQRCode(id);
+            setBranches(branches.map(b => b.id === id ? updatedBranch : b));
+            setToast({
+                message: 'QR Code regenerated successfully',
+                type: 'success',
+                isVisible: true,
+            });
+        } catch (error: unknown) {
+            const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            setToast({
+                message: message || 'Failed to regenerate QR code',
+                type: 'error',
+                isVisible: true,
+            });
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="min-h-[70vh] bg-[#efe8cf] px-4 py-6">
@@ -143,6 +162,15 @@ export default function BranchesPage() {
                                     QR
                                 </Button>
                                 <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 border-[#eadcc7] text-white hover:bg-[#73463a]"
+                                    onClick={() => handleRegenerateQR(branch.id)}
+                                    title="Regenerate QR Code"
+                                >
+                                    <RefreshIcon className="h-4 w-4" />
+                                </Button>
+                                <Button
                                     variant="danger"
                                     size="sm"
                                     className="px-3"
@@ -207,6 +235,14 @@ function TrashIcon({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+    );
+}
+
+function RefreshIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
     );
 }

@@ -69,6 +69,11 @@ export const branchService = {
         await apiClient.delete(`/admin/branches/${id}`);
     },
 
+    async regenerateQRCode(id: string): Promise<Branch> {
+        const response = await apiClient.post<Branch>(`/admin/branches/${id}/qr`);
+        return normalizeBranch(response.data);
+    },
+
     // Utility function to download QR code
     downloadQRCode(qrDataUrl: string, branchName: string) {
         if (typeof window === 'undefined') return;

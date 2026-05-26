@@ -378,6 +378,21 @@ export class AdminController {
         }
     }
 
+    static async regenerateBranchQR(req: AuthRequest, res: Response) {
+        try {
+            const { id } = req.params;
+            if (!req.user?.tenantId) {
+                return res.status(400).json({ error: 'Tenant context missing' });
+            }
+            const branch = await AdminService.regenerateBranchQR(id as string, req.user.tenantId);
+            res.json(branch);
+        } catch (error) {
+            res.status(400).json({
+                error: error instanceof Error ? error.message : 'Failed to regenerate branch QR',
+            });
+        }
+    }
+
     static async getReportOverview(req: AuthRequest, res: Response) {
         try {
             const { branchId, startDate, endDate } = req.query;

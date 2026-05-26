@@ -43,5 +43,6 @@ router.use(requireRole('ADMIN', 'SUPER_ADMIN'));
 router.post('/branches', AdminController.createBranchValidation, AdminController.createBranch);
 router.put('/branches/:id', AdminController.updateBranch);
 router.delete('/branches/:id', AdminController.deleteBranch);
+router.post('/branches/:id/qr', AdminController.regenerateBranchQR);
 
 export default router;
